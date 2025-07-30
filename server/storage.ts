@@ -54,6 +54,7 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   private userCache?: User[];
   private activityLogs: ActivityLog[] = [];
+  private casesCache: CaseWithRelations[] = [];
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const users = await this.getUsers();
@@ -88,72 +89,74 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]> {
-    // Dados de funcionários com processos jurídicos
-    const exampleCases: CaseWithRelations[] = [
-      {
-        id: "1",
-        clientName: "CÉLIA MARIA DE JESUS",
-        processNumber: "1500258",
-        description: "TRABALHISTA, Rescisão indireta, Dano Moral",
-        status: 'andamento',
-        startDate: new Date('2024-11-01'),
-        dueDate: new Date('2024-12-15'),
-        completedDate: null,
-        tipoProcesso: "Trabalhista",
-        documentosSolicitados: null,
-        documentosAnexados: null,
-        observacoes: null,
-        assignedToId: null,
-        createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        assignedTo: null,
-        createdBy: null,
-      },
-      {
-        id: "2", 
-        clientName: "CRISTINA DE SOUSA SILVEIRA",
-        processNumber: "217584",
-        description: "Ação de indenização, IGLI, Execução por embargos acórdão, Recursos Estruturais, acordo trabalhista",
-        status: 'novo',
-        startDate: new Date('2024-11-15'),
-        dueDate: new Date('2024-12-08'),
-        completedDate: null,
-        tipoProcesso: "Dano Moral",
-        documentosSolicitados: null,
-        documentosAnexados: null,
-        observacoes: null,
-        assignedToId: null,
-        createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        assignedTo: null,
-        createdBy: null,
-      },
-      {
-        id: "3",
-        clientName: "LAÉRCIO SOBRINHO CARDOSO",
-        processNumber: "1505827",
-        description: "TRABALHISTA, Execução - embargo, outros",
-        status: 'concluido',
-        startDate: new Date('2024-10-01'),
-        dueDate: new Date('2024-11-30'),
-        completedDate: new Date('2024-11-28'),
-        tipoProcesso: "Cível",
-        documentosSolicitados: null,
-        documentosAnexados: null,
-        observacoes: null,
-        assignedToId: null,
-        createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        assignedTo: null,
-        createdBy: null,
-      }
-    ];
+    // Inicializar cache se vazio
+    if (this.casesCache.length === 0) {
+      this.casesCache = [
+        {
+          id: "1",
+          clientName: "CÉLIA MARIA DE JESUS",
+          processNumber: "1500258",
+          description: "TRABALHISTA, Rescisão indireta, Dano Moral",
+          status: 'andamento',
+          startDate: new Date('2024-11-01'),
+          dueDate: new Date('2024-12-15'),
+          completedDate: null,
+          tipoProcesso: "Trabalhista",
+          documentosSolicitados: null,
+          documentosAnexados: null,
+          observacoes: null,
+          assignedToId: null,
+          createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          assignedTo: null,
+          createdBy: null,
+        },
+        {
+          id: "2", 
+          clientName: "CRISTINA DE SOUSA SILVEIRA",
+          processNumber: "217584",
+          description: "Ação de indenização, IGLI, Execução por embargos acórdão, Recursos Estruturais, acordo trabalhista",
+          status: 'novo',
+          startDate: new Date('2024-11-15'),
+          dueDate: new Date('2024-12-08'),
+          completedDate: null,
+          tipoProcesso: "Dano Moral",
+          documentosSolicitados: null,
+          documentosAnexados: null,
+          observacoes: null,
+          assignedToId: null,
+          createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          assignedTo: null,
+          createdBy: null,
+        },
+        {
+          id: "3",
+          clientName: "LAÉRCIO SOBRINHO CARDOSO",
+          processNumber: "1505827",
+          description: "TRABALHISTA, Execução - embargo, outros",
+          status: 'concluido',
+          startDate: new Date('2024-10-01'),
+          dueDate: new Date('2024-11-30'),
+          completedDate: new Date('2024-11-28'),
+          tipoProcesso: "Cível",
+          documentosSolicitados: null,
+          documentosAnexados: null,
+          observacoes: null,
+          assignedToId: null,
+          createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          assignedTo: null,
+          createdBy: null,
+        }
+      ];
+    }
 
     // Aplicar filtros
-    let filteredCases = exampleCases;
+    let filteredCases = [...this.casesCache];
     
     if (filters?.status && filters.status !== "all") {
       filteredCases = filteredCases.filter(c => c.status === filters.status);
@@ -172,8 +175,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCaseById(id: string): Promise<CaseWithRelations | undefined> {
-    const allCases = await this.getCases();
-    return allCases.find(c => c.id === id);
+    await this.getCases(); // Garantir que cache está inicializado
+    return this.casesCache.find(c => c.id === id);
   }
 
   async updateCase(id: string, updates: Partial<InsertCase>): Promise<Case> {
@@ -207,21 +210,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCaseStatus(id: string, status: string, completedDate?: Date): Promise<Case> {
-    // Para dados de exemplo, simular a atualização
-    const allCases = await this.getCases();
-    const caseIndex = allCases.findIndex(c => c.id === id);
+    await this.getCases(); // Garantir que cache está inicializado
+    const caseIndex = this.casesCache.findIndex(c => c.id === id);
     
     if (caseIndex === -1) {
       throw new Error("Case not found");
     }
     
-    // Atualizar o caso na memória (simulação)
-    const updatedCase = {
-      ...allCases[caseIndex],
+    // Atualizar o caso diretamente no cache
+    this.casesCache[caseIndex] = {
+      ...this.casesCache[caseIndex],
       status,
       updatedAt: new Date(),
-      completedDate: status === 'concluido' ? (completedDate || new Date()) : allCases[caseIndex].completedDate
+      completedDate: status === 'concluido' ? (completedDate || new Date()) : 
+                     status !== 'concluido' ? null : this.casesCache[caseIndex].completedDate
     };
+    
+    const updatedCase = this.casesCache[caseIndex];
     
     // Retornar o caso atualizado
     return updatedCase as Case;

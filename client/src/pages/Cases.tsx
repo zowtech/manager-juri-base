@@ -19,6 +19,7 @@ import ProcessTagRenderer from "@/components/ProcessTagRenderer";
 import DeadlineAlert from "@/components/DeadlineAlert";
 import EmployeeSearchModal from "@/components/EmployeeSearchModal";
 import { canChangeStatus } from "@/lib/permissions";
+import ConfirmStatusDialog from "@/components/ConfirmStatusDialog";
 
 export default function Cases() {
   const [activeTab, setActiveTab] = useState("pending");
@@ -30,6 +31,15 @@ export default function Cases() {
   const [nomeFilter, setNomeFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseWithRelations | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    caseData: CaseWithRelations | null;
+    newStatus: string;
+  }>({
+    open: false,
+    caseData: null,
+    newStatus: ''
+  });
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -308,12 +318,16 @@ export default function Cases() {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  {/* Botões de ação simples e diretos */}
+                  {/* Botões de ação com confirmação */}
                   {caseData.status !== 'concluido' && canChangeStatus(user, caseData.status, 'concluido') && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}
+                      onClick={() => setConfirmDialog({
+                        open: true,
+                        caseData,
+                        newStatus: 'concluido'
+                      })}
                       title="Marcar como concluído"
                       className="text-green-600 hover:text-green-700 hover:bg-green-50"
                     >
@@ -324,7 +338,11 @@ export default function Cases() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'andamento' })}
+                      onClick={() => setConfirmDialog({
+                        open: true,
+                        caseData,
+                        newStatus: 'andamento'
+                      })}
                       title="Reabrir processo"
                       className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     >
@@ -345,13 +363,21 @@ export default function Cases() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         {caseData.status !== 'novo' && (
-                          <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'novo' })}>
+                          <DropdownMenuItem onClick={() => setConfirmDialog({
+                            open: true,
+                            caseData,
+                            newStatus: 'novo'
+                          })}>
                             <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
                             Marcar como Novo
                           </DropdownMenuItem>
                         )}
                         {caseData.status !== 'pendente' && (
-                          <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'pendente' })}>
+                          <DropdownMenuItem onClick={() => setConfirmDialog({
+                            open: true,
+                            caseData,
+                            newStatus: 'pendente'
+                          })}>
                             <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
                             Marcar como Pendente
                           </DropdownMenuItem>
@@ -658,6 +684,24 @@ export default function Cases() {
           isSubmitting={createCaseMutation.isPending || updateCaseMutation.isPending}
         />
       )}
+
+      <ConfirmStatusDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}
+        onConfirm={() => {
+          if (confirmDialog.caseData) {
+            updateStatusMutation.mutate({ 
+              id: confirmDialog.caseData.id, 
+              status: confirmDialog.newStatus 
+            });
+            setConfirmDialog({ open: false, caseData: null, newStatus: '' });
+          }
+        }}
+        currentStatus={confirmDialog.caseData?.status || ''}
+        newStatus={confirmDialog.newStatus}
+        processNumber={confirmDialog.caseData?.processNumber || ''}
+        clientName={confirmDialog.caseData?.clientName || ''}
+      />
     </div>
   );
 }
