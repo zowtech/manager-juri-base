@@ -232,22 +232,27 @@ export class DatabaseStorage implements IStorage {
     return updatedCase as Case;
   }
 
-  // Activity log operations
+  // Enhanced activity log operations
   async logActivity(activity: InsertActivityLog): Promise<ActivityLog> {
     const newLog: ActivityLog = {
       id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ...activity,
       ipAddress: activity.ipAddress || null,
       userAgent: activity.userAgent || null,
+      metadata: activity.metadata || null,
       createdAt: new Date(),
     };
     
-    this.activityLogs.unshift(newLog); // Adicionar no início para ter os mais recentes primeiro
+    // Adicionar no início para ter os mais recentes primeiro
+    this.activityLogs.unshift(newLog);
     
-    // Manter apenas os últimos 1000 logs para não consumir muita memória
-    if (this.activityLogs.length > 1000) {
-      this.activityLogs = this.activityLogs.slice(0, 1000);
+    // Manter apenas os últimos 2000 logs para histórico mais extenso
+    if (this.activityLogs.length > 2000) {
+      this.activityLogs = this.activityLogs.slice(0, 2000);
     }
+    
+    // Console log detalhado para monitoramento
+    console.log(`📋 NOVO LOG: [${newLog.action}] ${newLog.resourceType} - ${newLog.description}`);
     
     return newLog;
   }

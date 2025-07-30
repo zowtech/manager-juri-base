@@ -39,20 +39,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Activity logging middleware
-  const logActivity = async (req: AuthenticatedRequest, action: string, resourceType: string, resourceId: string, description: string) => {
+  // Enhanced activity logging middleware
+  const logActivity = async (req: AuthenticatedRequest, action: string, resourceType: string, resourceId: string, description: string, metadata?: any) => {
     try {
+      const timestamp = new Date().toISOString();
+      const userInfo = `${req.user.firstName} ${req.user.lastName} (${req.user.username})`;
+      const ipAddress = req.ip || req.socket.remoteAddress || 'Unknown';
+      const userAgent = req.get('User-Agent') || 'Unknown';
+      
+      const detailedDescription = `[${timestamp}] ${userInfo} executou: ${description}`;
+      
       await storage.logActivity({
         userId: req.user.id,
         action,
         resourceType,
         resourceId,
-        description,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent') || '',
+        description: detailedDescription,
+        ipAddress,
+        userAgent,
+        metadata: metadata ? JSON.stringify(metadata) : undefined,
       });
+      
+      console.log(`📋 LOG ATIVIDADE: [${action}] ${resourceType} ${resourceId} - ${description} - Usuário: ${userInfo}`);
     } catch (error) {
-      console.error('Failed to log activity:', error);
+      console.error('❌ Falha ao registrar log de atividade:', error);
     }
   };
 
@@ -64,6 +74,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status as string,
         search: search as string,
       });
+      
+      // Log access to cases
+      await logActivity(req, 'VIEW_CASES', 'CASE_LIST', 'all', `Visualizou lista de processos (${cases.length} encontrados)`, { 
+        filters: { status, search },
+        resultCount: cases.length 
+      });
+      
       res.json(cases);
     } catch (error) {
       console.error("Error fetching cases:", error);
@@ -78,6 +95,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
+      
+      // Log case access
+      await logActivity(req, 'VIEW_CASE', 'CASE', id, `Visualizou detalhes do processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`);
+      
       res.json(caseData);
     } catch (error) {
       console.error("Error fetching case:", error);
@@ -102,7 +123,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'CREATE_CASE',
         'CASE',
         newCase.id,
-        `Processo criado: ${newCase.processNumber} - Cliente: ${newCase.clientName}`
+        `Criou novo processo ${newCase.processNumber} - Cliente: ${newCase.clientName}`,
+        { 
+          processNumber: newCase.processNumber,
+          clientName: newCase.clientName,
+          status: newCase.status,
+          dueDate: newCase.dueDate 
+        }
       );
 
       res.status(201).json(newCase);
@@ -143,7 +170,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'UPDATE_CASE',
         'CASE',
         id,
-        `Processo editado: ${caseData.processNumber} - Cliente: ${caseData.clientName}`
+        `Editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
+        { 
+          originalData: { processNumber: caseData.processNumber, clientName: caseData.clientName },
+          updatedFields: Object.keys(validatedData),
+          newData: validatedData
+        }
       );
 
       res.json(updatedCase);
@@ -175,10 +207,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'UPDATE_CASE',
-        'STATUS_CHANGE',
+        'UPDATE_STATUS',
+        'CASE',
         id,
-        `Status alterado: ${caseData.processNumber} de "${caseData.status}" para "${status}" - Cliente: ${caseData.clientName}`
+        `Alterou status do processo ${caseData.processNumber} de "${caseData.status}" para "${status}" - Cliente: ${caseData.clientName}`,
+        { 
+          processNumber: caseData.processNumber,
+          clientName: caseData.clientName,
+          previousStatus: caseData.status,
+          newStatus: status,
+          completedDate: completedDate
+        }
       );
 
       res.json(updatedCase);
@@ -208,7 +247,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'DELETE_CASE',
         'CASE',
         id,
-        `Processo excluído: ${caseData.processNumber} - Cliente: ${caseData.clientName}`
+        `Excluiu processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
+        { 
+          deletedData: {
+            processNumber: caseData.processNumber,
+            clientName: caseData.clientName,
+            status: caseData.status,
+            description: caseData.description
+          }
+        }
       );
 
       res.status(204).send();
@@ -222,6 +269,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stats = await storage.getCaseStats();
+      
+      // Log dashboard access
+      await logActivity(req, 'VIEW_DASHBOARD', 'DASHBOARD', 'stats', `Acessou painel de estatísticas`, { 
+        statsData: stats 
+      });
+      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -237,6 +290,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: action as string,
         date: date as string,
       });
+      
+      // Log access to activity logs
+      await logActivity(req, 'VIEW_LOGS', 'ACTIVITY_LOG', 'all', `Consultou logs de atividade (${logs.length} registros)`, { 
+        filters: { action, date },
+        resultCount: logs.length 
+      });
+      
       res.json(logs);
     } catch (error) {
       console.error("Error fetching activity logs:", error);
@@ -251,10 +311,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only admins can manage users
       if (currentUser?.role !== 'admin') {
+        await logActivity(req, 'DENIED_ACCESS', 'USER_LIST', 'all', `Tentativa de acesso negada - usuário sem permissão de administrador`);
         return res.status(403).json({ message: "Access denied" });
       }
       
       const users = await storage.getAllUsers();
+      
+      // Log user management access
+      await logActivity(req, 'VIEW_USERS', 'USER_LIST', 'all', `Acessou lista de usuários (${users.length} usuários)`, { 
+        userCount: users.length 
+      });
+      
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
