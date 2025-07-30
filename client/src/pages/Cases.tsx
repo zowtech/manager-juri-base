@@ -12,10 +12,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import CaseModal from "@/components/CaseModal";
-import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar } from "lucide-react";
+import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, Users } from "lucide-react";
 import type { CaseWithRelations } from "@shared/schema";
 import ProcessTagRenderer from "@/components/ProcessTagRenderer";
 import DeadlineAlert from "@/components/DeadlineAlert";
+import EmployeeSearchModal from "@/components/EmployeeSearchModal";
 
 export default function Cases() {
   const [activeTab, setActiveTab] = useState("pending");
@@ -252,7 +253,7 @@ export default function Cases() {
       <Table>
         <TableHeader className="bg-gray-50/80">
           <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Cliente</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome do Funcionário</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Descrição</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
@@ -339,9 +340,9 @@ export default function Cases() {
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Gerenciamento de Processos</h1>
+            <h1 className="text-3xl font-bold mb-2">Processos Jurídicos dos Funcionários</h1>
             <p className="text-blue-100">
-              Controle completo dos processos jurídicos corporativos
+              Sistema integrado para processos trabalhistas e jurídicos da empresa
             </p>
           </div>
           <div className="mt-4 md:mt-0 flex items-center space-x-4">
@@ -375,18 +376,31 @@ export default function Cases() {
             {/* Primeira linha de filtros */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Matrícula</label>
-                <Input
-                  placeholder="Ex: 1500258"
-                  value={matriculaFilter}
-                  onChange={(e) => setMatriculaFilter(e.target.value)}
-                  className="border-gray-300"
-                />
+                <label className="text-sm font-medium text-gray-700 mb-2 block">🔍 Matrícula do Funcionário</label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ex: 1500258, 217584..."
+                    value={matriculaFilter}
+                    onChange={(e) => setMatriculaFilter(e.target.value)}
+                    className="border-gray-300 flex-1"
+                  />
+                  <EmployeeSearchModal
+                    onSelectEmployee={(employee) => {
+                      setMatriculaFilter(employee.codigo);
+                      setNomeFilter(employee.nomeCompleto);
+                    }}
+                    trigger={
+                      <Button variant="outline" size="sm" className="px-3">
+                        <Users className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Nome do Cliente</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">👤 Nome do Funcionário</label>
                 <Input
-                  placeholder="Ex: CÉLIA MARIA"
+                  placeholder="Ex: CÉLIA MARIA, CRISTINA..."
                   value={nomeFilter}
                   onChange={(e) => setNomeFilter(e.target.value)}
                   className="border-gray-300"
@@ -408,9 +422,9 @@ export default function Cases() {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Processo/Número</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">⚖️ Tipo de Processo</label>
                 <Input
-                  placeholder="Ex: 1234567-89.2024"
+                  placeholder="Ex: TRABALHISTA, Dano Moral..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="border-gray-300"
