@@ -18,6 +18,7 @@ import type { CaseWithRelations } from "@shared/schema";
 import ProcessTagRenderer from "@/components/ProcessTagRenderer";
 import DeadlineAlert from "@/components/DeadlineAlert";
 import EmployeeSearchModal from "@/components/EmployeeSearchModal";
+import { canChangeStatus } from "@/lib/permissions";
 
 export default function Cases() {
   const [activeTab, setActiveTab] = useState("pending");
@@ -137,7 +138,10 @@ export default function Cases() {
       return response.json();
     },
     onSuccess: (_, variables) => {
+      // Invalidar múltiplas consultas para garantir atualização completa
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      
       const statusLabels = {
         'novo': 'Novo',
         'andamento': 'Em Andamento',
@@ -148,6 +152,11 @@ export default function Cases() {
         title: "Status atualizado",
         description: `Status alterado para: ${statusLabels[variables.status as keyof typeof statusLabels]}`,
       });
+      
+      // Forçar recarregamento da lista para atualizar categorização
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["/api/cases"] });
+      }, 100);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -248,7 +257,7 @@ export default function Cases() {
     return matchesMatricula && matchesNome && matchesStatus && matchesSearch && matchesDate;
   }) || [];
 
-  const pendingCases = filteredCases.filter(c => c.status !== 'concluido');
+  const pendingCases = filteredCases.filter(c => c.status === 'novo' || c.status === 'andamento' || c.status === 'pendente');
   const completedCases = filteredCases.filter(c => c.status === 'concluido');
   const overdueCases = filteredCases.filter(c => {
     if (!c.dueDate || c.status === 'concluido') return false;
@@ -308,25 +317,26 @@ export default function Cases() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      {caseData.status !== 'novo' && (
+                      {/* Sistema de permissões baseado em canChangeStatus */}
+                      {canChangeStatus(user, caseData.status, 'novo') && caseData.status !== 'novo' && (
                         <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'novo' })}>
                           <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
                           Novo
                         </DropdownMenuItem>
                       )}
-                      {caseData.status !== 'andamento' && (
+                      {canChangeStatus(user, caseData.status, 'andamento') && caseData.status !== 'andamento' && (
                         <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'andamento' })}>
                           <Clock className="mr-2 h-4 w-4 text-blue-600" />
                           Em Andamento
                         </DropdownMenuItem>
                       )}
-                      {caseData.status !== 'pendente' && (
+                      {canChangeStatus(user, caseData.status, 'pendente') && caseData.status !== 'pendente' && (
                         <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'pendente' })}>
                           <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
                           Pendente
                         </DropdownMenuItem>
                       )}
-                      {caseData.status !== 'concluido' && (
+                      {canChangeStatus(user, caseData.status, 'concluido') && caseData.status !== 'concluido' && (
                         <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}>
                           <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
                           Concluído
