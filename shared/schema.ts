@@ -42,7 +42,13 @@ export const users = pgTable("users", {
     "audiencia": {"view": true, "edit": false},
     "status": {"view": true, "edit": false},
     "canCreateCases": false,
-    "canDeleteCases": false
+    "canDeleteCases": false,
+    "pages": {
+      "dashboard": true,
+      "cases": true,
+      "activityLog": false,
+      "users": false
+    }
   }'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

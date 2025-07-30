@@ -28,13 +28,19 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const navItems = [
-    { path: "/", icon: BarChart3, label: "Dashboard", description: "Visão geral e métricas" },
-    { path: "/cases", icon: FileText, label: "Processos", description: "Gerenciar processos jurídicos" },
-    { path: "/activity-log", icon: History, label: "Atividades", description: "Log de ações do sistema" },
-    ...(user?.role === 'admin' ? [
+    ...((user as any)?.permissions?.pages?.dashboard !== false ? [
+      { path: "/", icon: BarChart3, label: "Dashboard", description: "Visão geral e métricas" }
+    ] : []),
+    ...((user as any)?.permissions?.pages?.cases !== false ? [
+      { path: "/cases", icon: FileText, label: "Processos", description: "Gerenciar processos jurídicos" }
+    ] : []),
+    ...((user as any)?.permissions?.pages?.activityLog === true ? [
+      { path: "/activity-log", icon: History, label: "Atividades", description: "Log de ações do sistema" }
+    ] : []),
+    ...((user as any)?.permissions?.pages?.users === true || user?.role === 'admin' ? [
       { path: "/users", icon: UserCog, label: "Usuários", description: "Gerenciar usuários" }
     ] : []),
-  ];
+  ].filter(Boolean);
 
   const getPageTitle = () => {
     const titles: Record<string, string> = {
