@@ -1,0 +1,110 @@
+# Legal Case Management System - replit.md
+
+## Overview
+
+This is a full-stack legal case management system built with React, Express, and PostgreSQL. The application provides a professional interface for law firms to manage legal cases, track activities, and monitor case progress through a comprehensive dashboard system.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite for fast development and optimized builds
+- **UI Framework**: shadcn/ui components built on Radix UI primitives
+- **Styling**: Tailwind CSS with custom BASE FACILITIES branding
+- **State Management**: TanStack Query (React Query) for server state
+- **Routing**: Wouter for lightweight client-side routing
+- **Forms**: React Hook Form with Zod validation
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js
+- **Language**: TypeScript with ES modules
+- **Database ORM**: Drizzle ORM for type-safe database operations
+- **Authentication**: Replit OAuth integration with session management
+- **Session Storage**: PostgreSQL-based sessions using connect-pg-simple
+- **Development**: Hot reload with Vite integration
+
+### Database Design
+- **Database**: PostgreSQL via Neon serverless
+- **Schema Management**: Drizzle Kit for migrations
+- **Key Tables**:
+  - `users` - User profiles and roles (admin/editor)
+  - `cases` - Legal case data with status tracking
+  - `activity_log` - Audit trail for all system actions
+  - `sessions` - Authentication session storage
+
+## Key Components
+
+### Authentication System
+- **Provider**: Replit OAuth with OpenID Connect
+- **Session Management**: Server-side sessions with PostgreSQL storage
+- **Authorization**: Role-based access control (admin/editor roles)
+- **Security**: Secure HTTP-only cookies with CSRF protection
+
+### Case Management
+- **CRUD Operations**: Full create, read, update, delete for legal cases
+- **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
+- **Assignment System**: Cases can be assigned to specific users
+- **Due Date Management**: Tracking of case deadlines and completion dates
+
+### Activity Logging
+- **Comprehensive Audit**: All user actions are logged with timestamps
+- **Contextual Information**: IP addresses, user agents, and action descriptions
+- **Filtering**: Activity logs can be filtered by action type and date
+
+### Dashboard Analytics
+- **Case Statistics**: Total, completed, in-progress case counts
+- **Performance Metrics**: Average response time calculations
+- **Visual Charts**: Pie charts for status distribution, line charts for trends
+- **Real-time Updates**: Live data refresh using React Query
+
+## Data Flow
+
+### Client-Server Communication
+1. **API Requests**: RESTful endpoints with consistent error handling
+2. **Authentication Flow**: OAuth redirect → session creation → API access
+3. **State Synchronization**: React Query manages server state caching
+4. **Error Handling**: Centralized error management with user-friendly messages
+
+### Database Operations
+1. **Query Layer**: Drizzle ORM provides type-safe database queries
+2. **Connection Pooling**: Neon serverless handles connection management
+3. **Transaction Support**: ACID compliance for data integrity
+4. **Migration System**: Schema changes managed through Drizzle Kit
+
+## External Dependencies
+
+### Core Technologies
+- **Neon Database**: Serverless PostgreSQL hosting
+- **Replit Auth**: OAuth authentication provider
+- **Radix UI**: Accessible component primitives
+- **Recharts**: Chart visualization library
+
+### Development Tools
+- **Vite**: Fast build tool with HMR
+- **TypeScript**: Type safety across the stack
+- **Tailwind CSS**: Utility-first styling
+- **ESBuild**: Production bundle optimization
+
+## Deployment Strategy
+
+### Development Environment
+- **Hot Reload**: Vite dev server with backend proxy
+- **Database**: Neon serverless connection
+- **Environment Variables**: DATABASE_URL, SESSION_SECRET, REPL_ID
+
+### Production Build
+- **Frontend**: Static assets built to `dist/public`
+- **Backend**: Bundled Node.js server in `dist/index.js`
+- **Startup**: Single production server serving static files and API
+
+### Environment Configuration
+- **Database**: PostgreSQL connection via DATABASE_URL
+- **Authentication**: Replit OAuth configuration
+- **Sessions**: Secure session management with TTL
+- **CORS**: Configured for Replit domain access
+
+The system follows a monorepo structure with clear separation between client, server, and shared code, making it maintainable and scalable for legal case management workflows.
