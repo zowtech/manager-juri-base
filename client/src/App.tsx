@@ -33,29 +33,15 @@ function Router() {
   }
 
   return (
-    <Switch>
-      <Route path="/">
-        <Layout>
-          <Dashboard />
-        </Layout>
-      </Route>
-      <Route path="/cases">
-        <Layout>
-          <Cases />
-        </Layout>
-      </Route>
-      <Route path="/users">
-        <Layout>
-          <Users />
-        </Layout>
-      </Route>
-      <Route path="/activity-log">
-        <Layout>
-          <ActivityLog />
-        </Layout>
-      </Route>
-      <Route component={NotFound} />
-    </Switch>
+    <Layout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/cases" component={Cases} />
+        <Route path="/users" component={Users} />
+        <Route path="/activity-log" component={ActivityLog} />
+        <Route component={NotFound} />
+      </Switch>
+    </Layout>
   );
 }
 
