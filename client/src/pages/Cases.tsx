@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import CaseModal from "@/components/CaseModal";
+import NewCaseModal from "@/components/NewCaseModal";
 import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, Users, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { CaseWithRelations } from "@shared/schema";
@@ -442,23 +442,39 @@ export default function Cases() {
             )}
             <Button 
               variant="outline" 
-              className="border-white text-white hover:bg-white hover:text-blue-600"
+              className="border-white text-white hover:bg-white hover:text-blue-600 bg-blue-600 hover:bg-blue-50"
               onClick={() => {
+                if (!cases || cases.length === 0) {
+                  toast({
+                    title: "Nenhum dado para exportar",
+                    description: "Não há processos para exportar no momento.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
                 // Exportar para CSV
-                const csvContent = cases?.map(c => 
-                  `"${c.clientName}","${c.processNumber}","${c.description}","${c.status}","${c.dueDate ? new Date(c.dueDate).toLocaleDateString('pt-BR') : ''}"`
+                const csvContent = cases.map(c => 
+                  `"${c.clientName || ''}","${c.processNumber || ''}","${c.description || ''}","${c.status || ''}","${c.dueDate ? new Date(c.dueDate).toLocaleDateString('pt-BR') : ''}"`
                 ).join('\n');
-                const blob = new Blob([`Nome,Processo,Descrição,Status,Prazo\n${csvContent}`], { type: 'text/csv' });
+                const blob = new Blob([`Nome,Processo,Descrição,Status,Prazo\n${csvContent}`], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `processos_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                
+                toast({
+                  title: "Exportação concluída",
+                  description: `${cases.length} processos exportados com sucesso.`,
+                });
               }}
             >
               <FileDown className="mr-2 h-4 w-4" />
-              Exportar
+              Exportar CSV
             </Button>
           </div>
         </div>
@@ -665,14 +681,16 @@ export default function Cases() {
       </Card>
 
       {/* Modal */}
-      {isModalOpen && (
-        <CaseModal
-          caseData={selectedCase}
-          onSubmit={selectedCase ? handleUpdateCase : handleCreateCase}
-          onClose={() => setIsModalOpen(false)}
-          isSubmitting={createCaseMutation.isPending || updateCaseMutation.isPending}
-        />
-      )}
+      <NewCaseModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedCase(null);
+        }}
+        onSubmit={selectedCase ? handleUpdateCase : handleCreateCase}
+        isSubmitting={createCaseMutation.isPending || updateCaseMutation.isPending}
+        caseData={selectedCase}
+      />
 
       <ConfirmStatusDialog
         open={confirmDialog.open}

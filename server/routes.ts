@@ -99,10 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'CRIAR_PROCESSO',
-        'PROCESSO',
+        'CREATE_CASE',
+        'CASE',
         newCase.id,
-        `Usuário ${req.user.firstName} ${req.user.lastName} criou novo processo ${newCase.processNumber} - Cliente: ${newCase.clientName}`
+        `Processo criado: ${newCase.processNumber} - Cliente: ${newCase.clientName}`
       );
 
       res.status(201).json(newCase);
@@ -140,10 +140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'EDITAR_PROCESSO',
-        'PROCESSO',
+        'UPDATE_CASE',
+        'CASE',
         id,
-        `Usuário ${req.user.firstName} ${req.user.lastName} editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`
+        `Processo editado: ${caseData.processNumber} - Cliente: ${caseData.clientName}`
       );
 
       res.json(updatedCase);
@@ -175,10 +175,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'ALTERAR_STATUS',
-        'PROCESSO',
+        'UPDATE_CASE',
+        'STATUS_CHANGE',
         id,
-        `Usuário ${req.user.firstName} ${req.user.lastName} alterou status do processo ${caseData.processNumber} de "${caseData.status}" para "${status}" - Cliente: ${caseData.clientName}`
+        `Status alterado: ${caseData.processNumber} de "${caseData.status}" para "${status}" - Cliente: ${caseData.clientName}`
       );
 
       res.json(updatedCase);
@@ -205,10 +205,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'EXCLUIR_PROCESSO',
-        'PROCESSO',
+        'DELETE_CASE',
+        'CASE',
         id,
-        `Usuário ${req.user.firstName} ${req.user.lastName} excluiu processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`
+        `Processo excluído: ${caseData.processNumber} - Cliente: ${caseData.clientName}`
       );
 
       res.status(204).send();
