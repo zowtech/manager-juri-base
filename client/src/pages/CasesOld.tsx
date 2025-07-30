@@ -53,26 +53,27 @@ export default function Cases() {
           }, 500);
           return [];
         }
-        throw new Error('Failed to fetch cases');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       return response.json();
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      await apiRequest("PATCH", `/api/cases/${id}/status`, { status });
+  const createCaseMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/cases", data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Sucesso",
-        description: "Status do processo atualizado com sucesso",
+        description: "Processo criado com sucesso",
       });
+      setIsModalOpen(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -86,7 +87,72 @@ export default function Cases() {
       }
       toast({
         title: "Erro",
-        description: "Falha ao atualizar status do processo",
+        description: "Falha ao criar processo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateCaseMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("PUT", `/api/cases/${data.id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      toast({
+        title: "Sucesso",
+        description: "Processo atualizado com sucesso",
+      });
+      setIsModalOpen(false);
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar processo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await apiRequest("PATCH", `/api/cases/${id}/status`, { status });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      toast({
+        title: "Sucesso",
+        description: "Status atualizado com sucesso",
+      });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Erro",
+        description: "Falha ao atualizar status",
         variant: "destructive",
       });
     },
@@ -98,13 +164,12 @@ export default function Cases() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Sucesso",
         description: "Processo excluído com sucesso",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -124,6 +189,14 @@ export default function Cases() {
     },
   });
 
+  const handleCreateCase = (data: any) => {
+    createCaseMutation.mutate(data);
+  };
+
+  const handleUpdateCase = (data: any) => {
+    updateCaseMutation.mutate({ ...data, id: selectedCase?.id });
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       novo: { label: "Novo", variant: "secondary" as const, className: "bg-yellow-100 text-yellow-800" },
@@ -142,36 +215,24 @@ export default function Cases() {
 
   const getRowClassName = (status: string) => {
     const statusClasses = {
-      novo: "bg-yellow-50 border-l-4 border-l-yellow-500",
-      andamento: "bg-blue-50 border-l-4 border-l-blue-500",
-      concluido: "bg-green-50 border-l-4 border-l-green-500",
-      pendente: "bg-red-50 border-l-4 border-l-red-500",
+      novo: "bg-yellow-50/30 border-l-4 border-l-yellow-500",
+      andamento: "bg-blue-50/30 border-l-4 border-l-blue-500",
+      concluido: "bg-green-50/30 border-l-4 border-l-green-500",
+      pendente: "bg-red-50/30 border-l-4 border-l-red-500",
     };
     return statusClasses[status as keyof typeof statusClasses] || "";
   };
 
-  const handleNewCase = () => {
-    setSelectedCase(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEditCase = (caseData: CaseWithRelations) => {
-    setSelectedCase(caseData);
-    setIsModalOpen(true);
-  };
-
-  const handleMarkComplete = (id: string) => {
-    updateStatusMutation.mutate({ id, status: "concluido" });
-  };
-
-  const handleDeleteCase = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este processo?")) {
-      deleteCaseMutation.mutate(id);
-    }
-  };
-
-  const completedCases = cases?.filter((c: CaseWithRelations) => c.status === 'concluido') || [];
-  const pendingCases = cases?.filter((c: CaseWithRelations) => c.status !== 'concluido') || [];
+  // Aplicar filtros localmente
+  const filteredCases = cases?.filter((caseData: CaseWithRelations) => {
+    const matchesMatricula = !matriculaFilter || caseData.matricula.toLowerCase().includes(matriculaFilter.toLowerCase());
+    const matchesNome = !nomeFilter || caseData.nome.toLowerCase().includes(nomeFilter.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || caseData.status === statusFilter;
+    const matchesSearch = !searchTerm || caseData.processo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDate = !dateFilter || (caseData.prazoEntrega && new Date(caseData.prazoEntrega) <= new Date(dateFilter));
+    
+    return matchesMatricula && matchesNome && matchesStatus && matchesSearch && matchesDate;
+  }) || [];
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64">Carregando...</div>;
@@ -179,174 +240,240 @@ export default function Cases() {
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            <div className="flex items-center space-x-4">
-              {user?.role === 'admin' && (
-                <Button onClick={handleNewCase} className="bg-base-navy hover:bg-blue-800">
-                  <Plus className="mr-2" size={16} />
-                  Novo Processo
-                </Button>
-              )}
-              <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
-                <FileDown className="mr-2" size={16} />
-                Exportar
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Gerenciamento de Processos</h1>
+        <div className="flex items-center gap-4">
+          <CaseModal
+            trigger={
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Processo
               </Button>
+            }
+            onSubmit={handleCreateCase}
+            isSubmitting={createCaseMutation.isPending}
+          />
+          <Button variant="outline">
+            <FileDown className="mr-2 h-4 w-4" />
+            Exportar
+          </Button>
+        </div>
+      </div>
+
+      {/* Filtros avançados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Filter className="mr-2 h-4 w-4" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Matrícula</label>
+              <Input
+                placeholder="Filtrar por matrícula"
+                value={matriculaFilter}
+                onChange={(e) => setMatriculaFilter(e.target.value)}
+              />
             </div>
-            <div className="flex items-center space-x-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nome</label>
+              <Input
+                placeholder="Filtrar por nome"
+                value={nomeFilter}
+                onChange={(e) => setNomeFilter(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Status</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Todos os Status" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="novo">Novo</SelectItem>
                   <SelectItem value="andamento">Em Andamento</SelectItem>
                   <SelectItem value="concluido">Concluído</SelectItem>
                   <SelectItem value="pendente">Pendente</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Prazo até</label>
               <Input
-                placeholder="Buscar processos..."
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Processo</label>
+              <Input
+                placeholder="Buscar em processos"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Completed Cases */}
+      {/* Processos Pendentes */}
       <Card>
-        <CardHeader className="bg-green-50">
-          <CardTitle className="text-green-600 flex items-center">
-            <Check className="mr-2" size={20} />
-            Processos Concluídos
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Clock className="mr-2 h-5 w-5 text-orange-600" />
+            Processos Pendentes ({filteredCases.filter(c => c.status !== 'concluido').length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Matrícula</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Processo</TableHead>
-                <TableHead>Prazo de Entrega</TableHead>
-                <TableHead>Audiência</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {completedCases.map((caseData: CaseWithRelations) => (
-                <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50`}>
-                  <TableCell className="font-medium">{caseData.matricula}</TableCell>
-                  <TableCell className="font-medium">{caseData.nome}</TableCell>
-                  <TableCell>
-                    <ProcessTagRenderer processo={caseData.processo} maxTags={2} />
-                  </TableCell>
-                  <TableCell>
-                    <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
-                  </TableCell>
-                  <TableCell>
-                    {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(caseData.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye size={16} className="text-blue-600" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditCase(caseData)}>
-                        <Edit size={16} className="text-green-600" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-gray-50/80">
+                <TableRow className="border-b-2 border-gray-200">
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Matrícula</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Audiência</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {completedCases.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              Nenhum processo concluído encontrado
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pending Cases */}
-      <Card>
-        <CardHeader className="bg-blue-50">
-          <CardTitle className="text-blue-600 flex items-center">
-            <Clock className="mr-2" size={20} />
-            Processos Pendentes
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Matrícula</TableHead>
-                <TableHead>Nome</TableHead>
-                <TableHead>Processo</TableHead>
-                <TableHead>Prazo de Entrega</TableHead>
-                <TableHead>Audiência</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pendingCases.map((caseData: CaseWithRelations) => (
-                <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50`}>
-                  <TableCell className="font-medium">{caseData.matricula}</TableCell>
-                  <TableCell className="font-medium">{caseData.nome}</TableCell>
-                  <TableCell>
-                    <ProcessTagRenderer processo={caseData.processo} maxTags={2} />
-                  </TableCell>
-                  <TableCell>
-                    <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
-                  </TableCell>
-                  <TableCell>
-                    {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(caseData.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye size={16} className="text-blue-600" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditCase(caseData)}>
-                        <Edit size={16} className="text-green-600" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleMarkComplete(caseData.id)}>
-                        <Check size={16} className="text-yellow-600" />
-                      </Button>
-                      {user?.role === 'admin' && (
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteCase(caseData.id)}>
-                          <Trash2 size={16} className="text-red-600" />
+              </TableHeader>
+              <TableBody>
+                {filteredCases.filter(c => c.status !== 'concluido').map((caseData: CaseWithRelations) => (
+                  <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+                    <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.matricula}</TableCell>
+                    <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.nome}</TableCell>
+                    <TableCell className="border-r border-gray-100 py-4 max-w-xs">
+                      <ProcessTagRenderer processo={caseData.processo} />
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">
+                      <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">
+                      {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
+                    <TableCell className="py-4">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCase(caseData);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {pendingCases.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              Nenhum processo pendente encontrado
-            </div>
-          )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm("Tem certeza que deseja excluir este processo?")) {
+                              deleteCaseMutation.mutate(caseData.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
+      {/* Processos Concluídos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Check className="mr-2 h-5 w-5 text-green-600" />
+            Processos Concluídos ({filteredCases.filter(c => c.status === 'concluido').length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-gray-50/80">
+                <TableRow className="border-b-2 border-gray-200">
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Matrícula</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Audiência</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCases.filter(c => c.status === 'concluido').map((caseData: CaseWithRelations) => (
+                  <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+                    <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.matricula}</TableCell>
+                    <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.nome}</TableCell>
+                    <TableCell className="border-r border-gray-100 py-4 max-w-xs">
+                      <ProcessTagRenderer processo={caseData.processo} />
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">
+                      <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">
+                      {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
+                    <TableCell className="py-4">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCase(caseData);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm("Tem certeza que deseja excluir este processo?")) {
+                              deleteCaseMutation.mutate(caseData.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal */}
       <CaseModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        trigger={<div />}
         caseData={selectedCase}
+        onSubmit={selectedCase ? handleUpdateCase : handleCreateCase}
+        isSubmitting={createCaseMutation.isPending || updateCaseMutation.isPending}
       />
     </div>
   );
