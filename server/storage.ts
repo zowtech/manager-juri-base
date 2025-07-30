@@ -257,12 +257,15 @@ export class DatabaseStorage implements IStorage {
     return newLog;
   }
 
-  async getActivityLogs(filters?: { action?: string; date?: string }): Promise<ActivityLogWithUser[]> {
+  async getActivityLogs(filters?: { action?: string; date?: string; search?: string }): Promise<ActivityLogWithUser[]> {
     const users = await this.getUsers();
     let filteredLogs = [...this.activityLogs];
 
-    if (filters?.action) {
+    console.log(`🔍 Filtros aplicados: ${JSON.stringify(filters)} - Total logs: ${filteredLogs.length}`);
+
+    if (filters?.action && filters.action !== 'all') {
       filteredLogs = filteredLogs.filter(log => log.action === filters.action);
+      console.log(`📊 Após filtro de ação '${filters.action}': ${filteredLogs.length} logs`);
     }
 
     if (filters?.date) {
@@ -271,9 +274,18 @@ export class DatabaseStorage implements IStorage {
       filteredLogs = filteredLogs.filter(log => 
         log.createdAt >= date && log.createdAt < nextDay
       );
+      console.log(`📅 Após filtro de data '${filters.date}': ${filteredLogs.length} logs`);
     }
 
-    return filteredLogs.slice(0, 100).map(log => {
+    if (filters?.search) {
+      filteredLogs = filteredLogs.filter(log => 
+        log.description.toLowerCase().includes(filters.search!.toLowerCase()) ||
+        log.action.toLowerCase().includes(filters.search!.toLowerCase())
+      );
+      console.log(`🔎 Após filtro de busca '${filters.search}': ${filteredLogs.length} logs`);
+    }
+
+    const result = filteredLogs.slice(0, 100).map(log => {
       const user = users.find(u => u.id === log.userId);
       return {
         ...log,
@@ -285,6 +297,9 @@ export class DatabaseStorage implements IStorage {
         } as User
       };
     });
+
+    console.log(`✅ Retornando ${result.length} logs processados`);
+    return result;
   }
 
   // Dashboard statistics

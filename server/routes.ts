@@ -285,21 +285,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity log routes
   app.get('/api/activity-logs', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const { action, date } = req.query;
+      const { action, date, search } = req.query;
+      console.log(`📋 Requisição de logs - Filtros: action=${action}, date=${date}, search=${search}`);
+      
       const logs = await storage.getActivityLogs({
         action: action as string,
         date: date as string,
+        search: search as string,
       });
       
-      // Log access to activity logs
-      await logActivity(req, 'VIEW_LOGS', 'ACTIVITY_LOG', 'all', `Consultou logs de atividade (${logs.length} registros)`, { 
-        filters: { action, date },
-        resultCount: logs.length 
-      });
+      console.log(`📊 Logs encontrados: ${logs.length} registros`);
+      
+      // Don't log viewing logs to avoid infinite recursion, just console log
+      console.log(`📋 Usuario ${req.user.firstName} ${req.user.lastName} consultou ${logs.length} logs de atividade`);
       
       res.json(logs);
     } catch (error) {
-      console.error("Error fetching activity logs:", error);
+      console.error("❌ Erro ao buscar logs de atividade:", error);
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });

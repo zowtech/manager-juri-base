@@ -35,23 +35,33 @@ export default function ActivityLog() {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'CREATE_CASE': return 'bg-green-100 text-green-800';
-      case 'UPDATE_CASE': return 'bg-blue-100 text-blue-800';
-      case 'DELETE_CASE': return 'bg-red-100 text-red-800';
-      case 'LOGIN': return 'bg-purple-100 text-purple-800';
-      case 'LOGOUT': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'CREATE_CASE': return 'bg-green-100 text-green-800 border-green-200';
+      case 'UPDATE_CASE': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'UPDATE_STATUS': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'DELETE_CASE': return 'bg-red-100 text-red-800 border-red-200';
+      case 'VIEW_CASES': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'VIEW_DASHBOARD': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'VIEW_USERS': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case 'LOGIN': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'LOGOUT': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'DENIED_ACCESS': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
 
   const getActionLabel = (action: string) => {
     switch (action) {
       case 'CREATE_CASE': return 'Processo Criado';
-      case 'UPDATE_CASE': return 'Processo Atualizado';
+      case 'UPDATE_CASE': return 'Processo Editado';
+      case 'UPDATE_STATUS': return 'Status Alterado';
       case 'DELETE_CASE': return 'Processo Excluído';
+      case 'VIEW_CASES': return 'Visualizou Processos';
+      case 'VIEW_DASHBOARD': return 'Acessou Dashboard';
+      case 'VIEW_USERS': return 'Acessou Usuários';
       case 'LOGIN': return 'Login';
       case 'LOGOUT': return 'Logout';
-      default: return action;
+      case 'DENIED_ACCESS': return 'Acesso Negado';
+      default: return action.replace(/_/g, ' ');
     }
   };
 
