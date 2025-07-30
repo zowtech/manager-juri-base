@@ -1,24 +1,25 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { History } from "lucide-react";
-import type { ActivityLogWithUser } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
+import { History, Filter, Download, Search, Calendar } from "lucide-react";
 
 export default function ActivityLog() {
-  const [actionFilter, setActionFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { data: logs, isLoading } = useQuery({
-    queryKey: ["/api/activity-logs", { action: actionFilter, date: dateFilter }],
+    queryKey: ["/api/activity-logs", { action: actionFilter, search: searchTerm }],
     queryFn: async ({ queryKey }) => {
-      const [, params] = queryKey as [string, { action: string; date: string }];
+      const [, params] = queryKey as [string, { action: string; search: string }];
       const searchParams = new URLSearchParams();
-      if (params.action) searchParams.set('action', params.action);
-      if (params.date) searchParams.set('date', params.date);
+      if (params.action && params.action !== 'all') searchParams.set('action', params.action);
+      if (params.search) searchParams.set('search', params.search);
       
       const response = await fetch(`/api/activity-logs?${searchParams.toString()}`, {
         credentials: 'include',
@@ -32,104 +33,229 @@ export default function ActivityLog() {
     },
   });
 
-  const getActionBadge = (action: string) => {
-    const actionConfig = {
-      create: { label: "Criação", className: "bg-green-100 text-green-800" },
-      edit: { label: "Edição", className: "bg-blue-100 text-blue-800" },
-      delete: { label: "Exclusão", className: "bg-red-100 text-red-800" },
-      status_change: { label: "Mudança de Status", className: "bg-yellow-100 text-yellow-800" },
-    };
-    
-    const config = actionConfig[action as keyof typeof actionConfig] || actionConfig.create;
-    return (
-      <Badge className={config.className}>
-        {config.label}
-      </Badge>
-    );
+  const getActionColor = (action: string) => {
+    switch (action) {
+      case 'CREATE_CASE': return 'bg-green-100 text-green-800';
+      case 'UPDATE_CASE': return 'bg-blue-100 text-blue-800';
+      case 'DELETE_CASE': return 'bg-red-100 text-red-800';
+      case 'LOGIN': return 'bg-purple-100 text-purple-800';
+      case 'LOGOUT': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'CREATE_CASE': return 'Processo Criado';
+      case 'UPDATE_CASE': return 'Processo Atualizado';
+      case 'DELETE_CASE': return 'Processo Excluído';
+      case 'LOGIN': return 'Login';
+      case 'LOGOUT': return 'Logout';
+      default: return action;
+    }
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64">Carregando...</div>;
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center space-x-4">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="border-b border-gray-200 pb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Log de Atividades</h1>
+        <p className="text-gray-600">Acompanhe todas as ações realizadas no sistema</p>
+      </div>
+
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center">
-              <History className="mr-2" size={20} />
-              Log de Atividades
-            </CardTitle>
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
+                <Download className="mr-2" size={16} />
+                Exportar Log
+              </Button>
+            </div>
             <div className="flex items-center space-x-4">
               <Select value={actionFilter} onValueChange={setActionFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Todas as Ações" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as Ações</SelectItem>
-                  <SelectItem value="create">Criação</SelectItem>
-                  <SelectItem value="edit">Edição</SelectItem>
-                  <SelectItem value="delete">Exclusão</SelectItem>
-                  <SelectItem value="status_change">Mudança de Status</SelectItem>
+                  <SelectItem value="all">Todas as Ações</SelectItem>
+                  <SelectItem value="CREATE_CASE">Criação de Processo</SelectItem>
+                  <SelectItem value="UPDATE_CASE">Atualização de Processo</SelectItem>
+                  <SelectItem value="DELETE_CASE">Exclusão de Processo</SelectItem>
+                  <SelectItem value="LOGIN">Login</SelectItem>
+                  <SelectItem value="LOGOUT">Logout</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-48"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  placeholder="Buscar atividades..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Activity Log Table */}
+      <Card>
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardTitle className="text-lg font-semibold flex items-center">
+            <History className="mr-2" size={20} />
+            Registro de Atividades
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Ação</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>IP</TableHead>
+              <TableRow className="bg-gray-50">
+                <TableHead className="font-semibold">Data/Hora</TableHead>
+                <TableHead className="font-semibold">Usuário</TableHead>
+                <TableHead className="font-semibold">Ação</TableHead>
+                <TableHead className="font-semibold">Descrição</TableHead>
+                <TableHead className="font-semibold">IP</TableHead>
+                <TableHead className="font-semibold">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs?.map((log: ActivityLogWithUser) => (
-                <TableRow key={log.id} className="hover:bg-gray-50">
-                  <TableCell className="text-sm">
-                    {new Date(log.createdAt).toLocaleString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium text-sm">
-                        {log.user.firstName} {log.user.lastName}
-                      </div>
-                      <div className="text-xs text-gray-500 capitalize">
-                        {log.user.role}
+              {logs && logs.length > 0 ? logs.map((log: any) => (
+                <TableRow key={log.id} className="hover:bg-gray-50 transition-colors">
+                  <TableCell className="font-medium">
+                    <div className="flex items-center space-x-2">
+                      <Calendar size={16} className="text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium">
+                          {new Date(log.createdAt).toLocaleDateString('pt-BR')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(log.createdAt).toLocaleTimeString('pt-BR')}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getActionBadge(log.action)}
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-semibold">
+                          {log.user?.firstName?.charAt(0) || 'U'}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">
+                          {log.user ? `${log.user.firstName} ${log.user.lastName}` : 'Sistema'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {log.user?.role}
+                        </div>
+                      </div>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-sm">
-                    {log.description}
+                  <TableCell>
+                    <Badge className={getActionColor(log.action)}>
+                      {getActionLabel(log.action)}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {log.ipAddress || '-'}
+                  <TableCell>
+                    <div className="max-w-md">
+                      <p className="text-sm">{log.description}</p>
+                      {log.details && (
+                        <p className="text-xs text-gray-500 mt-1">{log.details}</p>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <code className="px-2 py-1 bg-gray-100 rounded text-xs">
+                      {log.ipAddress || '127.0.0.1'}
+                    </code>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      <span className="text-sm text-green-600">Sucesso</span>
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center space-y-4">
+                      <History className="w-16 h-16 text-gray-300" />
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-1">
+                          Nenhuma atividade encontrada
+                        </h3>
+                        <p className="text-gray-500">
+                          Ainda não há registros de atividades para exibir.
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
-          {(!logs || logs.length === 0) && (
-            <div className="text-center py-8 text-gray-500">
-              Nenhuma atividade encontrada
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* Summary Stats */}
+      {logs && logs.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-blue-600 mb-2">
+                {logs.length}
+              </div>
+              <div className="text-sm text-gray-600">Total de Atividades</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-green-600 mb-2">
+                {logs.filter((log: any) => log.action.includes('CREATE')).length}
+              </div>
+              <div className="text-sm text-gray-600">Criações</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-purple-600 mb-2">
+                {[...new Set(logs.map((log: any) => log.userId))].length}
+              </div>
+              <div className="text-sm text-gray-600">Usuários Ativos</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

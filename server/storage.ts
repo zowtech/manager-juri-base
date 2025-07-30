@@ -82,7 +82,7 @@ export class DatabaseStorage implements IStorage {
   async getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]> {
     const conditions = [];
     
-    if (filters?.status) {
+    if (filters?.status && filters.status !== "all") {
       conditions.push(eq(cases.status, filters.status));
     }
     

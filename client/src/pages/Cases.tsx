@@ -11,11 +11,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import CaseModal from "@/components/CaseModal";
-import { Plus, FileDown, Eye, Edit, Check, Trash2, UserPlus } from "lucide-react";
+import { Plus, FileDown, Eye, Edit, Check, Trash2, UserPlus, Clock } from "lucide-react";
 import type { CaseWithRelations } from "@shared/schema";
 
 export default function Cases() {
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseWithRelations | null>(null);
@@ -29,7 +29,7 @@ export default function Cases() {
     queryFn: async ({ queryKey }) => {
       const [, params] = queryKey as [string, { status: string; search: string }];
       const searchParams = new URLSearchParams();
-      if (params.status) searchParams.set('status', params.status);
+      if (params.status && params.status !== 'all') searchParams.set('status', params.status);
       if (params.search) searchParams.set('search', params.search);
       
       const response = await fetch(`/api/cases?${searchParams.toString()}`, {
@@ -196,7 +196,7 @@ export default function Cases() {
                   <SelectValue placeholder="Todos os Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os Status</SelectItem>
+                  <SelectItem value="all">Todos os Status</SelectItem>
                   <SelectItem value="novo">Novo</SelectItem>
                   <SelectItem value="andamento">Em Andamento</SelectItem>
                   <SelectItem value="concluido">Concluído</SelectItem>
