@@ -22,7 +22,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   // Case operations
-  createCase(caseData: InsertCase, createdById: string): Promise<Case>;
+  createCase(caseData: InsertCase): Promise<Case>;
   getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]>;
   getCaseById(id: string): Promise<CaseWithRelations | undefined>;
   updateCase(id: string, updates: Partial<InsertCase>): Promise<Case>;
@@ -71,46 +71,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Case operations
-  async createCase(caseData: InsertCase, createdById: string): Promise<Case> {
+  async createCase(caseData: InsertCase): Promise<Case> {
     const [newCase] = await db
       .insert(cases)
-      .values({
-        ...caseData,
-        createdById,
-      })
+      .values(caseData)
       .returning();
     return newCase;
   }
 
   async getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]> {
-    let query = db
-      .select({
-        case: cases,
-        assignedTo: users,
-        createdBy: { 
-          id: users.id, 
-          firstName: users.firstName, 
-          lastName: users.lastName, 
-          email: users.email,
-          username: users.username,
-          role: users.role,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
-          password: users.password,
-          profileImageUrl: users.profileImageUrl
-        }
-      })
-      .from(cases)
-      .leftJoin(users, eq(cases.assignedToId, users.id))
-      .innerJoin({ createdByUser: users }, eq(cases.createdById, users.id))
-      .orderBy(
-        sql`CASE 
-          WHEN ${cases.status} = 'concluido' THEN 2 
-          ELSE 1 
-        END`,
-        desc(cases.updatedAt)
-      );
-
     const conditions = [];
     
     if (filters?.status) {
@@ -127,48 +96,33 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const result = await query;
+    const result = await db
+      .select()
+      .from(cases)
+      .where(whereClause)
+      .orderBy(desc(cases.updatedAt));
     
     return result.map(row => ({
-      ...row.case,
-      assignedTo: row.assignedTo,
-      createdBy: row.createdBy,
+      ...row,
+      assignedTo: null,
+      createdBy: null,
     }));
   }
 
   async getCaseById(id: string): Promise<CaseWithRelations | undefined> {
     const [result] = await db
-      .select({
-        case: cases,
-        assignedTo: users,
-        createdBy: { 
-          id: users.id, 
-          firstName: users.firstName, 
-          lastName: users.lastName, 
-          email: users.email,
-          username: users.username,
-          role: users.role,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
-          password: users.password,
-          profileImageUrl: users.profileImageUrl
-        }
-      })
+      .select()
       .from(cases)
-      .leftJoin(users, eq(cases.assignedToId, users.id))
-      .innerJoin({ createdByUser: users }, eq(cases.createdById, users.id))
       .where(eq(cases.id, id));
 
     if (!result) return undefined;
 
     return {
-      ...result.case,
-      assignedTo: result.assignedTo,
-      createdBy: result.createdBy,
+      ...result,
+      assignedTo: null,
+      createdBy: null,
     };
   }
 
