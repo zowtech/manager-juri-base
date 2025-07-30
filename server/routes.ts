@@ -87,13 +87,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user || user.role !== 'admin') {
+      if (req.user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
       const validatedData = insertCaseSchema.parse(req.body);
-      const newCase = await storage.createCase(validatedData, req.user.claims.sub);
+      const newCase = await storage.createCase({
+        ...validatedData,
+        createdById: req.user.id,
+      });
       
       await logActivity(
         req,
@@ -116,11 +118,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/cases/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
-      const user = await storage.getUser(req.user.claims.sub);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
 
       const caseData = await storage.getCaseById(id);
       if (!caseData) {
