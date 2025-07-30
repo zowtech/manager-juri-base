@@ -63,10 +63,25 @@ export const cases = pgTable("cases", {
   prazoEntrega: timestamp("prazo_entrega"),
   audiencia: timestamp("audiencia"),
   status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
+  tipoProcesso: varchar("tipo_processo"), // trabalhista, rescisao_indireta, dano_moral, etc
+  documentosSolicitados: jsonb("documentos_solicitados"), // lista de documentos necessários
+  documentosAnexados: jsonb("documentos_anexados"), // lista de documentos enviados com links
+  observacoes: text("observacoes"),
   assignedToId: varchar("assigned_to_id").references(() => users.id),
   createdById: varchar("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Nova tabela para tipos de processos
+export const tiposProcesso = pgTable("tipos_processo", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nome: varchar("nome").notNull(),
+  descricao: text("descricao"),
+  documentosPadrao: jsonb("documentos_padrao"), // documentos típicos para este tipo
+  cor: varchar("cor").default("#3b82f6"), // cor para identificação visual
+  ativo: boolean("ativo").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Activity log table
