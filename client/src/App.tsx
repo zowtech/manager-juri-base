@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
 import Cases from "@/pages/Cases";
+import Users from "@/pages/Users";
 import ActivityLog from "@/pages/ActivityLog";
 import Layout from "@/components/Layout";
 
@@ -36,6 +37,11 @@ function Router() {
       <Route path="/cases">
         <Layout>
           <Cases />
+        </Layout>
+      </Route>
+      <Route path="/users">
+        <Layout>
+          <Users />
         </Layout>
       </Route>
       <Route path="/activity-log">

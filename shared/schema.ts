@@ -33,7 +33,17 @@ export const users = pgTable("users", {
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("editor"), // admin or editor
+  role: varchar("role").notNull().default("viewer"), // admin, editor, or viewer
+  permissions: jsonb("permissions").default(sql`'{
+    "matricula": {"view": true, "edit": false},
+    "nome": {"view": true, "edit": false},
+    "processo": {"view": true, "edit": false},
+    "prazoEntrega": {"view": true, "edit": false},
+    "audiencia": {"view": true, "edit": false},
+    "status": {"view": true, "edit": false},
+    "canCreateCases": false,
+    "canDeleteCases": false
+  }'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

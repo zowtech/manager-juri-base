@@ -66,11 +66,11 @@ export default function AuthPage() {
         <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white">
           <div className="text-center space-y-8">
             <div className="space-y-4">
-              <div className="w-24 h-24 mx-auto rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+              <div className="mx-auto">
                 <img 
                   src={facilityLogo} 
                   alt="BASE FACILITIES" 
-                  className="w-16 h-16 rounded-full object-cover"
+                  className="w-32 h-24 object-contain"
                 />
               </div>
               <div>

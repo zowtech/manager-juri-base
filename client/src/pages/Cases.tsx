@@ -321,11 +321,12 @@ export default function Cases() {
         </CardContent>
       </Card>
 
-      {/* Tabela principal com linhas profissionais */}
+      {/* Processos Pendentes */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Processos ({filteredCases.length})
+          <CardTitle className="flex items-center">
+            <Clock className="mr-2 h-5 w-5 text-orange-600" />
+            Processos Pendentes ({filteredCases.filter(c => c.status !== 'concluido').length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -343,7 +344,7 @@ export default function Cases() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCases.map((caseData: CaseWithRelations) => (
+                {filteredCases.filter(c => c.status !== 'concluido').map((caseData: CaseWithRelations) => (
                   <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
                     <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.matricula}</TableCell>
                     <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.nome}</TableCell>
@@ -369,15 +370,83 @@ export default function Cases() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        {caseData.status !== 'concluido' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm("Tem certeza que deseja excluir este processo?")) {
+                              deleteCaseMutation.mutate(caseData.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Processos Concluídos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Check className="mr-2 h-5 w-5 text-green-600" />
+            Processos Concluídos ({filteredCases.filter(c => c.status === 'concluido').length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-gray-50/80">
+                <TableRow className="border-b-2 border-gray-200">
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Matrícula</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Audiência</TableHead>
+                  <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCases.filter(c => c.status === 'concluido').map((caseData: CaseWithRelations) => (
+                  <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+                    <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.matricula}</TableCell>
+                    <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.nome}</TableCell>
+                    <TableCell className="border-r border-gray-100 py-4 max-w-xs">
+                      <ProcessTagRenderer processo={caseData.processo} />
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">
+                      <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">
+                      {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
+                    </TableCell>
+                    <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
+                    <TableCell className="py-4">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCase(caseData);
+                            setIsModalOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
