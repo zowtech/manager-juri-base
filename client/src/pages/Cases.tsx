@@ -440,7 +440,23 @@ export default function Cases() {
                 Novo Processo
               </Button>
             )}
-            <Button variant="outline" className="border-white text-white hover:bg-white hover:text-blue-600">
+            <Button 
+              variant="outline" 
+              className="border-white text-white hover:bg-white hover:text-blue-600"
+              onClick={() => {
+                // Exportar para CSV
+                const csvContent = cases?.map(c => 
+                  `"${c.clientName}","${c.processNumber}","${c.description}","${c.status}","${c.dueDate ? new Date(c.dueDate).toLocaleDateString('pt-BR') : ''}"`
+                ).join('\n');
+                const blob = new Blob([`Nome,Processo,Descrição,Status,Prazo\n${csvContent}`], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `processos_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
               <FileDown className="mr-2 h-4 w-4" />
               Exportar
             </Button>
@@ -461,12 +477,12 @@ export default function Cases() {
             {/* Primeira linha de filtros */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">🔍 Matrícula do Funcionário</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Nome do Funcionário</label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Ex: 1500258, 217584..."
-                    value={matriculaFilter}
-                    onChange={(e) => setMatriculaFilter(e.target.value)}
+                    placeholder="Ex: CÉLIA MARIA, CRISTINA..."
+                    value={nomeFilter}
+                    onChange={(e) => setNomeFilter(e.target.value)}
                     className="border-gray-300 flex-1"
                   />
                   <EmployeeSearchModal
@@ -483,11 +499,11 @@ export default function Cases() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">👤 Nome do Funcionário</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Processo</label>
                 <Input
-                  placeholder="Ex: CÉLIA MARIA, CRISTINA..."
-                  value={nomeFilter}
-                  onChange={(e) => setNomeFilter(e.target.value)}
+                  placeholder="Ex: 1500258, 217584..."
+                  value={matriculaFilter}
+                  onChange={(e) => setMatriculaFilter(e.target.value)}
                   className="border-gray-300"
                 />
               </div>
@@ -498,18 +514,18 @@ export default function Cases() {
                     <SelectValue placeholder="Todos os status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">🔍 Todos os status</SelectItem>
-                    <SelectItem value="novo">🆕 Novo</SelectItem>
-                    <SelectItem value="andamento">⚠️ Em Andamento</SelectItem>
-                    <SelectItem value="concluido">✅ Concluído</SelectItem>
-                    <SelectItem value="pendente">🔴 Pendente</SelectItem>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    <SelectItem value="novo">Novo</SelectItem>
+                    <SelectItem value="andamento">Em Andamento</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">⚖️ Tipo de Processo</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Buscar Processo</label>
                 <Input
-                  placeholder="Ex: TRABALHISTA, Dano Moral..."
+                  placeholder="Buscar por descrição..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="border-gray-300"
@@ -520,7 +536,7 @@ export default function Cases() {
             {/* Segunda linha - Filtros de data */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">📅 Prazo de Entrega - De</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Data de - Início</label>
                 <Input
                   type="date"
                   value={dateFilter}
@@ -529,7 +545,7 @@ export default function Cases() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">📅 Prazo de Entrega - Até</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Data até - Final</label>
                 <Input
                   type="date"
                   value={dateFilterTo}
@@ -538,48 +554,21 @@ export default function Cases() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">⚡ Filtros Rápidos</label>
-                <Select onValueChange={(value) => {
-                  const today = new Date();
-                  let targetDate = new Date();
-                  
-                  switch(value) {
-                    case "hoje":
-                      setDateFilter(today.toISOString().split('T')[0]);
-                      break;
-                    case "7dias":
-                      targetDate.setDate(today.getDate() + 7);
-                      setDateFilter(targetDate.toISOString().split('T')[0]);
-                      break;
-                    case "30dias":
-                      targetDate.setDate(today.getDate() + 30);
-                      setDateFilter(targetDate.toISOString().split('T')[0]);
-                      break;
-                    case "vencidos":
-                      targetDate.setDate(today.getDate() - 1);
-                      setDateFilter(targetDate.toISOString().split('T')[0]);
-                      break;
-                    case "limpar":
-                      setDateFilter("");
-                      setDateFilterTo("");
-                      setMatriculaFilter("");
-                      setNomeFilter("");
-                      setSearchTerm("");
-                      setStatusFilter("all");
-                      break;
-                  }
-                }}>
-                  <SelectTrigger className="border-gray-300">
-                    <SelectValue placeholder="Selecione um filtro" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hoje">🔴 Vence Hoje</SelectItem>
-                    <SelectItem value="7dias">⚠️ Próximos 7 Dias</SelectItem>
-                    <SelectItem value="30dias">📅 Próximos 30 Dias</SelectItem>
-                    <SelectItem value="vencidos">❌ Já Vencidos</SelectItem>
-                    <SelectItem value="limpar">🧹 Limpar Filtros</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Ações</label>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setSearchTerm('');
+                    setDateFilter('');
+                    setDateFilterTo('');
+                    setMatriculaFilter('');
+                    setNomeFilter('');
+                  }}
+                  className="w-full"
+                >
+                  Limpar Filtros
+                </Button>
               </div>
             </div>
 

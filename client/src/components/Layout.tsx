@@ -46,9 +46,7 @@ export default function Layout({ children }: LayoutProps) {
     ...((user as any)?.permissions?.pages?.cases !== false ? [
       { path: "/cases", icon: FileText, label: "Processos", description: "Gerenciar processos jurídicos" }
     ] : []),
-    ...((user as any)?.permissions?.pages?.activityLog === true ? [
-      { path: "/activity-log", icon: History, label: "Atividades", description: "Log de ações do sistema" }
-    ] : []),
+    { path: "/activity-log", icon: History, label: "Atividades", description: "Log de ações do sistema" },
     ...((user as any)?.permissions?.pages?.users === true || user?.role === 'admin' ? [
       { path: "/users", icon: UserCog, label: "Usuários", description: "Gerenciar usuários" }
     ] : []),
