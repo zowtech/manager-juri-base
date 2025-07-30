@@ -22,6 +22,7 @@ export default function Cases() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [dateFilterTo, setDateFilterTo] = useState("");
   const [matriculaFilter, setMatriculaFilter] = useState("");
   const [nomeFilter, setNomeFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -231,7 +232,10 @@ export default function Cases() {
     const matchesNome = !nomeFilter || caseData.nome.toLowerCase().includes(nomeFilter.toLowerCase());
     const matchesStatus = statusFilter === 'all' || caseData.status === statusFilter;
     const matchesSearch = !searchTerm || caseData.processo.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = !dateFilter || (caseData.prazoEntrega && new Date(caseData.prazoEntrega) <= new Date(dateFilter));
+    const matchesDate = (!dateFilter && !dateFilterTo) || (caseData.prazoEntrega && (
+      (!dateFilter || new Date(caseData.prazoEntrega) >= new Date(dateFilter)) &&
+      (!dateFilterTo || new Date(caseData.prazoEntrega) <= new Date(dateFilterTo))
+    ));
     
     return matchesMatricula && matchesNome && matchesStatus && matchesSearch && matchesDate;
   }) || [];
@@ -358,66 +362,146 @@ export default function Cases() {
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros Avançados */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center text-gray-800">
             <Filter className="mr-2 h-4 w-4" />
-            Filtros de Busca
+            Filtros Avançados de Busca
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Matrícula</label>
-              <Input
-                placeholder="Filtrar por matrícula"
-                value={matriculaFilter}
-                onChange={(e) => setMatriculaFilter(e.target.value)}
-                className="border-gray-300"
-              />
+          <div className="space-y-4">
+            {/* Primeira linha de filtros */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Matrícula</label>
+                <Input
+                  placeholder="Ex: 1500258"
+                  value={matriculaFilter}
+                  onChange={(e) => setMatriculaFilter(e.target.value)}
+                  className="border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Nome do Cliente</label>
+                <Input
+                  placeholder="Ex: CÉLIA MARIA"
+                  value={nomeFilter}
+                  onChange={(e) => setNomeFilter(e.target.value)}
+                  className="border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="border-gray-300">
+                    <SelectValue placeholder="Todos os status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">🔍 Todos os status</SelectItem>
+                    <SelectItem value="novo">🆕 Novo</SelectItem>
+                    <SelectItem value="andamento">⚠️ Em Andamento</SelectItem>
+                    <SelectItem value="concluido">✅ Concluído</SelectItem>
+                    <SelectItem value="pendente">🔴 Pendente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Processo/Número</label>
+                <Input
+                  placeholder="Ex: 1234567-89.2024"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="border-gray-300"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Nome</label>
-              <Input
-                placeholder="Filtrar por nome"
-                value={nomeFilter}
-                onChange={(e) => setNomeFilter(e.target.value)}
-                className="border-gray-300"
-              />
+
+            {/* Segunda linha - Filtros de data */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">📅 Prazo de Entrega - De</label>
+                <Input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">📅 Prazo de Entrega - Até</label>
+                <Input
+                  type="date"
+                  value={dateFilterTo}
+                  onChange={(e) => setDateFilterTo(e.target.value)}
+                  className="border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">⚡ Filtros Rápidos</label>
+                <Select onValueChange={(value) => {
+                  const today = new Date();
+                  let targetDate = new Date();
+                  
+                  switch(value) {
+                    case "hoje":
+                      setDateFilter(today.toISOString().split('T')[0]);
+                      break;
+                    case "7dias":
+                      targetDate.setDate(today.getDate() + 7);
+                      setDateFilter(targetDate.toISOString().split('T')[0]);
+                      break;
+                    case "30dias":
+                      targetDate.setDate(today.getDate() + 30);
+                      setDateFilter(targetDate.toISOString().split('T')[0]);
+                      break;
+                    case "vencidos":
+                      targetDate.setDate(today.getDate() - 1);
+                      setDateFilter(targetDate.toISOString().split('T')[0]);
+                      break;
+                    case "limpar":
+                      setDateFilter("");
+                      setDateFilterTo("");
+                      setMatriculaFilter("");
+                      setNomeFilter("");
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                      break;
+                  }
+                }}>
+                  <SelectTrigger className="border-gray-300">
+                    <SelectValue placeholder="Selecione um filtro" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hoje">🔴 Vence Hoje</SelectItem>
+                    <SelectItem value="7dias">⚠️ Próximos 7 Dias</SelectItem>
+                    <SelectItem value="30dias">📅 Próximos 30 Dias</SelectItem>
+                    <SelectItem value="vencidos">❌ Já Vencidos</SelectItem>
+                    <SelectItem value="limpar">🧹 Limpar Filtros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="border-gray-300">
-                  <SelectValue placeholder="Todos os status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="novo">Novo</SelectItem>
-                  <SelectItem value="andamento">Em Andamento</SelectItem>
-                  <SelectItem value="concluido">Concluído</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Prazo até</label>
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="border-gray-300"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Processo</label>
-              <Input
-                placeholder="Buscar em processos"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="border-gray-300"
-              />
+
+            {/* Terceira linha - Estatísticas dos filtros */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <div className="text-lg font-bold text-blue-600">{filteredCases.length}</div>
+                <div className="text-xs text-blue-600">Resultados</div>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="text-lg font-bold text-green-600">{completedCases.length}</div>
+                <div className="text-xs text-green-600">Concluídos</div>
+              </div>
+              <div className="bg-orange-50 p-3 rounded-lg text-center">
+                <div className="text-lg font-bold text-orange-600">{pendingCases.length}</div>
+                <div className="text-xs text-orange-600">Pendentes</div>
+              </div>
+              <div className="bg-red-50 p-3 rounded-lg text-center">
+                <div className="text-lg font-bold text-red-600">{overdueCases.length}</div>
+                <div className="text-xs text-red-600">Atrasados</div>
+              </div>
             </div>
           </div>
         </CardContent>

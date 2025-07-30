@@ -24,7 +24,19 @@ export default function Layout({ children }: LayoutProps) {
   }, []);
 
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    // Clear all cached data
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // Force logout and redirect
+    fetch("/api/logout", {
+      method: "POST",
+      credentials: "include"
+    }).then(() => {
+      window.location.href = "/auth";
+    }).catch(() => {
+      window.location.href = "/auth";
+    });
   };
 
   const navItems = [
