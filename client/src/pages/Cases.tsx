@@ -12,7 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import CaseModal from "@/components/CaseModal";
-import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, Users } from "lucide-react";
+import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, Users, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { CaseWithRelations } from "@shared/schema";
 import ProcessTagRenderer from "@/components/ProcessTagRenderer";
 import DeadlineAlert from "@/components/DeadlineAlert";
@@ -135,11 +136,17 @@ export default function Cases() {
       const response = await apiRequest("PATCH", `/api/cases/${id}/status`, { status });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      const statusLabels = {
+        'novo': 'Novo',
+        'andamento': 'Em Andamento',
+        'concluido': 'Concluído',
+        'pendente': 'Pendente'
+      };
       toast({
-        title: "Sucesso",
-        description: "Status atualizado com sucesso",
+        title: "Status atualizado",
+        description: `Status alterado para: ${statusLabels[variables.status as keyof typeof statusLabels]}`,
       });
     },
     onError: (error: Error) => {
@@ -290,16 +297,43 @@ export default function Cases() {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  {showCompleteAction && caseData.status !== 'concluido' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}
-                      title="Marcar como concluído"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Alterar status"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {caseData.status !== 'novo' && (
+                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'novo' })}>
+                          <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
+                          Novo
+                        </DropdownMenuItem>
+                      )}
+                      {caseData.status !== 'andamento' && (
+                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'andamento' })}>
+                          <Clock className="mr-2 h-4 w-4 text-blue-600" />
+                          Em Andamento
+                        </DropdownMenuItem>
+                      )}
+                      {caseData.status !== 'pendente' && (
+                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'pendente' })}>
+                          <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
+                          Pendente
+                        </DropdownMenuItem>
+                      )}
+                      {caseData.status !== 'concluido' && (
+                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}>
+                          <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                          Concluído
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {user?.role === 'admin' && (
                     <Button
                       variant="ghost"
