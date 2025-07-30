@@ -1,0 +1,278 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Building2, Scale, Shield, Users } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { User } from "@shared/schema";
+import facilityLogo from "@assets/449265_6886_1753882292906.jpg";
+
+const loginSchema = z.object({
+  username: z.string().min(1, "Nome de usuário é obrigatório"),
+  password: z.string().min(1, "Senha é obrigatória"),
+});
+
+const registerSchema = z.object({
+  username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  email: z.string().email("Email inválido"),
+  firstName: z.string().min(1, "Nome é obrigatório"),
+  lastName: z.string().min(1, "Sobrenome é obrigatório"),
+  role: z.enum(["admin", "editor"]).default("editor"),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
+type RegisterForm = z.infer<typeof registerSchema>;
+
+export default function AuthPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const loginForm = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  const registerForm = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      email: "",
+      firstName: "",
+      lastName: "",
+      role: "editor",
+    },
+  });
+
+  const handleLogin = async (data: LoginForm) => {
+    setIsLoading(true);
+    try {
+      const response = await apiRequest("POST", "/api/login", data);
+      const user: User = await response.json();
+      queryClient.setQueryData(["/api/user"], user);
+      toast({
+        title: "Login realizado com sucesso",
+        description: `Bem-vindo, ${user.firstName}!`,
+      });
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({
+        title: "Erro no login",
+        description: error.message || "Credenciais inválidas",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (data: RegisterForm) => {
+    setIsLoading(true);
+    try {
+      const response = await apiRequest("POST", "/api/register", data);
+      const user: User = await response.json();
+      queryClient.setQueryData(["/api/user"], user);
+      toast({
+        title: "Conta criada com sucesso",
+        description: `Bem-vindo, ${user.firstName}!`,
+      });
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({
+        title: "Erro no registro",
+        description: error.message || "Erro ao criar conta",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left side - Login Form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <img 
+              src={facilityLogo} 
+              alt="Logo" 
+              className="h-16 w-16 mx-auto mb-4 rounded-full object-cover"
+            />
+            <h1 className="text-3xl font-bold text-gray-900">BASE FACILITIES</h1>
+            <p className="text-gray-600 mt-2">Sistema de Gestão Jurídica</p>
+          </div>
+
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="space-y-1 pb-4">
+              <CardTitle className="text-2xl text-center">Acesso ao Sistema</CardTitle>
+              <CardDescription className="text-center">
+                Entre com suas credenciais ou crie uma nova conta
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="login" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="login">Entrar</TabsTrigger>
+                  <TabsTrigger value="register">Criar Conta</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="login">
+                  <Form {...loginForm}>
+                    <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                      <FormField
+                        control={loginForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nome de Usuário</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Digite seu nome de usuário" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={loginForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Senha</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Digite sua senha" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? "Entrando..." : "Entrar"}
+                      </Button>
+                    </form>
+                  </Form>
+                </TabsContent>
+                
+                <TabsContent value="register">
+                  <Form {...registerForm}>
+                    <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={registerForm.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Nome" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={registerForm.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sobrenome</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Sobrenome" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="Digite seu email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nome de Usuário</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Escolha um nome de usuário" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Senha</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Escolha uma senha" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? "Criando..." : "Criar Conta"}
+                      </Button>
+                    </form>
+                  </Form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Right side - Hero Section */}
+      <div className="flex-1 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 p-8 text-white flex items-center justify-center">
+        <div className="max-w-lg text-center">
+          <Scale className="h-20 w-20 mx-auto mb-6 text-blue-200" />
+          <h2 className="text-4xl font-bold mb-6">
+            Gestão Jurídica Profissional
+          </h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Sistema completo para escritórios de advocacia com controle de casos, 
+            atividades e relatórios analíticos em tempo real.
+          </p>
+          
+          <div className="grid grid-cols-1 gap-4 text-left">
+            <div className="flex items-center space-x-3">
+              <Building2 className="h-6 w-6 text-blue-300" />
+              <span className="text-blue-100">Gestão completa de casos jurídicos</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Users className="h-6 w-6 text-blue-300" />
+              <span className="text-blue-100">Controle de acesso por perfis</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Shield className="h-6 w-6 text-blue-300" />
+              <span className="text-blue-100">Auditoria completa de atividades</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

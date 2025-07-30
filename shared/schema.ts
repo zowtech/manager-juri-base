@@ -24,12 +24,14 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table - required for Replit Auth
+// User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
+  email: varchar("email").unique().notNull(),
+  username: varchar("username").unique().notNull(),
+  password: varchar("password").notNull(),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("editor"), // admin or editor
   createdAt: timestamp("created_at").defaultNow(),
@@ -93,6 +95,17 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
 }));
 
 // Schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const loginUserSchema = z.object({
+  username: z.string().min(1, "Username é obrigatório"),
+  password: z.string().min(1, "Senha é obrigatória"),
+});
+
 export const insertCaseSchema = createInsertSchema(cases).omit({
   id: true,
   createdAt: true,
@@ -106,8 +119,9 @@ export const insertActivityLogSchema = createInsertSchema(activityLog).omit({
   createdAt: true,
 });
 
-export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type LoginUser = z.infer<typeof loginUserSchema>;
 export type Case = typeof cases.$inferSelect;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;

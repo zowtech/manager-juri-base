@@ -3,7 +3,7 @@ import {
   cases,
   activityLog,
   type User,
-  type UpsertUser,
+  type InsertUser,
   type Case,
   type InsertCase,
   type CaseWithRelations,
@@ -15,9 +15,11 @@ import { db } from "./db";
 import { eq, desc, sql, and, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations - required for Replit Auth
+  // User operations
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
   
   // Case operations
   createCase(caseData: InsertCase, createdById: string): Promise<Case>;
@@ -50,17 +52,20 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
       .returning();
     return user;
   }
@@ -79,10 +84,25 @@ export class DatabaseStorage implements IStorage {
 
   async getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]> {
     let query = db
-      .select()
+      .select({
+        case: cases,
+        assignedTo: users,
+        createdBy: { 
+          id: users.id, 
+          firstName: users.firstName, 
+          lastName: users.lastName, 
+          email: users.email,
+          username: users.username,
+          role: users.role,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          password: users.password,
+          profileImageUrl: users.profileImageUrl
+        }
+      })
       .from(cases)
       .leftJoin(users, eq(cases.assignedToId, users.id))
-      .innerJoin({ createdBy: users }, eq(cases.createdById, users.id))
+      .innerJoin({ createdByUser: users }, eq(cases.createdById, users.id))
       .orderBy(
         sql`CASE 
           WHEN ${cases.status} = 'concluido' THEN 2 
@@ -114,25 +134,40 @@ export class DatabaseStorage implements IStorage {
     const result = await query;
     
     return result.map(row => ({
-      ...row.cases,
-      assignedTo: row.users,
+      ...row.case,
+      assignedTo: row.assignedTo,
       createdBy: row.createdBy,
     }));
   }
 
   async getCaseById(id: string): Promise<CaseWithRelations | undefined> {
     const [result] = await db
-      .select()
+      .select({
+        case: cases,
+        assignedTo: users,
+        createdBy: { 
+          id: users.id, 
+          firstName: users.firstName, 
+          lastName: users.lastName, 
+          email: users.email,
+          username: users.username,
+          role: users.role,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          password: users.password,
+          profileImageUrl: users.profileImageUrl
+        }
+      })
       .from(cases)
       .leftJoin(users, eq(cases.assignedToId, users.id))
-      .innerJoin({ createdBy: users }, eq(cases.createdById, users.id))
+      .innerJoin({ createdByUser: users }, eq(cases.createdById, users.id))
       .where(eq(cases.id, id));
 
     if (!result) return undefined;
 
     return {
-      ...result.cases,
-      assignedTo: result.users,
+      ...result.case,
+      assignedTo: result.assignedTo,
       createdBy: result.createdBy,
     };
   }
@@ -182,7 +217,10 @@ export class DatabaseStorage implements IStorage {
 
   async getActivityLogs(filters?: { action?: string; date?: string }): Promise<ActivityLogWithUser[]> {
     let query = db
-      .select()
+      .select({
+        activity: activityLog,
+        user: users
+      })
       .from(activityLog)
       .innerJoin(users, eq(activityLog.userId, users.id))
       .orderBy(desc(activityLog.createdAt));
@@ -211,8 +249,8 @@ export class DatabaseStorage implements IStorage {
     const result = await query;
     
     return result.map(row => ({
-      ...row.activity_log,
-      user: row.users,
+      ...row.activity,
+      user: row.user,
     }));
   }
 
