@@ -61,23 +61,12 @@ export default function Layout({ children }: LayoutProps) {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0`}>
         
-        {/* Header */}
-        <div className="flex items-center justify-between h-20 px-6 bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-500">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={facilityLogo} 
-              alt="BASE FACILITIES" 
-              className="w-10 h-10 rounded-lg object-cover border-2 border-white/20"
-            />
-            <div>
-              <div className="text-white font-bold text-lg">BASE FACILITIES</div>
-              <div className="text-blue-100 text-xs">Sistema Jurídico</div>
-            </div>
-          </div>
+        {/* Mobile Close Button */}
+        <div className="flex justify-end p-4 lg:hidden">
           <Button
             variant="ghost"
             size="sm"
-            className="lg:hidden text-white hover:bg-white/10"
+            className="text-slate-300 hover:bg-slate-700"
             onClick={() => setSidebarOpen(false)}
           >
             <X size={20} />
@@ -85,7 +74,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* User Info */}
-        <div className="p-6 border-b border-slate-700">
+        <div className="p-6 border-b border-slate-700 mt-4">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white font-semibold text-lg">
