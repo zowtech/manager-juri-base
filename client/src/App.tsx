@@ -13,17 +13,22 @@ import ActivityLog from "@/pages/ActivityLog";
 import Layout from "@/components/Layout";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Mostrar loading apenas por um breve momento
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
+  // Se não há usuário autenticado, mostrar página de login
+  if (!isAuthenticated || !user) {
     return <AuthPage />;
   }
 

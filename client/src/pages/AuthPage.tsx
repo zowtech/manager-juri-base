@@ -37,14 +37,12 @@ export default function AuthPage() {
       const response = await apiRequest("POST", "/api/login", data);
       const user: UserType = await response.json();
       queryClient.setQueryData(["/api/user"], user);
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Acesso autorizado",
         description: `Bem-vindo, ${user.firstName}!`,
         duration: 2000,
       });
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 500);
     } catch (error: any) {
       toast({
         title: "Acesso negado",
