@@ -138,7 +138,7 @@ export default function Cases() {
       return response.json();
     },
     onSuccess: (_, variables) => {
-      // Invalidar múltiplas consultas para garantir atualização completa
+      // Invalidar todas as consultas relacionadas
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       
@@ -148,15 +148,17 @@ export default function Cases() {
         'concluido': 'Concluído',
         'pendente': 'Pendente'
       };
+      
       toast({
-        title: "Status atualizado",
-        description: `Status alterado para: ${statusLabels[variables.status as keyof typeof statusLabels]}`,
+        title: "Status atualizado com sucesso",
+        description: `Processo alterado para: ${statusLabels[variables.status as keyof typeof statusLabels]}`,
+        variant: "default"
       });
       
-      // Forçar recarregamento da lista para atualizar categorização
+      // Forçar atualização imediata da interface
       setTimeout(() => {
         queryClient.refetchQueries({ queryKey: ["/api/cases"] });
-      }, 100);
+      }, 50);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -257,9 +259,9 @@ export default function Cases() {
     return matchesMatricula && matchesNome && matchesStatus && matchesSearch && matchesDate;
   }) || [];
 
-  const pendingCases = filteredCases.filter(c => c.status === 'novo' || c.status === 'andamento' || c.status === 'pendente');
-  const completedCases = filteredCases.filter(c => c.status === 'concluido');
-  const overdueCases = filteredCases.filter(c => {
+  const pendingCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'novo' || c.status === 'andamento' || c.status === 'pendente');
+  const completedCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'concluido');
+  const overdueCases = filteredCases.filter((c: CaseWithRelations) => {
     if (!c.dueDate || c.status === 'concluido') return false;
     return new Date(c.dueDate) < new Date();
   });
@@ -306,44 +308,57 @@ export default function Cases() {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title="Alterar status"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {/* Sistema de permissões baseado em canChangeStatus */}
-                      {canChangeStatus(user, caseData.status, 'novo') && caseData.status !== 'novo' && (
-                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'novo' })}>
-                          <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
-                          Novo
-                        </DropdownMenuItem>
-                      )}
-                      {canChangeStatus(user, caseData.status, 'andamento') && caseData.status !== 'andamento' && (
-                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'andamento' })}>
-                          <Clock className="mr-2 h-4 w-4 text-blue-600" />
-                          Em Andamento
-                        </DropdownMenuItem>
-                      )}
-                      {canChangeStatus(user, caseData.status, 'pendente') && caseData.status !== 'pendente' && (
-                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'pendente' })}>
-                          <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
-                          Pendente
-                        </DropdownMenuItem>
-                      )}
-                      {canChangeStatus(user, caseData.status, 'concluido') && caseData.status !== 'concluido' && (
-                        <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}>
-                          <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                          Concluído
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {/* Botões de ação simples e diretos */}
+                  {caseData.status !== 'concluido' && canChangeStatus(user, caseData.status, 'concluido') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'concluido' })}
+                      title="Marcar como concluído"
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {caseData.status === 'concluido' && canChangeStatus(user, caseData.status, 'andamento') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'andamento' })}
+                      title="Reabrir processo"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {user?.role === 'admin' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Mais opções de status"
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {caseData.status !== 'novo' && (
+                          <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'novo' })}>
+                            <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
+                            Marcar como Novo
+                          </DropdownMenuItem>
+                        )}
+                        {caseData.status !== 'pendente' && (
+                          <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ id: caseData.id, status: 'pendente' })}>
+                            <AlertTriangle className="mr-2 h-4 w-4 text-red-600" />
+                            Marcar como Pendente
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   {user?.role === 'admin' && (
                     <Button
                       variant="ghost"
