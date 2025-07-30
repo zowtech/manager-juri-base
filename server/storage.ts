@@ -144,9 +144,9 @@ export class DatabaseStorage implements IStorage {
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
       filteredCases = filteredCases.filter(c => 
-        c.matricula.toLowerCase().includes(searchLower) ||
-        c.nome.toLowerCase().includes(searchLower) ||
-        c.processo.toLowerCase().includes(searchLower)
+        c.clientName.toLowerCase().includes(searchLower) ||
+        c.processNumber.toLowerCase().includes(searchLower) ||
+        c.description.toLowerCase().includes(searchLower)
       );
     }
 

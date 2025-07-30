@@ -102,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'create',
         'case',
         newCase.id,
-        `Criou novo processo para ${newCase.clientName}`
+        `Criou novo processo ${newCase.processNumber}`
       );
 
       res.status(201).json(newCase);
@@ -125,7 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check permissions - admin can edit everything, editor can only edit certain fields
-      if (user.role !== 'admin') {
+      if (req.user.role !== 'admin') {
         const allowedFields = ['description', 'dueDate', 'assignedToId'];
         const requestedFields = Object.keys(req.body);
         const hasRestrictedFields = requestedFields.some(field => !allowedFields.includes(field));
@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'edit',
         'case',
         id,
-        `Editou processo ${caseData.clientName}`
+        `Editou processo ${caseData.processNumber}`
       );
 
       res.json(updatedCase);
@@ -178,7 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'status_change',
         'case',
         id,
-        `Alterou status do processo ${caseData.clientName} para ${status}`
+        `Alterou status do processo ${caseData.processNumber} para ${status}`
       );
 
       res.json(updatedCase);
@@ -191,9 +191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/cases/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
-      const user = await storage.getUser(req.user.claims.sub);
       
-      if (!user || user.role !== 'admin') {
+      if (req.user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
@@ -209,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'delete',
         'case',
         id,
-        `Excluiu processo ${caseData.clientName}`
+        `Excluiu processo ${caseData.processNumber}`
       );
 
       res.status(204).send();

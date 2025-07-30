@@ -228,13 +228,13 @@ export default function Cases() {
 
   // Aplicar filtros e categorizar casos
   const filteredCases = cases?.filter((caseData: CaseWithRelations) => {
-    const matchesMatricula = !matriculaFilter || caseData.matricula.toLowerCase().includes(matriculaFilter.toLowerCase());
-    const matchesNome = !nomeFilter || caseData.nome.toLowerCase().includes(nomeFilter.toLowerCase());
+    const matchesMatricula = !matriculaFilter || caseData.clientName.toLowerCase().includes(matriculaFilter.toLowerCase());
+    const matchesNome = !nomeFilter || caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase());
     const matchesStatus = statusFilter === 'all' || caseData.status === statusFilter;
-    const matchesSearch = !searchTerm || caseData.processo.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = (!dateFilter && !dateFilterTo) || (caseData.prazoEntrega && (
-      (!dateFilter || new Date(caseData.prazoEntrega) >= new Date(dateFilter)) &&
-      (!dateFilterTo || new Date(caseData.prazoEntrega) <= new Date(dateFilterTo))
+    const matchesSearch = !searchTerm || caseData.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDate = (!dateFilter && !dateFilterTo) || (caseData.dueDate && (
+      (!dateFilter || new Date(caseData.dueDate) >= new Date(dateFilter)) &&
+      (!dateFilterTo || new Date(caseData.dueDate) <= new Date(dateFilterTo))
     ));
     
     return matchesMatricula && matchesNome && matchesStatus && matchesSearch && matchesDate;
@@ -243,8 +243,8 @@ export default function Cases() {
   const pendingCases = filteredCases.filter(c => c.status !== 'concluido');
   const completedCases = filteredCases.filter(c => c.status === 'concluido');
   const overdueCases = filteredCases.filter(c => {
-    if (!c.prazoEntrega || c.status === 'concluido') return false;
-    return new Date(c.prazoEntrega) < new Date();
+    if (!c.dueDate || c.status === 'concluido') return false;
+    return new Date(c.dueDate) < new Date();
   });
 
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
@@ -252,11 +252,11 @@ export default function Cases() {
       <Table>
         <TableHeader className="bg-gray-50/80">
           <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Matrícula</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Cliente</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Descrição</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Audiência</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Data Início</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
             <TableHead className="font-semibold text-gray-700">Ações</TableHead>
           </TableRow>
@@ -264,16 +264,16 @@ export default function Cases() {
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
             <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
-              <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.matricula}</TableCell>
-              <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.nome}</TableCell>
+              <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.clientName}</TableCell>
+              <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.processNumber}</TableCell>
               <TableCell className="border-r border-gray-100 py-4 max-w-xs">
-                <ProcessTagRenderer processo={caseData.processo} />
+                <ProcessTagRenderer processo={caseData.description} />
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">
-                <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
+                <DeadlineAlert prazoEntrega={caseData.dueDate} status={caseData.status} />
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">
-                {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
+                {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
               <TableCell className="py-4">
