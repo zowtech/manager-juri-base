@@ -44,11 +44,18 @@ Preferred communication style: Simple, everyday language.
 - **Authorization**: Role-based access control (admin/editor roles)
 - **Security**: Secure HTTP-only cookies with CSRF protection
 
-### Case Management
-- **CRUD Operations**: Full create, read, update, delete for legal cases
+### Case Management (Updated December 2024)
+- **Field Structure**: Matrícula, Nome, Processo, Prazo de entrega, Audiência, Status
+- **Process Tags**: Comma-separated processes display as individual badges for analytics
+- **Deadline Alerts**: Color-coded alerts (red=overdue, orange=approaching, green=safe)
+- **Advanced Filtering**: Multi-column filters including matrícula, nome, status, date, and process search
+- **Professional UI**: Enhanced table with borders, professional styling, and responsive design
 - **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
-- **Assignment System**: Cases can be assigned to specific users
-- **Due Date Management**: Tracking of case deadlines and completion dates
+
+### Process Analytics
+- **Tag Visualization**: Process fields split by commas into individual badges
+- **Dashboard Integration**: Process tag frequency tracking for legal department insights
+- **Responsive Design**: Mobile-friendly tag display with elegant wrapping
 
 ### Activity Logging
 - **Comprehensive Audit**: All user actions are logged with timestamps
