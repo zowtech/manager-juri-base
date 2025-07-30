@@ -14,29 +14,35 @@ import Layout from "@/components/Layout";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthPage />;
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={AuthPage} />
-      ) : (
-        <>
-          <Route path="/">
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </Route>
-          <Route path="/cases">
-            <Layout>
-              <Cases />
-            </Layout>
-          </Route>
-          <Route path="/activity-log">
-            <Layout>
-              <ActivityLog />
-            </Layout>
-          </Route>
-        </>
-      )}
+      <Route path="/">
+        <Layout>
+          <Dashboard />
+        </Layout>
+      </Route>
+      <Route path="/cases">
+        <Layout>
+          <Cases />
+        </Layout>
+      </Route>
+      <Route path="/activity-log">
+        <Layout>
+          <ActivityLog />
+        </Layout>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
