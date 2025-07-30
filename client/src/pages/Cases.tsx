@@ -13,6 +13,8 @@ import { apiRequest } from "@/lib/queryClient";
 import CaseModal from "@/components/CaseModal";
 import { Plus, FileDown, Eye, Edit, Check, Trash2, UserPlus, Clock } from "lucide-react";
 import type { CaseWithRelations } from "@shared/schema";
+import ProcessTagRenderer from "@/components/ProcessTagRenderer";
+import DeadlineAlert from "@/components/DeadlineAlert";
 
 export default function Cases() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -226,33 +228,30 @@ export default function Cases() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente</TableHead>
+                <TableHead>Matrícula</TableHead>
+                <TableHead>Nome</TableHead>
                 <TableHead>Processo</TableHead>
-                <TableHead>Data Início</TableHead>
-                <TableHead>Data Conclusão</TableHead>
-                <TableHead>Responsável</TableHead>
+                <TableHead>Prazo de Entrega</TableHead>
+                <TableHead>Audiência</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {completedCases.map((caseData: CaseWithRelations) => (
                 <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50`}>
-                  <TableCell className="font-medium">{caseData.clientName}</TableCell>
+                  <TableCell className="font-medium">{caseData.matricula}</TableCell>
+                  <TableCell className="font-medium">{caseData.nome}</TableCell>
                   <TableCell>
-                    <div>
-                      <div className="text-sm">{caseData.description}</div>
-                      {caseData.processNumber && (
-                        <div className="text-xs text-gray-500">#{caseData.processNumber}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{new Date(caseData.startDate).toLocaleDateString('pt-BR')}</TableCell>
-                  <TableCell>
-                    {caseData.completedDate ? new Date(caseData.completedDate).toLocaleDateString('pt-BR') : '-'}
+                    <ProcessTagRenderer processo={caseData.processo} maxTags={2} />
                   </TableCell>
                   <TableCell>
-                    {caseData.assignedTo ? `${caseData.assignedTo.firstName} ${caseData.assignedTo.lastName}` : '-'}
+                    <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
                   </TableCell>
+                  <TableCell>
+                    {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(caseData.status)}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="sm">
@@ -287,35 +286,30 @@ export default function Cases() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente</TableHead>
+                <TableHead>Matrícula</TableHead>
+                <TableHead>Nome</TableHead>
                 <TableHead>Processo</TableHead>
-                <TableHead>Data Início</TableHead>
-                <TableHead>Prazo</TableHead>
+                <TableHead>Prazo de Entrega</TableHead>
+                <TableHead>Audiência</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Responsável</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pendingCases.map((caseData: CaseWithRelations) => (
                 <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50`}>
-                  <TableCell className="font-medium">{caseData.clientName}</TableCell>
+                  <TableCell className="font-medium">{caseData.matricula}</TableCell>
+                  <TableCell className="font-medium">{caseData.nome}</TableCell>
                   <TableCell>
-                    <div>
-                      <div className="text-sm">{caseData.description}</div>
-                      {caseData.processNumber && (
-                        <div className="text-xs text-gray-500">#{caseData.processNumber}</div>
-                      )}
-                    </div>
+                    <ProcessTagRenderer processo={caseData.processo} maxTags={2} />
                   </TableCell>
-                  <TableCell>{new Date(caseData.startDate).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>
-                    {caseData.dueDate ? new Date(caseData.dueDate).toLocaleDateString('pt-BR') : '-'}
+                    <DeadlineAlert prazoEntrega={caseData.prazoEntrega} status={caseData.status} />
+                  </TableCell>
+                  <TableCell>
+                    {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
                   </TableCell>
                   <TableCell>{getStatusBadge(caseData.status)}</TableCell>
-                  <TableCell>
-                    {caseData.assignedTo ? `${caseData.assignedTo.firstName} ${caseData.assignedTo.lastName}` : '-'}
-                  </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="sm">

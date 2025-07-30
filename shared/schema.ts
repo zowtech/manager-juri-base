@@ -41,13 +41,12 @@ export const users = pgTable("users", {
 // Legal cases table
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientName: varchar("client_name").notNull(),
-  processNumber: varchar("process_number"),
-  description: text("description").notNull(),
+  matricula: varchar("matricula").notNull(),
+  nome: varchar("nome").notNull(),
+  processo: text("processo").notNull(), // Múltiplos processos separados por vírgula
+  prazoEntrega: timestamp("prazo_entrega"),
+  audiencia: timestamp("audiencia"),
   status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
-  startDate: timestamp("start_date").notNull(),
-  dueDate: timestamp("due_date"),
-  completedDate: timestamp("completed_date"),
   assignedToId: varchar("assigned_to_id").references(() => users.id),
   createdById: varchar("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

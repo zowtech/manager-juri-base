@@ -1,258 +1,122 @@
-import { useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { insertCaseSchema, type CaseWithRelations, type InsertCase } from "@shared/schema";
-import { Save } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertCaseSchema } from "@shared/schema";
+import { z } from "zod";
 
 interface CaseModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  caseData?: CaseWithRelations | null;
+  trigger: React.ReactNode;
+  caseData?: any;
+  onSubmit: (data: any) => void;
+  isSubmitting?: boolean;
 }
 
-export default function CaseModal({ isOpen, onClose, caseData }: CaseModalProps) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  const { data: users } = useQuery({
-    queryKey: ["/api/users"],
-    enabled: isOpen,
-  });
+const formSchema = z.object({
+  matricula: z.string().min(1, "Matrícula é obrigatória"),
+  nome: z.string().min(1, "Nome é obrigatório"),
+  processo: z.string().min(1, "Processo é obrigatório"),
+  prazoEntrega: z.string().optional(),
+  audiencia: z.string().optional(),
+  status: z.string().default("novo"),
+});
 
-  const form = useForm<InsertCase>({
-    resolver: zodResolver(insertCaseSchema),
+export default function CaseModal({ trigger, caseData, onSubmit, isSubmitting }: CaseModalProps) {
+  const [open, setOpen] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      clientName: "",
-      processNumber: "",
-      description: "",
-      status: "novo",
-      startDate: new Date(),
-      dueDate: undefined,
-      assignedToId: "",
+      matricula: caseData?.matricula || "",
+      nome: caseData?.nome || "",
+      processo: caseData?.processo || "",
+      prazoEntrega: caseData?.prazoEntrega ? new Date(caseData.prazoEntrega).toISOString().split('T')[0] : "",
+      audiencia: caseData?.audiencia ? new Date(caseData.audiencia).toISOString().split('T')[0] : "",
+      status: caseData?.status || "novo",
     },
   });
 
-  // Update form when caseData changes
-  useEffect(() => {
-    if (caseData) {
-      form.reset({
-        clientName: caseData.clientName,
-        processNumber: caseData.processNumber || "",
-        description: caseData.description,
-        status: caseData.status as "novo" | "andamento" | "concluido" | "pendente",
-        startDate: new Date(caseData.startDate),
-        dueDate: caseData.dueDate ? new Date(caseData.dueDate) : undefined,
-        assignedToId: caseData.assignedToId || "",
-      });
-    } else {
-      form.reset({
-        clientName: "",
-        processNumber: "",
-        description: "",
-        status: "novo",
-        startDate: new Date(),
-        dueDate: undefined,
-        assignedToId: "",
-      });
-    }
-  }, [caseData, form]);
-
-  const saveCaseMutation = useMutation({
-    mutationFn: async (data: InsertCase) => {
-      if (caseData) {
-        await apiRequest("PATCH", `/api/cases/${caseData.id}`, data);
-      } else {
-        await apiRequest("POST", "/api/cases", data);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      toast({
-        title: "Sucesso",
-        description: caseData ? "Processo atualizado com sucesso" : "Processo criado com sucesso",
-      });
-      onClose();
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Erro",
-        description: caseData ? "Falha ao atualizar processo" : "Falha ao criar processo",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: InsertCase) => {
-    saveCaseMutation.mutate(data);
-  };
-
-  const handleClose = () => {
+  const handleSubmit = (values: z.infer<typeof formSchema>) => {
+    const submitData = {
+      ...values,
+      prazoEntrega: values.prazoEntrega ? new Date(values.prazoEntrega) : null,
+      audiencia: values.audiencia ? new Date(values.audiencia) : null,
+    };
+    onSubmit(submitData);
+    setOpen(false);
     form.reset();
-    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-screen overflow-y-auto">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>
-            {caseData ? "Editar Processo" : "Novo Processo"}
+            {caseData ? "Editar Caso" : "Novo Caso"}
           </DialogTitle>
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="clientName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cliente *</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Nome do cliente" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="processNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número do Processo</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Número do processo" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data de Início *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value}
-                        onChange={(e) => field.onChange(new Date(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prazo de Entrega</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        value={field.value instanceof Date ? field.value.toISOString().split('T')[0] : field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="andamento">Em Andamento</SelectItem>
-                        <SelectItem value="concluido">Concluído</SelectItem>
-                        <SelectItem value="pendente">Pendente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="assignedToId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsável</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar responsável" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">Nenhum responsável</SelectItem>
-                        {users?.map((user: any) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.firstName} {user.lastName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="matricula"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Matrícula</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: 1500258" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}
-              name="description"
+              name="nome"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descrição do Processo *</FormLabel>
+                  <FormLabel>Nome</FormLabel>
                   <FormControl>
-                    <Textarea
-                      {...field}
-                      rows={4}
-                      placeholder="Descreva o processo, tipo de ação, observações..."
+                    <Input placeholder="Nome completo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="processo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Processo</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Descreva os processos separados por vírgula (ex: TRABALHISTA, Rescisão indireta, Dano Moral)"
+                      className="min-h-[80px]"
+                      {...field} 
                     />
                   </FormControl>
                   <FormMessage />
@@ -260,17 +124,46 @@ export default function CaseModal({ isOpen, onClose, caseData }: CaseModalProps)
               )}
             />
             
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={handleClose}>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="prazoEntrega"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prazo de Entrega</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="audiencia"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Audiência</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={saveCaseMutation.isPending}
-                className="bg-base-navy hover:bg-blue-800"
-              >
-                <Save className="mr-2" size={16} />
-                {saveCaseMutation.isPending ? "Salvando..." : "Salvar"}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Salvando..." : (caseData ? "Salvar" : "Criar")}
               </Button>
             </div>
           </form>
