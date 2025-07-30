@@ -110,11 +110,43 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
+  app.post("/api/login", passport.authenticate("local"), async (req: any, res) => {
+    try {
+      // Log da atividade de login
+      await storage.logActivity({
+        userId: req.user.id,
+        action: 'LOGIN',
+        resourceType: 'SISTEMA',
+        resourceId: req.user.id,
+        description: `Usuário ${req.user.firstName} ${req.user.lastName} (${req.user.username}) fez login no sistema`,
+        ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+        userAgent: req.get('User-Agent') || 'unknown',
+      });
+    } catch (error) {
+      console.error('Erro ao registrar log de login:', error);
+    }
+    
     res.status(200).json(req.user);
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  app.post("/api/logout", async (req: any, res, next) => {
+    try {
+      // Log da atividade de logout antes de fazer logout
+      if (req.user) {
+        await storage.logActivity({
+          userId: req.user.id,
+          action: 'LOGOUT',
+          resourceType: 'SISTEMA',
+          resourceId: req.user.id,
+          description: `Usuário ${req.user.firstName} ${req.user.lastName} (${req.user.username}) fez logout do sistema`,
+          ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+          userAgent: req.get('User-Agent') || 'unknown',
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao registrar log de logout:', error);
+    }
+
     req.logout((err) => {
       if (err) return next(err);
       req.session.destroy((destroyErr) => {

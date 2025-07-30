@@ -99,10 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'create',
-        'case',
+        'CRIAR_PROCESSO',
+        'PROCESSO',
         newCase.id,
-        `Criou novo processo ${newCase.processNumber}`
+        `Usuário ${req.user.firstName} ${req.user.lastName} criou novo processo ${newCase.processNumber} - Cliente: ${newCase.clientName}`
       );
 
       res.status(201).json(newCase);
@@ -140,10 +140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'edit',
-        'case',
+        'EDITAR_PROCESSO',
+        'PROCESSO',
         id,
-        `Editou processo ${caseData.processNumber}`
+        `Usuário ${req.user.firstName} ${req.user.lastName} editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`
       );
 
       res.json(updatedCase);
@@ -175,10 +175,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'status_change',
-        'case',
+        'ALTERAR_STATUS',
+        'PROCESSO',
         id,
-        `Alterou status do processo ${caseData.processNumber} para ${status}`
+        `Usuário ${req.user.firstName} ${req.user.lastName} alterou status do processo ${caseData.processNumber} de "${caseData.status}" para "${status}" - Cliente: ${caseData.clientName}`
       );
 
       res.json(updatedCase);
@@ -205,10 +205,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await logActivity(
         req,
-        'delete',
-        'case',
+        'EXCLUIR_PROCESSO',
+        'PROCESSO',
         id,
-        `Excluiu processo ${caseData.processNumber}`
+        `Usuário ${req.user.firstName} ${req.user.lastName} excluiu processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`
       );
 
       res.status(204).send();

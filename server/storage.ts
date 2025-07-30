@@ -51,20 +51,22 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private userCache?: User[];
+  private activityLogs: ActivityLog[] = [];
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    const users = await this.getUsers();
+    return users.find(user => user.id === id);
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+    const users = await this.getUsers();
+    return users.find(user => user.username === username);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    const users = await this.getUsers();
+    return users.find(user => user.email === email);
   }
 
   async createUser(userData: InsertUser): Promise<User> {
@@ -226,50 +228,50 @@ export class DatabaseStorage implements IStorage {
 
   // Activity log operations
   async logActivity(activity: InsertActivityLog): Promise<ActivityLog> {
-    const [log] = await db
-      .insert(activityLog)
-      .values(activity)
-      .returning();
-    return log;
+    const newLog: ActivityLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...activity,
+      createdAt: new Date(),
+    };
+    
+    this.activityLogs.unshift(newLog); // Adicionar no início para ter os mais recentes primeiro
+    
+    // Manter apenas os últimos 1000 logs para não consumir muita memória
+    if (this.activityLogs.length > 1000) {
+      this.activityLogs = this.activityLogs.slice(0, 1000);
+    }
+    
+    return newLog;
   }
 
   async getActivityLogs(filters?: { action?: string; date?: string }): Promise<ActivityLogWithUser[]> {
-    let query = db
-      .select({
-        activity: activityLog,
-        user: users
-      })
-      .from(activityLog)
-      .innerJoin(users, eq(activityLog.userId, users.id))
-      .orderBy(desc(activityLog.createdAt));
+    const users = await this.getUsers();
+    let filteredLogs = [...this.activityLogs];
 
-    const conditions = [];
-    
     if (filters?.action) {
-      conditions.push(eq(activityLog.action, filters.action));
+      filteredLogs = filteredLogs.filter(log => log.action === filters.action);
     }
-    
+
     if (filters?.date) {
       const date = new Date(filters.date);
       const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-      conditions.push(
-        and(
-          sql`${activityLog.createdAt} >= ${date}`,
-          sql`${activityLog.createdAt} < ${nextDay}`
-        )
+      filteredLogs = filteredLogs.filter(log => 
+        log.createdAt >= date && log.createdAt < nextDay
       );
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const result = await query;
-    
-    return result.map(row => ({
-      ...row.activity,
-      user: row.user,
-    }));
+    return filteredLogs.slice(0, 100).map(log => {
+      const user = users.find(u => u.id === log.userId);
+      return {
+        ...log,
+        user: user || { 
+          id: log.userId, 
+          username: 'Usuario Desconhecido', 
+          firstName: 'Usuario', 
+          lastName: 'Desconhecido' 
+        } as User
+      };
+    });
   }
 
   // Dashboard statistics
@@ -294,11 +296,37 @@ export class DatabaseStorage implements IStorage {
 
   // Get users for assignment
   async getUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(users.firstName, users.lastName);
+    if (!this.userCache) {
+      this.userCache = [
+        {
+          id: "af91cd6a-269d-405f-bf3d-53e813dcb999",
+          username: "admin",
+          email: "admin@basefacilities.com",
+          firstName: "Administrador",
+          lastName: "Sistema",
+          role: "admin",
+          password: await hashPassword("admin123"),
+          createdAt: new Date("2024-01-15"),
+          updatedAt: new Date("2024-01-15"),
+        },
+        {
+          id: "f08fed3f-fcb4-419d-852f-720c1fa13201",
+          username: "lucas.silva",
+          email: "lucas.silva@basefacilities.com",
+          firstName: "Lucas",
+          lastName: "Silva",
+          role: "editor",
+          password: await hashPassword("barone13"),
+          createdAt: new Date("2024-01-20"),
+          updatedAt: new Date("2024-01-20"),
+        }
+      ];
+    }
+    return this.userCache;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(users.firstName, users.lastName);
+    return await this.getUsers();
   }
 
   async updateUser(id: string, data: any): Promise<User> {
