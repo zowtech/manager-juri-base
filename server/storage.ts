@@ -13,6 +13,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, or, ilike } from "drizzle-orm";
+import { hashPassword } from "./auth";
 
 export interface IStorage {
   // User operations
@@ -231,6 +232,8 @@ export class DatabaseStorage implements IStorage {
     const newLog: ActivityLog = {
       id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ...activity,
+      ipAddress: activity.ipAddress || null,
+      userAgent: activity.userAgent || null,
       createdAt: new Date(),
     };
     
@@ -306,6 +309,8 @@ export class DatabaseStorage implements IStorage {
           lastName: "Sistema",
           role: "admin",
           password: await hashPassword("admin123"),
+          profileImageUrl: null,
+          permissions: {},
           createdAt: new Date("2024-01-15"),
           updatedAt: new Date("2024-01-15"),
         },
@@ -317,6 +322,8 @@ export class DatabaseStorage implements IStorage {
           lastName: "Silva",
           role: "editor",
           password: await hashPassword("barone13"),
+          profileImageUrl: null,
+          permissions: {},
           createdAt: new Date("2024-01-20"),
           updatedAt: new Date("2024-01-20"),
         }
