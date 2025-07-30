@@ -50,11 +50,7 @@ export default function ProcessTypeChart({ cases }: ProcessTypeChartProps) {
               interval={0}
             />
             <YAxis />
-            <Tooltip 
-              formatter={[
-                (value: number) => [`${value} processo${value !== 1 ? 's' : ''}`, 'Quantidade']
-              ]}
-            />
+            <Tooltip />
             <Bar dataKey="value">
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />

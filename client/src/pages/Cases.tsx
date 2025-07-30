@@ -12,7 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import CaseModal from "@/components/CaseModal";
-import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar } from "lucide-react";
+import DocumentManager from "@/components/DocumentManager";
+import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, FileText, Paperclip } from "lucide-react";
 import type { CaseWithRelations } from "@shared/schema";
 import ProcessTagRenderer from "@/components/ProcessTagRenderer";
 import DeadlineAlert from "@/components/DeadlineAlert";
@@ -27,6 +28,7 @@ export default function Cases() {
   const [nomeFilter, setNomeFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseWithRelations | null>(null);
+  const [showDocuments, setShowDocuments] = useState<string | null>(null);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -258,6 +260,7 @@ export default function Cases() {
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Audiência</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Documentos</TableHead>
             <TableHead className="font-semibold text-gray-700">Ações</TableHead>
           </TableRow>
         </TableHeader>
@@ -276,6 +279,22 @@ export default function Cases() {
                 {caseData.audiencia ? new Date(caseData.audiencia).toLocaleDateString('pt-BR') : '-'}
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
+              <TableCell className="border-r border-gray-100 py-4">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => alert('Sistema de documentos em desenvolvimento. Use o Google Drive para organizar: Processos/' + (caseData.tipoProcesso || 'Geral') + '/' + caseData.id)}
+                    title="Gerenciar documentos"
+                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs">
+                    {caseData.tipoProcesso || 'Não Classificado'}
+                  </Badge>
+                </div>
+              </TableCell>
               <TableCell className="py-4">
                 <div className="flex items-center space-x-2">
                   <Button

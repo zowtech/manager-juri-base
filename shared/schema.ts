@@ -153,6 +153,13 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 export type Case = typeof cases.$inferSelect;
+
+export type CaseWithRelations = typeof cases.$inferSelect & {
+  assignedTo?: User;
+  createdBy?: User;
+};
+
+export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
