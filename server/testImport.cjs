@@ -4,7 +4,7 @@ const path = require('path');
 console.log('Testando importação XLSX...');
 
 try {
-  const filePath = path.resolve('../attached_assets/processos 2024_1753977488884.xlsx');
+  const filePath = path.resolve('../attached_assets/processos 2024_1753982611583.xlsx');
   console.log('Arquivo:', filePath);
   
   const workbook = XLSX.readFile(filePath);
