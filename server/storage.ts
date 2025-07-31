@@ -57,13 +57,13 @@ export class DatabaseStorage implements IStorage {
   private static casesCache: CaseWithRelations[] = []; // Static para persistir mudanças de status
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const users = await this.getUsers();
-    return users.find(user => user.id === id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const users = await this.getUsers();
-    return users.find(user => user.username === username);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {

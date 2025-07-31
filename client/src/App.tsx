@@ -59,7 +59,9 @@ function Router() {
     hasDashboard: hasPagePermission('dashboard'),
     hasCases: hasPagePermission('cases'),
     firstAllowedPage,
-    permissions: (user as any)?.permissions?.pages
+    permissions: (user as any)?.permissions?.pages,
+    fullPermissions: (user as any)?.permissions,
+    userObject: user
   });
 
   // Redirecionar se estiver na home e não tiver permissão para dashboard
