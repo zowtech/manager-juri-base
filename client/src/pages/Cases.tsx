@@ -49,7 +49,6 @@ export default function Cases() {
   }
 
   const [activeTab, setActiveTab] = useState("completed");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [dateFilterTo, setDateFilterTo] = useState("");
@@ -285,8 +284,8 @@ export default function Cases() {
       (caseData.clientName && caseData.clientName.toLowerCase().includes(nomeFilter.toLowerCase())) ||
       (caseData.processNumber && caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase()));
     
-    // Verificar status
-    const matchesStatus = statusFilter === 'all' || caseData.status === statusFilter;
+    // Aplicar todos os filtros
+    const matchesAll = true;
     
     // Verificar busca geral
     const matchesSearch = !searchTerm || 
@@ -300,7 +299,7 @@ export default function Cases() {
       (!dateFilterTo || new Date(caseData.dueDate) <= new Date(dateFilterTo))
     ));
     
-    return matchesMatricula && matchesNome && matchesStatus && matchesSearch && matchesDate;
+    return matchesMatricula && matchesNome && matchesAll && matchesSearch && matchesDate;
   }) || [];
 
   const pendingCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'novo' || c.status === 'andamento' || c.status === 'pendente');
@@ -589,24 +588,18 @@ export default function Cases() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="border-gray-300">
-                    <SelectValue placeholder="Todos os status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="novo">Novo</SelectItem>
-                    <SelectItem value="andamento">Em Andamento</SelectItem>
-                    <SelectItem value="concluido">Concluído</SelectItem>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Buscar Processo</label>
                 <Input
-                  placeholder="Buscar por descrição..."
+                  placeholder="Ex: filiação sindical, verbas..."
+                  value={processoFilter}
+                  onChange={(e) => setProcessoFilter(e.target.value)}
+                  className="border-gray-300"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Busca Geral</label>
+                <Input
+                  placeholder="Buscar por nome, processo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="border-gray-300"
@@ -639,12 +632,12 @@ export default function Cases() {
                 <Button 
                   variant="outline" 
                   onClick={() => {
-                    setStatusFilter('all');
                     setSearchTerm('');
                     setDateFilter('');
                     setDateFilterTo('');
                     setMatriculaFilter('');
                     setNomeFilter('');
+                    setProcessoFilter('');
                   }}
                   className="w-full"
                 >
