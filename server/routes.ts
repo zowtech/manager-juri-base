@@ -194,8 +194,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Case not found" });
       }
 
-      const completedDate = status === 'concluido' ? new Date() : undefined;
-      const updatedCase = await storage.updateCaseStatus(id, status, completedDate);
+      // Lógica da dataEntrega automática
+      let dataEntrega = caseData.dataEntrega;
+      let completedDate = caseData.completedDate;
+      
+      // Se mudou para "concluido", definir dataEntrega para agora
+      if (status === 'concluido' && caseData.status !== 'concluido') {
+        dataEntrega = new Date();
+        completedDate = new Date();
+      }
+      // Se mudou de "concluido" para outro status, limpar dataEntrega
+      else if (status !== 'concluido' && caseData.status === 'concluido') {
+        dataEntrega = null;
+        completedDate = null;
+      }
+      
+      const updatedCase = await storage.updateCaseStatus(id, status, completedDate, dataEntrega);
       
       await logActivity(
         req,
@@ -208,7 +222,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           clientName: caseData.clientName,
           previousStatus: caseData.status,
           newStatus: status,
-          completedDate: completedDate
+          completedDate: completedDate,
+          dataEntrega: dataEntrega
         }
       );
 

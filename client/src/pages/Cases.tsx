@@ -311,6 +311,7 @@ export default function Cases() {
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Data Início</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Data Entrega</TableHead>
             <TableHead className="font-semibold text-gray-700">Ações</TableHead>
           </TableRow>
         </TableHeader>
@@ -334,6 +335,20 @@ export default function Cases() {
                 {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
+              <TableCell className="border-r border-gray-100 py-4">
+                {caseData.dataEntrega ? (
+                  <div className="text-sm">
+                    <div className="font-medium text-green-600">
+                      {new Date(caseData.dataEntrega).toLocaleDateString('pt-BR')}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(caseData.dataEntrega).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
+              </TableCell>
               <TableCell className="py-4">
                 <div className="flex items-center space-x-2">
                   {getUserPermissions(user).canEditAllCases && (

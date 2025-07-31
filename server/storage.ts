@@ -209,7 +209,7 @@ export class DatabaseStorage implements IStorage {
     console.log(`Caso ${id} seria excluído do banco de dados`);
   }
 
-  async updateCaseStatus(id: string, status: string, completedDate?: Date): Promise<Case> {
+  async updateCaseStatus(id: string, status: string, completedDate?: Date | null, dataEntrega?: Date | null): Promise<Case> {
     await this.getCases(); // Garantir que cache está inicializado
     const caseIndex = DatabaseStorage.casesCache.findIndex(c => c.id === id);
     
@@ -223,10 +223,11 @@ export class DatabaseStorage implements IStorage {
       status,
       updatedAt: new Date(),
       completedDate: status === 'concluido' ? (completedDate || new Date()) : 
-                     status !== 'concluido' ? null : DatabaseStorage.casesCache[caseIndex].completedDate
+                     status !== 'concluido' ? null : DatabaseStorage.casesCache[caseIndex].completedDate,
+      dataEntrega: dataEntrega !== undefined ? dataEntrega : DatabaseStorage.casesCache[caseIndex].dataEntrega
     };
     
-    console.log(`📋 STATUS ATUALIZADO: Caso ${id} mudou para "${status}" no cache estático`);
+    console.log(`📋 STATUS ATUALIZADO: Caso ${id} mudou para "${status}" no cache estático. Data entrega:`, dataEntrega);
     const updatedCase = DatabaseStorage.casesCache[caseIndex];
     
     // Retornar o caso atualizado
