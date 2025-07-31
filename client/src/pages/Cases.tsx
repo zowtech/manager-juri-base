@@ -301,25 +301,32 @@ export default function Cases() {
   });
 
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg">
       <Table>
-        <TableHeader className="bg-gray-50/80">
+        <TableHeader className="bg-gray-50/80 sticky top-0 z-10">
           <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome do Funcionário</TableHead>  
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Descrição</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Observação</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Data Início</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Data Entrega</TableHead>
-            <TableHead className="font-semibold text-gray-700">Ações</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Nome do Funcionário</TableHead>  
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Processo</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Descrição</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Observação</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Prazo de Entrega</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Data Início</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Status</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Data Entrega</TableHead>
+            <TableHead className="font-semibold text-gray-700 bg-gray-50">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
             <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
-              <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.clientName}</TableCell>
+              <TableCell className="font-medium border-r border-gray-100 py-4">
+                <div className="flex flex-col">
+                  <span className="font-semibold text-gray-900">{caseData.nome || caseData.clientName}</span>
+                  {caseData.matricula && (
+                    <span className="text-xs text-gray-500">Mat: {caseData.matricula}</span>
+                  )}
+                </div>
+              </TableCell>
               <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.processNumber}</TableCell>
               <TableCell className="border-r border-gray-100 py-4 max-w-xs">
                 <ProcessTagRenderer processo={caseData.description} />
@@ -467,10 +474,11 @@ export default function Cases() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between">
+    <div className="container mx-auto px-4 py-8 max-w-7xl h-screen overflow-hidden">
+      <div className="space-y-6 h-full flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-xl flex-shrink-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">Processos Jurídicos dos Funcionários</h1>
             <p className="text-blue-100">
@@ -526,10 +534,10 @@ export default function Cases() {
 
           </div>
         </div>
-      </div>
+        </div>
 
       {/* Filtros Avançados */}
-      <Card className="shadow-lg">
+      <Card className="shadow-lg flex-shrink-0">
         <CardHeader>
           <CardTitle className="flex items-center text-gray-800">
             <Filter className="mr-2 h-4 w-4" />
@@ -660,10 +668,11 @@ export default function Cases() {
       </Card>
 
       {/* Tabs de Processos */}
-      <Card className="shadow-lg">
-        <CardContent className="p-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="bg-gray-50 px-6 py-4 border-b">
+      <div className="flex-1 overflow-hidden">
+        <Card className="shadow-lg h-full">
+          <CardContent className="p-0 h-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+            <div className="bg-gray-50 px-6 py-4 border-b flex-shrink-0">
               <TabsList className="grid w-full grid-cols-3 bg-white shadow-sm">
                 <TabsTrigger 
                   value="pending" 
@@ -689,7 +698,7 @@ export default function Cases() {
               </TabsList>
             </div>
 
-            <TabsContent value="pending" className="p-0 m-0">
+            <TabsContent value="pending" className="p-0 m-0 flex-1 overflow-hidden">
               {pendingCases.length > 0 ? (
                 renderCaseTable(pendingCases, true)
               ) : (
@@ -701,7 +710,7 @@ export default function Cases() {
               )}
             </TabsContent>
 
-            <TabsContent value="completed" className="p-0 m-0">
+            <TabsContent value="completed" className="p-0 m-0 flex-1 overflow-hidden">
               {completedCases.length > 0 ? (
                 renderCaseTable(completedCases, false)
               ) : (
@@ -713,7 +722,7 @@ export default function Cases() {
               )}
             </TabsContent>
 
-            <TabsContent value="overdue" className="p-0 m-0">
+            <TabsContent value="overdue" className="p-0 m-0 flex-1 overflow-hidden">
               {overdueCases.length > 0 ? (
                 renderCaseTable(overdueCases, true)
               ) : (
@@ -726,7 +735,8 @@ export default function Cases() {
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       {/* Modal */}
       <NewCaseModal
@@ -757,6 +767,7 @@ export default function Cases() {
         processNumber={confirmDialog.caseData?.processNumber || ''}
         clientName={confirmDialog.caseData?.clientName || ''}
       />
+      </div>
     </div>
   );
 }
