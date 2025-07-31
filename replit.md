@@ -56,13 +56,22 @@ Preferred communication style: Simple, everyday language.
 - **Authorization**: Role-based access control (admin/editor roles)
 - **Security**: Secure HTTP-only cookies with CSRF protection
 
-### Case Management (Updated December 2024)
+### Data Import System (Added July 2025)
+- **Excel Processing**: XLSX file import with automatic data mapping
+- **Historical Data**: Successfully imported 209 completed cases from 2024
+- **Employee Linking**: Automatic employee association based on name matching
+- **Data Validation**: Error handling and duplicate detection during import
+- **Audit Trail**: Full logging of import process with success/error reporting
+
+### Case Management (Updated July 2025)
 - **Field Structure**: Matrícula, Nome, Processo, Prazo de entrega, Audiência, Status
 - **Process Tags**: Comma-separated processes display as individual badges for analytics
 - **Deadline Alerts**: Color-coded alerts (red=overdue, orange=approaching, green=safe)
 - **Advanced Filtering**: Multi-column filters including matrícula, nome, status, date, and process search
 - **Professional UI**: Enhanced table with borders, professional styling, and responsive design
 - **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
+- **Automatic Date Tracking**: Data de entrega automatically set when status changes to "concluído"
+- **Historical Data**: 209 cases from 2024 imported with complete audit trail
 
 ### Process Analytics
 - **Tag Visualization**: Process fields split by commas into individual badges

@@ -1,10 +1,12 @@
-import * as XLSX from 'xlsx';
 import { db } from './db';
 import { cases, employees } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 
 export async function importCases2024FromExcel(filePath: string, createdById: string) {
   try {
+    // Usar dynamic import para XLSX no contexto ESM
+    const { default: XLSX } = await import('xlsx');
+    
     // Ler arquivo Excel
     const workbook = XLSX.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
