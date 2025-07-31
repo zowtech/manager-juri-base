@@ -49,7 +49,7 @@ export default function Cases() {
   }
 
   const [activeTab, setActiveTab] = useState("completed");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("concluido");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [dateFilterTo, setDateFilterTo] = useState("");
@@ -283,12 +283,10 @@ export default function Cases() {
   const filteredCases = cases?.filter((caseData: CaseWithRelations) => {
     // Verificar matrícula
     const matchesMatricula = !matriculaFilter || 
-      (caseData.matricula && caseData.matricula.toString().toLowerCase().includes(matriculaFilter.toLowerCase())) ||
       (caseData.clientName && caseData.clientName.toLowerCase().includes(matriculaFilter.toLowerCase()));
     
     // Verificar nome
     const matchesNome = !nomeFilter || 
-      (caseData.nome && caseData.nome.toLowerCase().includes(nomeFilter.toLowerCase())) ||
       (caseData.clientName && caseData.clientName.toLowerCase().includes(nomeFilter.toLowerCase())) ||
       (caseData.processNumber && caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase()));
     
@@ -317,14 +315,7 @@ export default function Cases() {
     return new Date(c.dueDate) < new Date();
   });
 
-  // Debug logs
-  console.log('Debug: Total cases from API:', cases?.length || 0);
-  console.log('Debug: Filtered cases:', filteredCases.length);
-  console.log('Debug: Completed cases:', completedCases.length);
-  console.log('Debug: Active tab:', activeTab);
-  if (cases && cases.length > 0) {
-    console.log('Debug: First case:', cases[0]);
-  }
+
 
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
     <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg">
@@ -347,10 +338,7 @@ export default function Cases() {
             <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
               <TableCell className="font-medium border-r border-gray-100 py-4">
                 <div className="flex flex-col">
-                  <span className="font-semibold text-gray-900">{caseData.nome || caseData.clientName}</span>
-                  {caseData.matricula && (
-                    <span className="text-xs text-gray-500">Mat: {caseData.matricula}</span>
-                  )}
+                  <span className="font-semibold text-gray-900">{caseData.clientName}</span>
                 </div>
               </TableCell>
               <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.processNumber}</TableCell>
