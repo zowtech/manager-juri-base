@@ -11,7 +11,7 @@ import {
   type InsertActivityLog,
   type ActivityLogWithUser,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, desc, sql, and, or, ilike } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
@@ -94,25 +94,25 @@ export class DatabaseStorage implements IStorage {
       let query = `
         SELECT 
           c.id,
-          c.client_name as "clientName", 
-          c.process_number as "processNumber",
+          c.client_name, 
+          c.process_number,
           c.description,
           c.status,
-          c.start_date as "startDate",
-          c.due_date as "dueDate", 
-          c.completed_date as "completedDate",
-          c.data_entrega as "dataEntrega",
-          c.tipo_processo as "tipoProcesso",
-          c.documentos_solicitados as "documentosSolicitados",
-          c.documentos_anexados as "documentosAnexados", 
+          c.start_date,
+          c.due_date, 
+          c.completed_date,
+          c.data_entrega,
+          c.tipo_processo,
+          c.documentos_solicitados,
+          c.documentos_anexados, 
           c.observacoes,
-          c.assigned_to_id as "assignedToId",
-          c.created_by_id as "createdById",
-          c.created_at as "createdAt",
-          c.updated_at as "updatedAt",
-          c.employee_id as "employeeId",
-          e.nome as "employeeName",
-          e.matricula as "matricula"
+          c.assigned_to_id,
+          c.created_by_id,
+          c.created_at,
+          c.updated_at,
+          c.employee_id,
+          e.nome as employee_name,
+          e.matricula
         FROM cases c
         LEFT JOIN employees e ON c.employee_id = e.id
         WHERE 1=1
@@ -139,38 +139,35 @@ export class DatabaseStorage implements IStorage {
 
       query += ` ORDER BY c.created_at DESC`;
 
-      const result = await db.execute({
-        sql: query,
-        args: queryParams
-      });
+      const result = await pool.query(query, queryParams);
 
       const cases = result.rows.map((row: any) => ({
         id: row.id,
-        clientName: row.clientName,
-        processNumber: row.processNumber,
+        clientName: row.client_name,
+        processNumber: row.process_number,
         description: row.description || '',
         status: row.status,
-        startDate: row.startDate,
-        dueDate: row.dueDate,
-        completedDate: row.completedDate,
-        dataEntrega: row.dataEntrega,
-        tipoProcesso: row.tipoProcesso,
-        documentosSolicitados: row.documentosSolicitados,
-        documentosAnexados: row.documentosAnexados,
+        startDate: row.start_date,
+        dueDate: row.due_date,
+        completedDate: row.completed_date,
+        dataEntrega: row.data_entrega,
+        tipoProcesso: row.tipo_processo,
+        documentosSolicitados: row.documentos_solicitados,
+        documentosAnexados: row.documentos_anexados,
         observacoes: row.observacoes,
-        assignedToId: row.assignedToId,
-        createdById: row.createdById,
-        createdAt: new Date(row.createdAt),
-        updatedAt: new Date(row.updatedAt),
+        assignedToId: row.assigned_to_id,
+        createdById: row.created_by_id,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
         assignedTo: null,
         createdBy: null,
         // Campos específicos do sistema brasileiro
         matricula: row.matricula,
-        nome: row.employeeName || row.clientName,
+        nome: row.employee_name || row.client_name,
         processo: row.description || '',
-        prazoEntrega: row.dueDate,
+        prazoEntrega: row.due_date,
         audiencia: null,
-        employeeId: row.employeeId
+        employeeId: row.employee_id
       }));
 
       return cases;
