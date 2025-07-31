@@ -18,7 +18,7 @@ import type { CaseWithRelations } from "@shared/schema";
 import ProcessTagRenderer from "@/components/ProcessTagRenderer";
 import DeadlineAlert from "@/components/DeadlineAlert";
 import EmployeeSearchModal from "@/components/EmployeeSearchModal";
-import { canChangeStatus } from "@/lib/permissions";
+import { getUserPermissions, canChangeStatus } from "@/lib/permissions";
 import ConfirmStatusDialog from "@/components/ConfirmStatusDialog";
 
 export default function Cases() {
@@ -299,7 +299,7 @@ export default function Cases() {
                 <ProcessTagRenderer processo={caseData.description} />
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">
-                <DeadlineAlert prazoEntrega={caseData.dueDate} status={caseData.status} />
+                <DeadlineAlert prazoEntrega={caseData.dueDate ? caseData.dueDate.toString() : null} status={caseData.status} />
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">
                 {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
@@ -307,17 +307,19 @@ export default function Cases() {
               <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
               <TableCell className="py-4">
                 <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedCase(caseData);
-                      setIsModalOpen(true);
-                    }}
-                    title="Editar processo"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {getUserPermissions(user).canEditAllCases && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedCase(caseData);
+                        setIsModalOpen(true);
+                      }}
+                      title="Editar processo"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                   {/* Botões de ação com confirmação */}
                   {caseData.status !== 'concluido' && canChangeStatus(user, caseData.status, 'concluido') && (
                     <Button

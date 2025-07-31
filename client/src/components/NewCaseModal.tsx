@@ -20,6 +20,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CaseWithRelations } from "@shared/schema";
+import * as React from "react";
 
 interface NewCaseModalProps {
   isOpen: boolean;
@@ -43,13 +44,34 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      clientName: caseData?.clientName || "",
-      processNumber: caseData?.processNumber || "",
-      description: caseData?.description || "",
-      dueDate: caseData?.dueDate ? new Date(caseData.dueDate).toISOString().split('T')[0] : "",
-      status: (caseData?.status as FormSchema['status']) || "novo",
+      clientName: "",
+      processNumber: "",
+      description: "",
+      dueDate: "",
+      status: "novo",
     },
   });
+
+  // Resetar formulário quando caseData muda (para edição)
+  React.useEffect(() => {
+    if (caseData) {
+      form.reset({
+        clientName: caseData.clientName || "",
+        processNumber: caseData.processNumber || "",
+        description: caseData.description || "",
+        dueDate: caseData.dueDate ? new Date(caseData.dueDate).toISOString().split('T')[0] : "",
+        status: (caseData.status as FormSchema['status']) || "novo",
+      });
+    } else {
+      form.reset({
+        clientName: "",
+        processNumber: "",
+        description: "",
+        dueDate: "",
+        status: "novo",
+      });
+    }
+  }, [caseData, form]);
 
   const handleSubmit = (values: FormSchema) => {
     const submitData = {

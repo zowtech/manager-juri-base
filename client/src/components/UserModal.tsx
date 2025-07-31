@@ -78,8 +78,8 @@ const defaultPermissions = {
   prazoEntrega: { view: true, edit: true },
   audiencia: { view: true, edit: true },
   status: { view: true, edit: true },
-  canCreateCases: true,
-  canDeleteCases: false,
+  canCreateCases: false, // Padrão: não permitir criar
+  canDeleteCases: false, // Padrão: não permitir excluir
 };
 
 export default function UserModal({ user, onSubmit, onClose, isSubmitting }: UserModalProps) {
@@ -354,9 +354,10 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                     ))}
                   </div>
 
-                  {/* Permissões Gerais */}
+                  {/* Permissões Gerais - Opcionais */}
                   <div className="space-y-3 pt-4 border-t">
-                    <h4 className="font-medium text-sm">Permissões Gerais</h4>
+                    <h4 className="font-medium text-sm">Permissões Gerais (Opcional)</h4>
+                    <p className="text-xs text-gray-500 mb-3">Deixe desmarcado para não conceder essas permissões</p>
                     
                     <FormField
                       control={form.control}
@@ -365,7 +366,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
                             <Checkbox
-                              checked={field.value}
+                              checked={field.value ?? false}
                               onCheckedChange={field.onChange}
                             />
                           </FormControl>
@@ -381,7 +382,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                         <FormItem className="flex items-center space-x-2">
                           <FormControl>
                             <Checkbox
-                              checked={field.value}
+                              checked={field.value ?? false}
                               onCheckedChange={field.onChange}
                             />
                           </FormControl>
