@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,6 +15,7 @@ import Layout from "@/components/Layout";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [location, navigate] = useLocation();
 
   // Mostrar loading apenas por um breve momento
   if (isLoading) {
@@ -50,6 +51,20 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
+  // Redirecionar se estiver na home e não tiver permissão para dashboard
+  if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
+    if (firstAllowedPage === 'cases') {
+      navigate('/cases');
+      return null;
+    } else if (firstAllowedPage === 'activityLog') {
+      navigate('/activity-log');
+      return null;
+    } else if (firstAllowedPage === 'users') {
+      navigate('/users');
+      return null;
+    }
+  }
+
   // Se não tem permissão para nenhuma página, mostrar erro
   if (!firstAllowedPage) {
     return (
@@ -76,17 +91,7 @@ function Router() {
         {hasPagePermission('users') && <Route path="/users" component={Users} />}
         {hasPagePermission('activityLog') && <Route path="/activity-log" component={ActivityLog} />}
         
-        {/* Redirecionar página inicial para primeira página permitida */}
-        {!hasPagePermission('dashboard') && (
-          <Route path="/">
-            {() => {
-              if (firstAllowedPage === 'cases') window.location.replace('/cases');
-              else if (firstAllowedPage === 'activityLog') window.location.replace('/activity-log');
-              else if (firstAllowedPage === 'users') window.location.replace('/users');
-              return null;
-            }}
-          </Route>
-        )}
+
         
         <Route component={NotFound} />
       </Switch>
