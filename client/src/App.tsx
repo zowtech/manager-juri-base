@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
@@ -38,6 +39,35 @@ function Router() {
     return (user as any)?.permissions?.pages?.[page] === true;
   };
 
+  // Encontrar a primeira página que o usuário tem permissão
+  const getFirstAllowedPage = () => {
+    if (hasPagePermission('dashboard')) return 'dashboard';
+    if (hasPagePermission('cases')) return 'cases';
+    if (hasPagePermission('activityLog')) return 'activityLog';
+    if (hasPagePermission('users')) return 'users';
+    return null;
+  };
+
+  const firstAllowedPage = getFirstAllowedPage();
+
+  // Se não tem permissão para nenhuma página, mostrar erro
+  if (!firstAllowedPage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h2>
+          <p className="text-gray-600 mb-4">
+            Você não tem permissão para acessar nenhuma página do sistema.
+            Entre em contato com o administrador.
+          </p>
+          <Button onClick={() => window.location.href = "/api/logout"} variant="outline">
+            Sair
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout>
       <Switch>
@@ -45,6 +75,19 @@ function Router() {
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
         {hasPagePermission('users') && <Route path="/users" component={Users} />}
         {hasPagePermission('activityLog') && <Route path="/activity-log" component={ActivityLog} />}
+        
+        {/* Redirecionar página inicial para primeira página permitida */}
+        {!hasPagePermission('dashboard') && (
+          <Route path="/">
+            {() => {
+              if (firstAllowedPage === 'cases') window.location.replace('/cases');
+              else if (firstAllowedPage === 'activityLog') window.location.replace('/activity-log');
+              else if (firstAllowedPage === 'users') window.location.replace('/users');
+              return null;
+            }}
+          </Route>
+        )}
+        
         <Route component={NotFound} />
       </Switch>
     </Layout>

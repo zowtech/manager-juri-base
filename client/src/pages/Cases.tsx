@@ -22,6 +22,30 @@ import { getUserPermissions, canChangeStatus } from "@/lib/permissions";
 import ConfirmStatusDialog from "@/components/ConfirmStatusDialog";
 
 export default function Cases() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  // Verificar se o usuário tem permissão para ver a página de processos
+  const hasPagePermission = () => {
+    if (user?.role === 'admin') return true;
+    return (user as any)?.permissions?.pages?.cases === true;
+  };
+
+  // Se não tem permissão, mostrar mensagem de acesso negado
+  if (!hasPagePermission()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h2>
+          <p className="text-gray-600 mb-4">
+            Você não tem permissão para acessar a página de processos.
+            Entre em contato com o administrador.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState("pending");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,8 +65,6 @@ export default function Cases() {
     newStatus: ''
   });
   
-  const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: cases, isLoading } = useQuery({
