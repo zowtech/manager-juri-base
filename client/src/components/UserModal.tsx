@@ -26,40 +26,40 @@ import type { User } from "@shared/schema";
 import { Shield, Eye, Edit } from "lucide-react";
 
 const userSchema = z.object({
-  username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
-  email: z.string().email("Email inválido"),
-  firstName: z.string().min(1, "Nome é obrigatório"),
-  lastName: z.string().min(1, "Sobrenome é obrigatório"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional(),
+  username: z.string().min(1, "Nome de usuário é obrigatório").optional().or(z.literal("")),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  firstName: z.string().optional().or(z.literal("")),
+  lastName: z.string().optional().or(z.literal("")),
+  password: z.string().optional().or(z.literal("")),
   role: z.enum(["admin", "editor", "viewer"]),
   permissions: z.object({
     matricula: z.object({
-      view: z.boolean(),
-      edit: z.boolean(),
-    }),
+      view: z.boolean().optional().default(false),
+      edit: z.boolean().optional().default(false),
+    }).optional(),
     nome: z.object({
-      view: z.boolean(),
-      edit: z.boolean(),
-    }),
+      view: z.boolean().optional().default(false),
+      edit: z.boolean().optional().default(false),
+    }).optional(),
     processo: z.object({
-      view: z.boolean(),
-      edit: z.boolean(),
-    }),
+      view: z.boolean().optional().default(false),
+      edit: z.boolean().optional().default(false),
+    }).optional(),
     prazoEntrega: z.object({
-      view: z.boolean(),
-      edit: z.boolean(),
-    }),
+      view: z.boolean().optional().default(false),
+      edit: z.boolean().optional().default(false),
+    }).optional(),
     audiencia: z.object({
-      view: z.boolean(),
-      edit: z.boolean(),
-    }),
+      view: z.boolean().optional().default(false),
+      edit: z.boolean().optional().default(false),
+    }).optional(),
     status: z.object({
-      view: z.boolean(),
-      edit: z.boolean(),
-    }),
-    canCreateCases: z.boolean(),
-    canDeleteCases: z.boolean(),
-  }),
+      view: z.boolean().optional().default(false),
+      edit: z.boolean().optional().default(false),
+    }).optional(),
+    canCreateCases: z.boolean().optional().default(false),
+    canDeleteCases: z.boolean().optional().default(false),
+  }).optional(),
 });
 
 type UserForm = z.infer<typeof userSchema>;
@@ -72,14 +72,20 @@ interface UserModalProps {
 }
 
 const defaultPermissions = {
-  matricula: { view: true, edit: true },
-  nome: { view: true, edit: true },
-  processo: { view: true, edit: true },
-  prazoEntrega: { view: true, edit: true },
-  audiencia: { view: true, edit: true },
-  status: { view: true, edit: true },
-  canCreateCases: false, // Padrão: não permitir criar
-  canDeleteCases: false, // Padrão: não permitir excluir
+  matricula: { view: false, edit: false },
+  nome: { view: false, edit: false },
+  processo: { view: false, edit: false },
+  prazoEntrega: { view: false, edit: false },
+  audiencia: { view: false, edit: false },
+  status: { view: false, edit: false },
+  canCreateCases: false,
+  canDeleteCases: false,
+  pages: {
+    dashboard: false,
+    cases: false,
+    activityLog: false,
+    users: false
+  }
 };
 
 export default function UserModal({ user, onSubmit, onClose, isSubmitting }: UserModalProps) {
@@ -197,7 +203,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                     name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nome</FormLabel>
+                        <FormLabel>Nome (Opcional)</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -211,7 +217,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                     name="lastName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Sobrenome</FormLabel>
+                        <FormLabel>Sobrenome (Opcional)</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -226,7 +232,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome de Usuário</FormLabel>
+                      <FormLabel>Nome de Usuário (Opcional)</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -240,7 +246,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email (Opcional)</FormLabel>
                       <FormControl>
                         <Input type="email" {...field} />
                       </FormControl>
@@ -254,7 +260,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{user ? "Nova Senha (deixe em branco para manter)" : "Senha"}</FormLabel>
+                      <FormLabel>{user ? "Nova Senha (Opcional - deixe em branco para manter)" : "Senha (Opcional)"}</FormLabel>
                       <FormControl>
                         <Input type="password" {...field} />
                       </FormControl>

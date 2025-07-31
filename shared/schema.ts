@@ -27,25 +27,25 @@ export const sessions = pgTable(
 // User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique().notNull(),
-  username: varchar("username").unique().notNull(),
-  password: varchar("password").notNull(),
-  firstName: varchar("first_name").notNull(),
-  lastName: varchar("last_name").notNull(),
+  email: varchar("email").unique(),
+  username: varchar("username").unique(),
+  password: varchar("password"),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("viewer"), // admin, editor, or viewer
   permissions: jsonb("permissions").default(sql`'{
-    "matricula": {"view": true, "edit": false},
-    "nome": {"view": true, "edit": false},
-    "processo": {"view": true, "edit": false},
-    "prazoEntrega": {"view": true, "edit": false},
-    "audiencia": {"view": true, "edit": false},
-    "status": {"view": true, "edit": false},
+    "matricula": {"view": false, "edit": false},
+    "nome": {"view": false, "edit": false},
+    "processo": {"view": false, "edit": false},
+    "prazoEntrega": {"view": false, "edit": false},
+    "audiencia": {"view": false, "edit": false},
+    "status": {"view": false, "edit": false},
     "canCreateCases": false,
     "canDeleteCases": false,
     "pages": {
-      "dashboard": true,
-      "cases": true,
+      "dashboard": false,
+      "cases": false,
       "activityLog": false,
       "users": false
     }
@@ -127,11 +127,16 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
 }));
 
 // Schemas
+// User insert and update schemas - all fields optional except role
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).partial().extend({
+  role: z.enum(["admin", "editor", "viewer"]).default("viewer")
 });
+
+export const updateUserSchema = insertUserSchema.partial();
 
 export const loginUserSchema = z.object({
   username: z.string().min(1, "Username é obrigatório"),
@@ -155,13 +160,6 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 export type Case = typeof cases.$inferSelect;
-
-export type CaseWithRelations = typeof cases.$inferSelect & {
-  assignedTo?: User;
-  createdBy?: User;
-};
-
-export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;

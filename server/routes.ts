@@ -313,11 +313,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const newUser = await storage.createUser(req.body);
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Se a senha estiver vazia ou undefined, gerar uma senha padrão temporária
+      const password = userData.password && userData.password.trim() !== "" 
+        ? userData.password 
+        : "temp123"; // Senha temporária padrão
+      
+      const hashedPassword = await hashPassword(password);
+      
+      const newUser = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+        // Garantir que campos opcionais tenham valores padrão apropriados
+        email: userData.email || null,
+        username: userData.username || `user_${Date.now()}`,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+      });
+      
       res.status(201).json(newUser);
     } catch (error) {
       console.error("Error creating user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create user" });
+      }
     }
   });
 
@@ -330,11 +352,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const updatedUser = await storage.updateUser(req.params.id, req.body);
+      const userData = updateUserSchema.parse(req.body);
+      
+      // Se há uma nova senha, hash ela. Caso contrário, não atualizar a senha
+      let updateData = { ...userData };
+      if (userData.password && userData.password.trim() !== "") {
+        updateData.password = await hashPassword(userData.password);
+      } else {
+        // Remove o campo password para não atualizar
+        delete updateData.password;
+      }
+      
+      const updatedUser = await storage.updateUser(req.params.id, updateData);
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user:", error);
-      res.status(500).json({ message: "Failed to update user" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update user" });
+      }
     }
   });
 
