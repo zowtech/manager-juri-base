@@ -523,14 +523,7 @@ export default function Cases() {
               <FileDown className="mr-2 h-4 w-4" />
               Exportar CSV
             </Button>
-            {user?.role === 'admin' && (
-              <Link href="/import-2024">
-                <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Importar 2024
-                </Button>
-              </Link>
-            )}
+
           </div>
         </div>
       </div>

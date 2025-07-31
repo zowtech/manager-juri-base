@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
-import ImportCases2024 from "@/pages/ImportCases2024";
+
 import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
 import Cases from "@/pages/Cases";
@@ -92,7 +92,7 @@ function Router() {
       <Switch>
         {hasPagePermission('dashboard') && <Route path="/" component={Dashboard} />}
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
-        {user?.role === 'admin' && <Route path="/import-2024" component={ImportCases2024} />}
+
         <Route path="/employees" component={Employees} />
         {hasPagePermission('users') && <Route path="/users" component={Users} />}
         {hasPagePermission('activityLog') && <Route path="/activity-log" component={ActivityLog} />}
