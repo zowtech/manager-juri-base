@@ -281,17 +281,27 @@ export default function Cases() {
 
   // Aplicar filtros e categorizar casos
   const filteredCases = cases?.filter((caseData: CaseWithRelations) => {
+    // Verificar matrícula
     const matchesMatricula = !matriculaFilter || 
       (caseData.matricula && caseData.matricula.toString().toLowerCase().includes(matriculaFilter.toLowerCase())) ||
-      caseData.clientName.toLowerCase().includes(matriculaFilter.toLowerCase());
+      (caseData.clientName && caseData.clientName.toLowerCase().includes(matriculaFilter.toLowerCase()));
+    
+    // Verificar nome
     const matchesNome = !nomeFilter || 
       (caseData.nome && caseData.nome.toLowerCase().includes(nomeFilter.toLowerCase())) ||
-      caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase());
+      (caseData.clientName && caseData.clientName.toLowerCase().includes(nomeFilter.toLowerCase())) ||
+      (caseData.processNumber && caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase()));
+    
+    // Verificar status
     const matchesStatus = statusFilter === 'all' || caseData.status === statusFilter;
+    
+    // Verificar busca geral
     const matchesSearch = !searchTerm || 
-      caseData.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      caseData.processNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      caseData.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+      (caseData.description && caseData.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (caseData.processNumber && caseData.processNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (caseData.clientName && caseData.clientName.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Verificar data
     const matchesDate = (!dateFilter && !dateFilterTo) || (caseData.dueDate && (
       (!dateFilter || new Date(caseData.dueDate) >= new Date(dateFilter)) &&
       (!dateFilterTo || new Date(caseData.dueDate) <= new Date(dateFilterTo))
@@ -306,6 +316,15 @@ export default function Cases() {
     if (!c.dueDate || c.status === 'concluido') return false;
     return new Date(c.dueDate) < new Date();
   });
+
+  // Debug logs
+  console.log('Debug: Total cases from API:', cases?.length || 0);
+  console.log('Debug: Filtered cases:', filteredCases.length);
+  console.log('Debug: Completed cases:', completedCases.length);
+  console.log('Debug: Active tab:', activeTab);
+  if (cases && cases.length > 0) {
+    console.log('Debug: First case:', cases[0]);
+  }
 
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
     <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg">
