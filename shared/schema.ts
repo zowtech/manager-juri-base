@@ -35,18 +35,18 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("viewer"), // admin, editor, or viewer
   permissions: jsonb("permissions").default(sql`'{
-    "matricula": {"view": false, "edit": false},
-    "nome": {"view": false, "edit": false},
-    "processo": {"view": false, "edit": false},
-    "prazoEntrega": {"view": false, "edit": false},
-    "audiencia": {"view": false, "edit": false},
-    "status": {"view": false, "edit": false},
-    "observacao": {"view": false, "edit": false},
+    "matricula": {"view": true, "edit": false},
+    "nome": {"view": true, "edit": false},
+    "processo": {"view": true, "edit": false},
+    "prazoEntrega": {"view": true, "edit": false},
+    "audiencia": {"view": true, "edit": false},
+    "status": {"view": true, "edit": false},
+    "observacao": {"view": true, "edit": false},
     "canCreateCases": false,
     "canDeleteCases": false,
     "pages": {
-      "dashboard": false,
-      "cases": false,
+      "dashboard": true,
+      "cases": true,
       "activityLog": false,
       "users": false
     }
