@@ -75,12 +75,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search: search as string,
       });
       
-      // Log access to cases
-      await logActivity(req, 'VIEW_CASES', 'CASE_LIST', 'all', `Visualizou lista de processos (${cases.length} encontrados)`, { 
-        filters: { status, search },
-        resultCount: cases.length 
-      });
-      
       res.json(cases);
     } catch (error) {
       console.error("Error fetching cases:", error);
@@ -95,9 +89,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!caseData) {
         return res.status(404).json({ message: "Case not found" });
       }
-      
-      // Log case access
-      await logActivity(req, 'VIEW_CASE', 'CASE', id, `Visualizou detalhes do processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`);
       
       res.json(caseData);
     } catch (error) {
@@ -269,12 +260,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stats = await storage.getCaseStats();
-      
-      // Log dashboard access
-      await logActivity(req, 'VIEW_DASHBOARD', 'DASHBOARD', 'stats', `Acessou painel de estatísticas`, { 
-        statsData: stats 
-      });
-      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -286,18 +271,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/activity-logs', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { action, date, search } = req.query;
-      console.log(`📋 Requisição de logs - Filtros: action=${action}, date=${date}, search=${search}`);
       
       const logs = await storage.getActivityLogs({
         action: action as string,
         date: date as string,
         search: search as string,
       });
-      
-      console.log(`📊 Logs encontrados: ${logs.length} registros`);
-      
-      // Don't log viewing logs to avoid infinite recursion, just console log
-      console.log(`📋 Usuario ${req.user.firstName} ${req.user.lastName} consultou ${logs.length} logs de atividade`);
       
       res.json(logs);
     } catch (error) {
@@ -313,17 +292,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only admins can manage users
       if (currentUser?.role !== 'admin') {
-        await logActivity(req, 'DENIED_ACCESS', 'USER_LIST', 'all', `Tentativa de acesso negada - usuário sem permissão de administrador`);
+        await logActivity(req, 'DENIED_ACCESS', 'USER_MANAGEMENT', 'access', `Tentativa de acesso negada ao gerenciamento de usuários`);
         return res.status(403).json({ message: "Access denied" });
       }
       
       const users = await storage.getAllUsers();
-      
-      // Log user management access
-      await logActivity(req, 'VIEW_USERS', 'USER_LIST', 'all', `Acessou lista de usuários (${users.length} usuários)`, { 
-        userCount: users.length 
-      });
-      
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);

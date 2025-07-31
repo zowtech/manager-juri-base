@@ -95,8 +95,8 @@ export default function ActivityLog() {
     <div className="space-y-6">
       {/* Header */}
       <div className="border-b border-gray-200 pb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Log de Atividades</h1>
-        <p className="text-gray-600">Acompanhe todas as ações realizadas no sistema</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Log de Modificações</h1>
+        <p className="text-gray-600">Acompanhe todas as modificações de dados realizadas no sistema</p>
       </div>
 
       {/* Filters */}
@@ -115,18 +115,18 @@ export default function ActivityLog() {
                   <SelectValue placeholder="Todas as Ações" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as Ações</SelectItem>
+                  <SelectItem value="all">Todas as Modificações</SelectItem>
                   <SelectItem value="CREATE_CASE">Criação de Processo</SelectItem>
-                  <SelectItem value="UPDATE_CASE">Atualização de Processo</SelectItem>
+                  <SelectItem value="UPDATE_CASE">Edição de Processo</SelectItem>
+                  <SelectItem value="UPDATE_STATUS">Alteração de Status</SelectItem>
                   <SelectItem value="DELETE_CASE">Exclusão de Processo</SelectItem>
-                  <SelectItem value="LOGIN">Login</SelectItem>
-                  <SelectItem value="LOGOUT">Logout</SelectItem>
+                  <SelectItem value="DENIED_ACCESS">Acesso Negado</SelectItem>
                 </SelectContent>
               </Select>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
                 <Input
-                  placeholder="Buscar atividades..."
+                  placeholder="Buscar modificações..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-64"
@@ -142,7 +142,7 @@ export default function ActivityLog() {
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardTitle className="text-lg font-semibold flex items-center">
             <History className="mr-2" size={20} />
-            Registro de Atividades
+            Registro de Modificações de Dados
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
