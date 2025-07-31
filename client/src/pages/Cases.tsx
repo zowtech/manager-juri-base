@@ -49,7 +49,7 @@ export default function Cases() {
   }
 
   const [activeTab, setActiveTab] = useState("completed");
-  const [statusFilter, setStatusFilter] = useState("concluido");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [dateFilterTo, setDateFilterTo] = useState("");
@@ -70,14 +70,9 @@ export default function Cases() {
   const queryClient = useQueryClient();
 
   const { data: cases, isLoading } = useQuery({
-    queryKey: ["/api/cases", { status: statusFilter, search: searchTerm }],
-    queryFn: async ({ queryKey }) => {
-      const [, params] = queryKey as [string, { status: string; search: string }];
-      const searchParams = new URLSearchParams();
-      if (params.status && params.status !== 'all') searchParams.set('status', params.status);
-      if (params.search) searchParams.set('search', params.search);
-      
-      const response = await fetch(`/api/cases?${searchParams.toString()}`, {
+    queryKey: ["/api/cases"],
+    queryFn: async () => {
+      const response = await fetch('/api/cases', {
         credentials: 'include',
       });
       
