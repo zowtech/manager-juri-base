@@ -28,11 +28,18 @@ export default function Cases() {
   // Verificar se o usuário tem permissão para ver a página de processos
   const hasPagePermission = () => {
     if (user?.role === 'admin') return true;
-    return (user as any)?.permissions?.pages?.cases === true;
+    const permissions = (user as any)?.permissions;
+    return permissions?.pages?.cases === true;
   };
 
   // Se não tem permissão, mostrar mensagem de acesso negado
   if (!hasPagePermission()) {
+    console.log('Cases permission check:', {
+      user: user?.username,
+      role: user?.role,
+      permissions: (user as any)?.permissions,
+      hasPermission: hasPagePermission()
+    });
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
@@ -40,6 +47,9 @@ export default function Cases() {
           <p className="text-gray-600 mb-4">
             Você não tem permissão para acessar a página de processos.
             Entre em contato com o administrador.
+          </p>
+          <p className="text-xs text-gray-400 mt-4">
+            Debug: {user?.username} | Role: {user?.role} | Cases: {String((user as any)?.permissions?.pages?.cases)}
           </p>
         </div>
       </div>
