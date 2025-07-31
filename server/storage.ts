@@ -53,8 +53,8 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   private userCache?: User[];
-  private activityLogs: ActivityLog[] = [];
-  private casesCache: CaseWithRelations[] = [];
+  private static activityLogs: ActivityLog[] = []; // Static para persistir entre reinicializações
+  private static casesCache: CaseWithRelations[] = []; // Static para persistir mudanças de status
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const users = await this.getUsers();
@@ -90,8 +90,8 @@ export class DatabaseStorage implements IStorage {
 
   async getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]> {
     // Inicializar cache se vazio
-    if (this.casesCache.length === 0) {
-      this.casesCache = [
+    if (DatabaseStorage.casesCache.length === 0) {
+      DatabaseStorage.casesCache = [
         {
           id: "1",
           clientName: "CÉLIA MARIA DE JESUS",
@@ -156,7 +156,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Aplicar filtros
-    let filteredCases = [...this.casesCache];
+    let filteredCases = [...DatabaseStorage.casesCache];
     
     if (filters?.status && filters.status !== "all") {
       filteredCases = filteredCases.filter(c => c.status === filters.status);
@@ -176,7 +176,7 @@ export class DatabaseStorage implements IStorage {
 
   async getCaseById(id: string): Promise<CaseWithRelations | undefined> {
     await this.getCases(); // Garantir que cache está inicializado
-    return this.casesCache.find(c => c.id === id);
+    return DatabaseStorage.casesCache.find(c => c.id === id);
   }
 
   async updateCase(id: string, updates: Partial<InsertCase>): Promise<Case> {
@@ -211,22 +211,23 @@ export class DatabaseStorage implements IStorage {
 
   async updateCaseStatus(id: string, status: string, completedDate?: Date): Promise<Case> {
     await this.getCases(); // Garantir que cache está inicializado
-    const caseIndex = this.casesCache.findIndex(c => c.id === id);
+    const caseIndex = DatabaseStorage.casesCache.findIndex(c => c.id === id);
     
     if (caseIndex === -1) {
       throw new Error("Case not found");
     }
     
-    // Atualizar o caso diretamente no cache
-    this.casesCache[caseIndex] = {
-      ...this.casesCache[caseIndex],
+    // Atualizar o caso diretamente no cache estático
+    DatabaseStorage.casesCache[caseIndex] = {
+      ...DatabaseStorage.casesCache[caseIndex],
       status,
       updatedAt: new Date(),
       completedDate: status === 'concluido' ? (completedDate || new Date()) : 
-                     status !== 'concluido' ? null : this.casesCache[caseIndex].completedDate
+                     status !== 'concluido' ? null : DatabaseStorage.casesCache[caseIndex].completedDate
     };
     
-    const updatedCase = this.casesCache[caseIndex];
+    console.log(`📋 STATUS ATUALIZADO: Caso ${id} mudou para "${status}" no cache estático`);
+    const updatedCase = DatabaseStorage.casesCache[caseIndex];
     
     // Retornar o caso atualizado
     return updatedCase as Case;
@@ -244,23 +245,23 @@ export class DatabaseStorage implements IStorage {
     };
     
     // Adicionar no início para ter os mais recentes primeiro
-    this.activityLogs.unshift(newLog);
+    DatabaseStorage.activityLogs.unshift(newLog);
     
     // Manter apenas os últimos 2000 logs para histórico mais extenso
-    if (this.activityLogs.length > 2000) {
-      this.activityLogs = this.activityLogs.slice(0, 2000);
+    if (DatabaseStorage.activityLogs.length > 2000) {
+      DatabaseStorage.activityLogs = DatabaseStorage.activityLogs.slice(0, 2000);
     }
     
     // Console log detalhado para monitoramento
     console.log(`📋 NOVO LOG CRIADO: [${newLog.action}] ${newLog.resourceType} - ${newLog.description}`);
-    console.log(`📋 TOTAL LOGS NO CACHE: ${this.activityLogs.length}`);
+    console.log(`📋 TOTAL LOGS NO CACHE ESTÁTICO: ${DatabaseStorage.activityLogs.length}`);
     
     return newLog;
   }
 
   async getActivityLogs(filters?: { action?: string; date?: string; search?: string }): Promise<ActivityLogWithUser[]> {
     const users = await this.getUsers();
-    let filteredLogs = [...this.activityLogs];
+    let filteredLogs = [...DatabaseStorage.activityLogs];
 
     console.log(`🔍 DEBUG: Filtros aplicados: ${JSON.stringify(filters)} - Total logs: ${filteredLogs.length}`);
 
