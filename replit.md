@@ -8,6 +8,18 @@ This is a full-stack legal case management system built with React, Express, and
 
 Preferred communication style: Simple, everyday language.
 
+## Authentication System (Updated July 2025)
+
+### Test Accounts
+- **Admin Access**: admin/admin123 (full system access)
+- **Limited Access**: lucas.silva/barone13 (cases only, no dashboard)
+
+### Permission Features
+- **Automatic Redirection**: Users without dashboard access redirect to their allowed pages
+- **Role-based Access**: Granular permissions for pages, fields, and actions
+- **Database-driven**: All permissions stored and read from PostgreSQL
+- **Smart Navigation**: Navigation menu shows only accessible pages
+
 ## System Architecture
 
 ### Frontend Architecture
