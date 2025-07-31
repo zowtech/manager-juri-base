@@ -54,6 +54,7 @@ export default function Cases() {
   const [dateFilterTo, setDateFilterTo] = useState("");
   const [matriculaFilter, setMatriculaFilter] = useState("");
   const [nomeFilter, setNomeFilter] = useState("");
+  const [processoFilter, setProcessoFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseWithRelations | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -284,8 +285,10 @@ export default function Cases() {
       (caseData.clientName && caseData.clientName.toLowerCase().includes(nomeFilter.toLowerCase())) ||
       (caseData.processNumber && caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase()));
     
-    // Aplicar todos os filtros
-    const matchesAll = true;
+    // Verificar processo (busca em description)
+    const matchesProcesso = !processoFilter || 
+      (caseData.description && caseData.description.toLowerCase().includes(processoFilter.toLowerCase())) ||
+      (caseData.processNumber && caseData.processNumber.toLowerCase().includes(processoFilter.toLowerCase()));
     
     // Verificar busca geral
     const matchesSearch = !searchTerm || 
@@ -299,7 +302,7 @@ export default function Cases() {
       (!dateFilterTo || new Date(caseData.dueDate) <= new Date(dateFilterTo))
     ));
     
-    return matchesMatricula && matchesNome && matchesAll && matchesSearch && matchesDate;
+    return matchesMatricula && matchesNome && matchesProcesso && matchesSearch && matchesDate;
   }) || [];
 
   const pendingCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'novo' || c.status === 'andamento' || c.status === 'pendente');
