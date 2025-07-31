@@ -48,7 +48,7 @@ export default function Cases() {
     );
   }
 
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("completed");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
@@ -281,10 +281,17 @@ export default function Cases() {
 
   // Aplicar filtros e categorizar casos
   const filteredCases = cases?.filter((caseData: CaseWithRelations) => {
-    const matchesMatricula = !matriculaFilter || caseData.clientName.toLowerCase().includes(matriculaFilter.toLowerCase());
-    const matchesNome = !nomeFilter || caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase());
+    const matchesMatricula = !matriculaFilter || 
+      (caseData.matricula && caseData.matricula.toString().toLowerCase().includes(matriculaFilter.toLowerCase())) ||
+      caseData.clientName.toLowerCase().includes(matriculaFilter.toLowerCase());
+    const matchesNome = !nomeFilter || 
+      (caseData.nome && caseData.nome.toLowerCase().includes(nomeFilter.toLowerCase())) ||
+      caseData.processNumber.toLowerCase().includes(nomeFilter.toLowerCase());
     const matchesStatus = statusFilter === 'all' || caseData.status === statusFilter;
-    const matchesSearch = !searchTerm || caseData.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+      caseData.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      caseData.processNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      caseData.clientName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDate = (!dateFilter && !dateFilterTo) || (caseData.dueDate && (
       (!dateFilter || new Date(caseData.dueDate) >= new Date(dateFilter)) &&
       (!dateFilterTo || new Date(caseData.dueDate) <= new Date(dateFilterTo))

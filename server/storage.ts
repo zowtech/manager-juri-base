@@ -127,14 +127,15 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (filters?.search) {
+        const searchParam = `%${filters.search.toLowerCase()}%`;
         query += ` AND (
           LOWER(c.client_name) LIKE $${queryParams.length + 1} OR
-          LOWER(c.process_number) LIKE $${queryParams.length + 1} OR
-          LOWER(c.description) LIKE $${queryParams.length + 1} OR
-          LOWER(e.nome) LIKE $${queryParams.length + 1} OR
-          LOWER(e.matricula::text) LIKE $${queryParams.length + 1}
+          LOWER(c.process_number) LIKE $${queryParams.length + 2} OR
+          LOWER(c.description) LIKE $${queryParams.length + 3} OR
+          LOWER(COALESCE(e.nome, '')) LIKE $${queryParams.length + 4} OR
+          LOWER(COALESCE(e.matricula::text, '')) LIKE $${queryParams.length + 5}
         )`;
-        queryParams.push(`%${filters.search.toLowerCase()}%`);
+        queryParams.push(searchParam, searchParam, searchParam, searchParam, searchParam);
       }
 
       query += ` ORDER BY c.created_at DESC`;
