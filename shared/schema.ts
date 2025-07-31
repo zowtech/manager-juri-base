@@ -95,6 +95,7 @@ export const activityLog = pgTable("activity_log", {
   description: text("description").notNull(),
   ipAddress: varchar("ip_address"),
   userAgent: text("user_agent"),
+  metadata: text("metadata"), // JSON metadata for additional details
   createdAt: timestamp("created_at").defaultNow(),
 });
 

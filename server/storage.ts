@@ -252,7 +252,8 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Console log detalhado para monitoramento
-    console.log(`📋 NOVO LOG: [${newLog.action}] ${newLog.resourceType} - ${newLog.description}`);
+    console.log(`📋 NOVO LOG CRIADO: [${newLog.action}] ${newLog.resourceType} - ${newLog.description}`);
+    console.log(`📋 TOTAL LOGS NO CACHE: ${this.activityLogs.length}`);
     
     return newLog;
   }
@@ -261,7 +262,7 @@ export class DatabaseStorage implements IStorage {
     const users = await this.getUsers();
     let filteredLogs = [...this.activityLogs];
 
-    // console.log(`🔍 Filtros aplicados: ${JSON.stringify(filters)} - Total logs: ${filteredLogs.length}`);
+    console.log(`🔍 DEBUG: Filtros aplicados: ${JSON.stringify(filters)} - Total logs: ${filteredLogs.length}`);
 
     if (filters?.action && filters.action !== 'all') {
       filteredLogs = filteredLogs.filter(log => log.action === filters.action);
@@ -298,7 +299,7 @@ export class DatabaseStorage implements IStorage {
       };
     });
 
-    // console.log(`✅ Retornando ${result.length} logs processados`);
+    console.log(`✅ DEBUG: Retornando ${result.length} logs processados para interface`);
     return result;
   }
 
