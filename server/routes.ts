@@ -2,8 +2,9 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertCaseSchema, insertUserSchema, loginUserSchema } from "@shared/schema";
+import { insertCaseSchema, insertUserSchema, updateUserSchema, loginUserSchema } from "@shared/schema";
 import { z } from "zod";
+import { hashPassword } from "./auth";
 
 // Middleware to check authentication
 const isAuthenticated = (req: Request, res: any, next: any) => {
