@@ -89,89 +89,95 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCases(filters?: { status?: string; search?: string }): Promise<CaseWithRelations[]> {
-    // Inicializar cache se vazio
-    if (DatabaseStorage.casesCache.length === 0) {
-      DatabaseStorage.casesCache = [
-        {
-          id: "1",
-          clientName: "CÉLIA MARIA DE JESUS",
-          processNumber: "1500258",
-          description: "TRABALHISTA, Rescisão indireta, Dano Moral",
-          status: 'andamento',
-          startDate: new Date('2024-11-01'),
-          dueDate: new Date('2024-12-15'),
-          completedDate: null,
-          tipoProcesso: "Trabalhista",
-          documentosSolicitados: null,
-          documentosAnexados: null,
-          observacoes: null,
-          assignedToId: null,
-          createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          assignedTo: null,
-          createdBy: null,
-        },
-        {
-          id: "2", 
-          clientName: "CRISTINA DE SOUSA SILVEIRA",
-          processNumber: "217584",
-          description: "Ação de indenização, IGLI, Execução por embargos acórdão, Recursos Estruturais, acordo trabalhista",
-          status: 'novo',
-          startDate: new Date('2024-11-15'),
-          dueDate: new Date('2024-12-08'),
-          completedDate: null,
-          tipoProcesso: "Dano Moral",
-          documentosSolicitados: null,
-          documentosAnexados: null,
-          observacoes: null,
-          assignedToId: null,
-          createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          assignedTo: null,
-          createdBy: null,
-        },
-        {
-          id: "3",
-          clientName: "LAÉRCIO SOBRINHO CARDOSO",
-          processNumber: "1505827",
-          description: "TRABALHISTA, Execução - embargo, outros",
-          status: 'concluido',
-          startDate: new Date('2024-10-01'),
-          dueDate: new Date('2024-11-30'),
-          completedDate: new Date('2024-11-28'),
-          tipoProcesso: "Cível",
-          documentosSolicitados: null,
-          documentosAnexados: null,
-          observacoes: null,
-          assignedToId: null,
-          createdById: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          assignedTo: null,
-          createdBy: null,
-        }
-      ];
-    }
+    try {
+      // Buscar todos os casos do banco de dados
+      let query = `
+        SELECT 
+          c.id,
+          c.client_name as "clientName", 
+          c.process_number as "processNumber",
+          c.description,
+          c.status,
+          c.start_date as "startDate",
+          c.due_date as "dueDate", 
+          c.completed_date as "completedDate",
+          c.data_entrega as "dataEntrega",
+          c.tipo_processo as "tipoProcesso",
+          c.documentos_solicitados as "documentosSolicitados",
+          c.documentos_anexados as "documentosAnexados", 
+          c.observacoes,
+          c.assigned_to_id as "assignedToId",
+          c.created_by_id as "createdById",
+          c.created_at as "createdAt",
+          c.updated_at as "updatedAt",
+          c.employee_id as "employeeId",
+          e.nome as "employeeName",
+          e.matricula as "matricula"
+        FROM cases c
+        LEFT JOIN employees e ON c.employee_id = e.id
+        WHERE 1=1
+      `;
 
-    // Aplicar filtros
-    let filteredCases = [...DatabaseStorage.casesCache];
-    
-    if (filters?.status && filters.status !== "all") {
-      filteredCases = filteredCases.filter(c => c.status === filters.status);
-    }
-    
-    if (filters?.search) {
-      const searchLower = filters.search.toLowerCase();
-      filteredCases = filteredCases.filter(c => 
-        c.clientName.toLowerCase().includes(searchLower) ||
-        c.processNumber.toLowerCase().includes(searchLower) ||
-        c.description.toLowerCase().includes(searchLower)
-      );
-    }
+      const queryParams: any[] = [];
+      
+      // Aplicar filtros
+      if (filters?.status && filters.status !== "all") {
+        query += ` AND c.status = $${queryParams.length + 1}`;
+        queryParams.push(filters.status);
+      }
+      
+      if (filters?.search) {
+        query += ` AND (
+          LOWER(c.client_name) LIKE $${queryParams.length + 1} OR
+          LOWER(c.process_number) LIKE $${queryParams.length + 1} OR
+          LOWER(c.description) LIKE $${queryParams.length + 1} OR
+          LOWER(e.nome) LIKE $${queryParams.length + 1} OR
+          LOWER(e.matricula::text) LIKE $${queryParams.length + 1}
+        )`;
+        queryParams.push(`%${filters.search.toLowerCase()}%`);
+      }
 
-    return filteredCases;
+      query += ` ORDER BY c.created_at DESC`;
+
+      const result = await db.execute({
+        sql: query,
+        args: queryParams
+      });
+
+      const cases = result.rows.map((row: any) => ({
+        id: row.id,
+        clientName: row.clientName,
+        processNumber: row.processNumber,
+        description: row.description || '',
+        status: row.status,
+        startDate: row.startDate,
+        dueDate: row.dueDate,
+        completedDate: row.completedDate,
+        dataEntrega: row.dataEntrega,
+        tipoProcesso: row.tipoProcesso,
+        documentosSolicitados: row.documentosSolicitados,
+        documentosAnexados: row.documentosAnexados,
+        observacoes: row.observacoes,
+        assignedToId: row.assignedToId,
+        createdById: row.createdById,
+        createdAt: new Date(row.createdAt),
+        updatedAt: new Date(row.updatedAt),
+        assignedTo: null,
+        createdBy: null,
+        // Campos específicos do sistema brasileiro
+        matricula: row.matricula,
+        nome: row.employeeName || row.clientName,
+        processo: row.description || '',
+        prazoEntrega: row.dueDate,
+        audiencia: null,
+        employeeId: row.employeeId
+      }));
+
+      return cases;
+    } catch (error) {
+      console.error('Erro ao buscar casos:', error);
+      throw new Error('Falha ao buscar casos do banco de dados');
+    }
   }
 
   async getCaseById(id: string): Promise<CaseWithRelations | undefined> {

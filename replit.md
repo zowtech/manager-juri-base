@@ -58,7 +58,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Import System (Added July 2025)
 - **Excel Processing**: XLSX file import with automatic data mapping
-- **Historical Data**: Successfully imported 209 completed cases from 2024
+- **Historical Data**: Successfully imported 208 cases from 2024 and 276 cases from 2025 (total: 484 cases)
 - **Employee Linking**: Automatic employee association based on name matching
 - **Data Validation**: Error handling and duplicate detection during import
 - **Audit Trail**: Full logging of import process with success/error reporting
@@ -71,8 +71,9 @@ Preferred communication style: Simple, everyday language.
 - **Professional UI**: Enhanced table with borders, professional styling, and responsive design
 - **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
 - **Automatic Date Tracking**: Data de entrega automatically set when status changes to "concluído"
-- **Historical Data**: 208 cases from 2024 successfully imported with complete audit trail
-- **Direct Database Population**: Cases fed directly into database without UI import buttons
+- **Historical Data**: 484 total cases imported (208 from 2024, 276 from 2025) with complete audit trail
+- **Direct Database Population**: All Excel data imported directly via database scripts, UI cleaned of import buttons
+- **Fixed Database Queries**: Corrected hardcoded cache in storage.ts to use real database queries
 
 ### Process Analytics
 - **Tag Visualization**: Process fields split by commas into individual badges
