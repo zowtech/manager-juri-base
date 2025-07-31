@@ -178,6 +178,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
     prazoEntrega: "Prazo de Entrega",
     audiencia: "Audiência",
     status: "Status",
+    observacao: "Observação",
   };
 
   return (

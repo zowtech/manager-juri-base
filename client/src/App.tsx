@@ -32,13 +32,19 @@ function Router() {
     return <AuthPage />;
   }
 
+  // Função para verificar se tem permissão para uma página
+  const hasPagePermission = (page: string) => {
+    if (user?.role === 'admin') return true;
+    return (user as any)?.permissions?.pages?.[page] === true;
+  };
+
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/cases" component={Cases} />
-        <Route path="/users" component={Users} />
-        <Route path="/activity-log" component={ActivityLog} />
+        {hasPagePermission('dashboard') && <Route path="/" component={Dashboard} />}
+        {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
+        {hasPagePermission('users') && <Route path="/users" component={Users} />}
+        {hasPagePermission('activityLog') && <Route path="/activity-log" component={ActivityLog} />}
         <Route component={NotFound} />
       </Switch>
     </Layout>

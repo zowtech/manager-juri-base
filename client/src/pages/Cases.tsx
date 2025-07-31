@@ -281,9 +281,10 @@ export default function Cases() {
       <Table>
         <TableHeader className="bg-gray-50/80">
           <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome do Funcionário</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Nome do Funcionário</TableHead>  
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Processo</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Descrição</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Observação</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Prazo de Entrega</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Data Início</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200">Status</TableHead>
@@ -297,6 +298,11 @@ export default function Cases() {
               <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.processNumber}</TableCell>
               <TableCell className="border-r border-gray-100 py-4 max-w-xs">
                 <ProcessTagRenderer processo={caseData.description} />
+              </TableCell>
+              <TableCell className="border-r border-gray-100 py-4 max-w-xs">
+                <div className="text-sm text-gray-600 truncate" title={caseData.observacoes || ''}>
+                  {caseData.observacoes || '-'}
+                </div>
               </TableCell>
               <TableCell className="border-r border-gray-100 py-4">
                 <DeadlineAlert prazoEntrega={caseData.dueDate ? caseData.dueDate.toString() : null} status={caseData.status} />

@@ -39,15 +39,23 @@ export default function Layout({ children }: LayoutProps) {
     });
   };
 
+  // Função para verificar se tem permissão para uma página
+  const hasPagePermission = (page: string) => {
+    if (user?.role === 'admin') return true;
+    return (user as any)?.permissions?.pages?.[page] === true;
+  };
+
   const navItems = [
-    ...((user as any)?.permissions?.pages?.dashboard !== false ? [
+    ...(hasPagePermission('dashboard') ? [
       { path: "/", icon: BarChart3, label: "Dashboard", description: "Visão geral e métricas" }
     ] : []),
-    ...((user as any)?.permissions?.pages?.cases !== false ? [
+    ...(hasPagePermission('cases') ? [
       { path: "/cases", icon: FileText, label: "Processos", description: "Gerenciar processos jurídicos" }
     ] : []),
-    { path: "/activity-log", icon: History, label: "Atividades", description: "Log de ações do sistema" },
-    ...((user as any)?.permissions?.pages?.users === true || user?.role === 'admin' ? [
+    ...(hasPagePermission('activityLog') ? [
+      { path: "/activity-log", icon: History, label: "Atividades", description: "Log de ações do sistema" }
+    ] : []),
+    ...(hasPagePermission('users') ? [
       { path: "/users", icon: UserCog, label: "Usuários", description: "Gerenciar usuários" }
     ] : []),
   ].filter(Boolean);

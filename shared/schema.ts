@@ -41,6 +41,7 @@ export const users = pgTable("users", {
     "prazoEntrega": {"view": false, "edit": false},
     "audiencia": {"view": false, "edit": false},
     "status": {"view": false, "edit": false},
+    "observacao": {"view": false, "edit": false},
     "canCreateCases": false,
     "canDeleteCases": false,
     "pages": {
