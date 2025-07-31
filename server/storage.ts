@@ -300,6 +300,11 @@ export class DatabaseStorage implements IStorage {
     });
 
     console.log(`✅ DEBUG: Retornando ${result.length} logs processados para interface`);
+    console.log(`📋 DEBUG: Primeiros 3 logs:`, result.slice(0, 3).map(log => ({
+      id: log.id,
+      action: log.action,
+      description: log.description.substring(0, 50) + '...'
+    })));
     return result;
   }
 

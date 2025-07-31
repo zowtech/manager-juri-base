@@ -13,7 +13,7 @@ export default function ActivityLog() {
   const [actionFilter, setActionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: logs, isLoading } = useQuery({
+  const { data: logs, isLoading, refetch } = useQuery({
     queryKey: ["/api/activity-logs", { action: actionFilter, search: searchTerm }],
     queryFn: async ({ queryKey }) => {
       const [, params] = queryKey as [string, { action: string; search: string }];
@@ -29,8 +29,13 @@ export default function ActivityLog() {
         throw new Error('Failed to fetch activity logs');
       }
       
-      return response.json();
+      const result = await response.json();
+      console.log('🔍 FRONTEND: Logs recebidos:', result.length);
+      return result;
     },
+    refetchInterval: 2000, // Refetch a cada 2 segundos para logs em tempo real
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Sempre considerar dados como stale
   });
 
   const getActionColor = (action: string) => {
@@ -104,6 +109,14 @@ export default function ActivityLog() {
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                onClick={() => refetch()}
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                <Search className="mr-2" size={16} />
+                Atualizar
+              </Button>
               <Button variant="outline" className="bg-green-600 text-white hover:bg-green-700">
                 <Download className="mr-2" size={16} />
                 Exportar Log
@@ -158,7 +171,10 @@ export default function ActivityLog() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs && logs.length > 0 ? logs.map((log: any) => (
+              {logs && logs.length > 0 ? (
+                logs.map((log: any) => {
+                  console.log('🔍 FRONTEND: Renderizando log:', log.id, log.action);
+                  return (
                 <TableRow key={log.id} className="hover:bg-gray-50 transition-colors">
                   <TableCell className="font-medium">
                     <div className="flex items-center space-x-2">
@@ -215,7 +231,9 @@ export default function ActivityLog() {
                     </div>
                   </TableCell>
                 </TableRow>
-              )) : (
+                  );
+                })
+              ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12">
                     <div className="flex flex-col items-center space-y-4">
