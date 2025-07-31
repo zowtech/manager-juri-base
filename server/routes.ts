@@ -356,6 +356,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import cases 2024 routes
+  app.post('/api/cases/import-2024', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { importCases2024FromExcel } = await import('./importCases2024');
+      const filePath = 'attached_assets/processos 2024_1753977488884.xlsx';
+      
+      const result = await importCases2024FromExcel(filePath, req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error importing cases 2024:", error);
+      res.status(500).json({ message: "Failed to import cases 2024" });
+    }
+  });
+
+  app.get('/api/cases/stats-2024', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { getCases2024Stats } = await import('./importCases2024');
+      const stats = await getCases2024Stats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching 2024 stats:", error);
+      res.status(500).json({ message: "Failed to fetch 2024 stats" });
+    }
+  });
+
   // User management routes
   app.get("/api/users", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import NewCaseModal from "@/components/NewCaseModal";
-import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, Users, MoreVertical } from "lucide-react";
+import { Plus, FileDown, Eye, Edit, Check, Trash2, Clock, CheckCircle, AlertTriangle, Filter, Calendar, Users, MoreVertical, Upload } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { CaseWithRelations } from "@shared/schema";
 import ProcessTagRenderer from "@/components/ProcessTagRenderer";
@@ -20,6 +20,7 @@ import DeadlineAlert from "@/components/DeadlineAlert";
 import EmployeeSearchModal from "@/components/EmployeeSearchModal";
 import { getUserPermissions, canChangeStatus } from "@/lib/permissions";
 import ConfirmStatusDialog from "@/components/ConfirmStatusDialog";
+import { Link } from "wouter";
 
 export default function Cases() {
   const { user } = useAuth();
@@ -500,7 +501,7 @@ export default function Cases() {
                 }
                 
                 // Exportar para CSV
-                const csvContent = cases.map(c => 
+                const csvContent = cases.map((c: CaseWithRelations) => 
                   `"${c.clientName || ''}","${c.processNumber || ''}","${c.description || ''}","${c.status || ''}","${c.dueDate ? new Date(c.dueDate).toLocaleDateString('pt-BR') : ''}"`
                 ).join('\n');
                 const blob = new Blob([`Nome,Processo,Descrição,Status,Prazo\n${csvContent}`], { type: 'text/csv;charset=utf-8;' });
@@ -522,6 +523,14 @@ export default function Cases() {
               <FileDown className="mr-2 h-4 w-4" />
               Exportar CSV
             </Button>
+            {user?.role === 'admin' && (
+              <Link href="/import-2024">
+                <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importar 2024
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
