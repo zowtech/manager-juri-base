@@ -11,6 +11,7 @@ import Dashboard from "@/pages/Dashboard";
 import Cases from "@/pages/Cases";
 import Users from "@/pages/Users";
 import ActivityLog from "@/pages/ActivityLog";
+import Employees from "@/pages/Employees";
 import Layout from "@/components/Layout";
 
 function Router() {
@@ -90,11 +91,9 @@ function Router() {
       <Switch>
         {hasPagePermission('dashboard') && <Route path="/" component={Dashboard} />}
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
+        <Route path="/employees" component={Employees} />
         {hasPagePermission('users') && <Route path="/users" component={Users} />}
         {hasPagePermission('activityLog') && <Route path="/activity-log" component={ActivityLog} />}
-        
-
-        
         <Route component={NotFound} />
       </Switch>
     </Layout>

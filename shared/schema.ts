@@ -9,6 +9,7 @@ import {
   text,
   integer,
   boolean,
+  date,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -59,6 +60,7 @@ export const users = pgTable("users", {
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clientName: varchar("client_name").notNull(),
+  employeeId: varchar("employee_id").references(() => employees.id), // Link para funcionário
   processNumber: varchar("process_number").notNull(),
   description: text("description").notNull(),
   status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
@@ -84,6 +86,24 @@ export const tiposProcesso = pgTable("tipos_processo", {
   cor: varchar("cor").default("#3b82f6"), // cor para identificação visual
   ativo: boolean("ativo").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Funcionários table
+export const employees = pgTable("employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matricula: varchar("matricula").unique().notNull(),
+  nome: varchar("nome").notNull(),
+  cpf: varchar("cpf").unique(),
+  rg: varchar("rg"),
+  departamento: varchar("departamento"),
+  cargo: varchar("cargo"),
+  dataAdmissao: date("data_admissao"),
+  status: varchar("status").default("ativo"), // ativo, inativo, demitido
+  email: varchar("email"),
+  telefone: varchar("telefone"),
+  endereco: text("endereco"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Activity log table
@@ -118,6 +138,14 @@ export const casesRelations = relations(cases, ({ one }) => ({
     references: [users.id],
     relationName: "createdBy",
   }),
+  employee: one(employees, {
+    fields: [cases.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const employeesRelations = relations(employees, ({ many }) => ({
+  cases: many(cases),
 }));
 
 export const activityLogRelations = relations(activityLog, ({ one }) => ({
@@ -175,3 +203,13 @@ export type CaseWithRelations = Case & {
 export type ActivityLogWithUser = ActivityLog & {
   user: User;
 };
+
+// Employee types
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployee = typeof employees.$inferInsert;
+
+export const insertEmployeeSchema = createInsertSchema(employees).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});

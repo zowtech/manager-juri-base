@@ -286,6 +286,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee routes
+  app.get('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { search } = req.query;
+      let employeeList;
+      
+      if (search) {
+        const searchTerm = `%${search.toString().toLowerCase()}%`;
+        employeeList = await db.select()
+          .from(employees)
+          .where(sql`LOWER(nome) LIKE ${searchTerm} OR LOWER(matricula) LIKE ${searchTerm}`)
+          .limit(50);
+      } else {
+        employeeList = await db.select().from(employees).orderBy(employees.nome).limit(100);
+      }
+      
+      res.json(employeeList);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      res.status(500).json({ message: "Failed to fetch employees" });
+    }
+  });
+
+  app.post('/api/employees/import', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { importEmployeesFromExcel } = await import('./importEmployees');
+      const filePath = 'attached_assets/FUNCIONARIOS_1753976833587.xlsx';
+      
+      const result = await importEmployeesFromExcel(filePath);
+      res.json(result);
+    } catch (error) {
+      console.error("Error importing employees:", error);
+      res.status(500).json({ message: "Failed to import employees" });
+    }
+  });
+
+  app.post('/api/employees/link-cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { linkCasesToEmployees } = await import('./importEmployees');
+      const result = await linkCasesToEmployees();
+      res.json(result);
+    } catch (error) {
+      console.error("Error linking cases:", error);
+      res.status(500).json({ message: "Failed to link cases" });
+    }
+  });
+
   // User management routes
   app.get("/api/users", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Bell, BarChart3, FileText, History, UserCog, LogOut, Menu, X } from "lucide-react";
+import { Bell, BarChart3, FileText, History, UserCog, LogOut, Menu, X, Users } from "lucide-react";
 import facilityLogo from "@assets/449265_6886_1753882292906.jpg";
 
 interface LayoutProps {
@@ -64,6 +64,7 @@ export default function Layout({ children }: LayoutProps) {
     const titles: Record<string, string> = {
       "/": "Dashboard - Visão Geral",
       "/cases": "Gerenciamento de Processos",
+      "/employees": "Base de Funcionários",
       "/activity-log": "Log de Atividades",
       "/users": "Gerenciamento de Usuários",
     };
