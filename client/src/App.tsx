@@ -51,8 +51,20 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
+  // DEBUG: Log redirection logic
+  console.log('App.tsx Redirect Debug:', {
+    location,
+    user: user?.username,
+    role: user?.role,
+    hasDashboard: hasPagePermission('dashboard'),
+    hasCases: hasPagePermission('cases'),
+    firstAllowedPage,
+    permissions: (user as any)?.permissions?.pages
+  });
+
   // Redirecionar se estiver na home e não tiver permissão para dashboard
   if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
+    console.log('Redirecting to:', firstAllowedPage);
     if (firstAllowedPage === 'cases') {
       navigate('/cases');
       return null;
