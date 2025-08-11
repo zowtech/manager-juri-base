@@ -290,15 +290,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCase(id: string): Promise<void> {
-    const allCases = await this.getCases();
-    const caseExists = allCases.find(c => c.id === id);
+    console.log('🗑️ DEBUG: Iniciando exclusão do caso:', id);
     
-    if (!caseExists) {
-      throw new Error("Case not found");
+    try {
+      // Deletar o caso do banco de dados
+      const deleteQuery = `DELETE FROM cases WHERE id = $1 RETURNING id`;
+      const result = await pool.query(deleteQuery, [id]);
+      
+      if (result.rows.length === 0) {
+        console.log('❌ DEBUG: Caso não encontrado para exclusão');
+        throw new Error("Case not found");
+      }
+      
+      console.log('✅ DEBUG: Caso excluído do banco:', result.rows[0].id);
+    } catch (error) {
+      console.error('❌ DEBUG: Erro ao excluir caso:', error);
+      throw error;
     }
-    
-    // Para dados de exemplo, apenas simular a exclusão
-    console.log(`Caso ${id} seria excluído do banco de dados`);
   }
 
   async updateCaseStatus(id: string, status: string, completedDate?: Date | null, dataEntrega?: Date | null): Promise<Case> {
