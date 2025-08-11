@@ -15,7 +15,6 @@ import {
   Search, 
   Filter,
   Upload, 
-  Link,
   User,
   Plus,
   Edit,
@@ -23,7 +22,8 @@ import {
   Download,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Users
 } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
@@ -32,7 +32,6 @@ export default function Employees() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     nome: "",
@@ -42,7 +41,7 @@ export default function Employees() {
     status: ""
   });
   const [formData, setFormData] = useState({
-    empresa: "",
+    empresa: "BASE FACILITIES",
     nome: "",
     matricula: "",
     rg: "",
@@ -75,26 +74,32 @@ export default function Employees() {
     },
   });
 
-  // Filtrar funcionários localmente
+  // Filtros funcionais melhorados
   const employees = useMemo(() => {
     if (!allEmployees) return [];
     
     return allEmployees.filter(emp => {
+      // Busca geral
       const matchesSearch = !searchTerm || 
-        emp.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.matricula.toLowerCase().includes(searchTerm.toLowerCase());
+        emp.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.matricula?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.rg?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.departamento?.toLowerCase().includes(searchTerm.toLowerCase());
         
+      // Filtros específicos
       const matchesFilters = 
-        (!filters.nome || emp.nome.toLowerCase().includes(filters.nome.toLowerCase())) &&
-        (!filters.matricula || emp.matricula.toLowerCase().includes(filters.matricula.toLowerCase())) &&
-        (!filters.cargo || (emp.cargo && emp.cargo.toLowerCase().includes(filters.cargo.toLowerCase()))) &&
-        (!filters.departamento || (emp.departamento && emp.departamento.toLowerCase().includes(filters.departamento.toLowerCase()))) &&
+        (!filters.nome || emp.nome?.toLowerCase().includes(filters.nome.toLowerCase())) &&
+        (!filters.matricula || emp.matricula?.toLowerCase().includes(filters.matricula.toLowerCase())) &&
+        (!filters.cargo || emp.cargo?.toLowerCase().includes(filters.cargo.toLowerCase())) &&
+        (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase())) &&
         (!filters.status || emp.status === filters.status);
         
       return matchesSearch && matchesFilters;
     });
   }, [allEmployees, searchTerm, filters]);
 
+  // Importar planilha
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -128,47 +133,14 @@ export default function Employees() {
     },
   });
 
-  const uploadAndImportFile = (file: File) => {
-    importMutation.mutate(file);
-  };
-
-  const linkCasesMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/employees/link-cases', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return response.json();
-    },
-    onSuccess: (result) => {
-      toast({
-        title: "Vinculação concluída",
-        description: `${result.linked} processos vinculados. ${result.notFound} não encontrados.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro na vinculação",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Create employee mutation
+  // Criar funcionário
   const createEmployeeMutation = useMutation({
-    mutationFn: async (employeeData: any) => {
-      const response = await apiRequest('POST', '/api/employees', employeeData);
+    mutationFn: async (data: any) => {
+      const response = await apiRequest('POST', '/api/employees', data);
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Funcionário criado", description: "Funcionário cadastrado com sucesso!" });
+      toast({ title: "Funcionário criado", description: "Funcionário adicionado com sucesso!" });
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       setIsCreateModalOpen(false);
       resetForm();
@@ -178,7 +150,7 @@ export default function Employees() {
     }
   });
 
-  // Update employee mutation
+  // Atualizar funcionário
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const response = await apiRequest('PUT', `/api/employees/${id}`, data);
@@ -195,7 +167,7 @@ export default function Employees() {
     }
   });
 
-  // Delete employee mutation
+  // Deletar funcionário
   const deleteEmployeeMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest('DELETE', `/api/employees/${id}`);
@@ -210,45 +182,10 @@ export default function Employees() {
     }
   });
 
-  // Export employees
-  const exportEmployees = async () => {
-    try {
-      toast({ title: "Exportando...", description: "Preparando arquivo para download..." });
-      
-      // Usar fetch direto para download de blob
-      const response = await fetch('/api/employees/export', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `funcionarios_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({ title: "Exportação concluída", description: "Arquivo baixado com sucesso!" });
-    } catch (error) {
-      console.error('Erro na exportação:', error);
-      toast({ title: "Erro na exportação", description: "Falha ao exportar funcionários", variant: "destructive" });
-    }
-  };
-
-  // Helper functions
+  // Funções auxiliares
   const resetForm = () => {
     setFormData({
-      empresa: "",
+      empresa: "BASE FACILITIES",
       nome: "",
       matricula: "",
       rg: "",
@@ -266,15 +203,10 @@ export default function Employees() {
     });
   };
 
-  const openCreateModal = () => {
-    resetForm();
-    setIsCreateModalOpen(true);
-  };
-
   const openEditModal = (employee: Employee) => {
     setSelectedEmployee(employee);
     setFormData({
-      empresa: employee.empresa || "",
+      empresa: employee.empresa || "BASE FACILITIES",
       nome: employee.nome || "",
       matricula: employee.matricula || "",
       rg: employee.rg || "",
@@ -317,345 +249,299 @@ export default function Employees() {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header com título e ações */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Buscar Funcionário na Base de Dados</h1>
-          <p className="text-muted-foreground">
-            Base de Dados: {allEmployees?.length || 0}.000+ funcionários cadastrados
-          </p>
+  const formatSalary = (salary: string | null) => {
+    if (!salary) return "-";
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(Number(salary));
+  };
+
+  const uploadFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      importMutation.mutate(file);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Carregando funcionários...</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsSearchModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-            <Search className="h-4 w-4 mr-2" />
-            Buscar Funcionário
-          </Button>
-          <Button onClick={openCreateModal} className="bg-green-600 hover:bg-green-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Funcionário
-          </Button>
-          <Button onClick={exportEmployees} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar
-          </Button>
-          <div className="relative">
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  uploadAndImportFile(file);
-                }
-              }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <Button
-              disabled={importMutation.isPending}
-              variant="outline"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {importMutation.isPending ? "Importando..." : "Importar Planilha"}
-            </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header Profissional */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Users className="h-8 w-8" />
+            <div>
+              <h1 className="text-2xl font-bold">Gestão de Funcionários</h1>
+              <p className="text-blue-100">BASE FACILITIES - Sistema Corporativo</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold">{employees.length}</div>
+            <div className="text-blue-100">Funcionários</div>
           </div>
         </div>
       </div>
 
-      {/* Busca rápida */}
+      {/* Barra de Ações Principais */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2 items-center">
-            <Input
-              placeholder="Buscar por nome..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
-            />
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Busca Global */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar por nome, matrícula, RG, cargo ou departamento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11 text-sm"
+              />
+            </div>
+            
+            {/* Botões de Ação */}
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className="text-blue-600 border-blue-200"
+                className="h-11"
               >
                 <Filter className="h-4 w-4 mr-2" />
-                Filtros Avançados de Busca
+                Filtros
                 {showFilters ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
               </Button>
-              <Button variant="outline" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-2" />
-                Limpar
+              
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="h-11"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Novo
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-11"
+              >
+                <label className="cursor-pointer flex items-center">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={uploadFile}
+                    className="hidden"
+                    disabled={importMutation.isPending}
+                  />
+                </label>
               </Button>
             </div>
           </div>
 
-          {/* Filtros avançados */}
+          {/* Painel de Filtros Avançados */}
           {showFilters && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 <div>
-                  <Label>Nome do Funcionário</Label>
+                  <Label className="text-sm font-medium">Nome</Label>
                   <Input
-                    placeholder="Ex: CÉLIA MARIA, CRISTINA..."
+                    placeholder="Filtrar por nome"
                     value={filters.nome}
-                    onChange={(e) => setFilters(prev => ({ ...prev, nome: e.target.value }))}
+                    onChange={(e) => setFilters({...filters, nome: e.target.value})}
+                    className="mt-1"
                   />
                 </div>
+                
                 <div>
-                  <Label>Código</Label>
+                  <Label className="text-sm font-medium">Matrícula</Label>
                   <Input
-                    placeholder="Ex: 1500258"
+                    placeholder="Filtrar por matrícula"
                     value={filters.matricula}
-                    onChange={(e) => setFilters(prev => ({ ...prev, matricula: e.target.value }))}
+                    onChange={(e) => setFilters({...filters, matricula: e.target.value})}
+                    className="mt-1"
                   />
                 </div>
+                
                 <div>
-                  <Label>Cargo</Label>
+                  <Label className="text-sm font-medium">Cargo</Label>
                   <Input
-                    placeholder="Ex: Analista"
+                    placeholder="Filtrar por cargo"
                     value={filters.cargo}
-                    onChange={(e) => setFilters(prev => ({ ...prev, cargo: e.target.value }))}
+                    onChange={(e) => setFilters({...filters, cargo: e.target.value})}
+                    className="mt-1"
                   />
                 </div>
+                
                 <div>
-                  <Label>Status</Label>
-                  <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                    <SelectTrigger>
+                  <Label className="text-sm font-medium">Departamento</Label>
+                  <Input
+                    placeholder="Filtrar por depto"
+                    value={filters.departamento}
+                    onChange={(e) => setFilters({...filters, departamento: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
+                    <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">Todos</SelectItem>
                       <SelectItem value="ativo">Ativo</SelectItem>
-                      <SelectItem value="inativo">Inativo</SelectItem>
                       <SelectItem value="demitido">Demitido</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-2" />
+                  Limpar Filtros
+                </Button>
               </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Tabela de funcionários */}
+      {/* Tabela Profissional de Funcionários */}
       <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Lista de Funcionários</CardTitle>
+            <div className="text-sm text-gray-500">
+              {employees.length} de {allEmployees?.length || 0} funcionários
+            </div>
+          </div>
+        </CardHeader>
+        
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-muted-foreground">Carregando funcionários...</p>
-            </div>
-          ) : employees?.length === 0 ? (
-            <div className="text-center py-12">
-              <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-2 font-medium">Base de Dados: 35.000+ funcionários cadastrados</p>
-              <p className="text-sm text-muted-foreground">
-                Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-gray-50">
-                  <TableRow>
-                    <TableHead className="font-semibold">Empresa</TableHead>
-                    <TableHead className="font-semibold">Nome</TableHead>
-                    <TableHead className="font-semibold">Matrícula</TableHead>
-                    <TableHead className="font-semibold">RG</TableHead>
-                    <TableHead className="font-semibold">PIS</TableHead>
-                    <TableHead className="font-semibold">Data Admissão</TableHead>
-                    <TableHead className="font-semibold">Data Demissão</TableHead>
-                    <TableHead className="font-semibold">Salário</TableHead>
-                    <TableHead className="font-semibold">Cargo</TableHead>
-                    <TableHead className="font-semibold">Centro Custo</TableHead>
-                    <TableHead className="font-semibold">Departamento</TableHead>
-                    <TableHead className="font-semibold text-center">Ações</TableHead>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  <TableHead className="w-[120px] font-semibold">Matrícula</TableHead>
+                  <TableHead className="font-semibold">Nome</TableHead>
+                  <TableHead className="font-semibold">RG</TableHead>
+                  <TableHead className="font-semibold">PIS</TableHead>
+                  <TableHead className="font-semibold">Admissão</TableHead>
+                  <TableHead className="font-semibold">Demissão</TableHead>
+                  <TableHead className="font-semibold">Salário</TableHead>
+                  <TableHead className="font-semibold">Cargo</TableHead>
+                  <TableHead className="font-semibold">Centro Custo</TableHead>
+                  <TableHead className="font-semibold">Departamento</TableHead>
+                  <TableHead className="w-[100px] font-semibold">Status</TableHead>
+                  <TableHead className="w-[100px] font-semibold">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              
+              <TableBody>
+                {employees.map((employee) => (
+                  <TableRow key={employee.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium text-blue-600">
+                      {employee.matricula}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {employee.nome}
+                    </TableCell>
+                    <TableCell className="text-gray-600">
+                      {employee.rg || "-"}
+                    </TableCell>
+                    <TableCell className="text-gray-600">
+                      {employee.pis || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {formatDate(employee.dataAdmissao)}
+                    </TableCell>
+                    <TableCell>
+                      {formatDate(employee.dataDemissao)}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {formatSalary(employee.salario)}
+                    </TableCell>
+                    <TableCell>
+                      {employee.cargo || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {employee.centroCusto || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {employee.departamento || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={employee.status === 'ativo' ? 'default' : 'secondary'}>
+                        {employee.status === 'ativo' ? 'Ativo' : 'Demitido'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(employee)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir o funcionário <strong>{employee.nome}</strong>?
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => deleteEmployeeMutation.mutate(employee.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees?.map((employee) => (
-                    <TableRow key={employee.id} className="hover:bg-gray-50">
-                      <TableCell className="text-sm">
-                        {employee.empresa || 'BASE FACILITIES'}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {employee.nome}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {employee.matricula}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {employee.rg || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {employee.pis || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatDate(employee.dataAdmissao)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatDate(employee.dataDemissao)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {employee.salario ? `R$ ${employee.salario}` : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {employee.cargo || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {employee.centroCusto || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {employee.departamento || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-center">
-                          <Button
-                            size="sm"
-                            onClick={() => openEditModal(employee)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            Editar
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                ))}
+              </TableBody>
+            </Table>
+            
+            {employees.length === 0 && (
+              <div className="text-center py-8">
+                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Nenhum funcionário encontrado</p>
+                <p className="text-sm text-gray-400">Tente ajustar os filtros ou adicionar novos funcionários</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
-      
-      <div className="text-center p-4 text-sm text-blue-600 bg-blue-50 rounded-lg border border-blue-200">
-        📋 Base de Dados: {allEmployees?.length || 0}.000+ funcionários cadastrados<br />
-        Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
-      </div>
 
-      {/* Search Employee Modal */}
-      <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader className="pb-4 border-b">
-            <DialogTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Buscar Funcionário na Base de Dados
-            </DialogTitle>
-            <DialogDescription>
-              35.000+ funcionários cadastrados. Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Search tabs */}
-          <div className="flex gap-4 pt-4">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Nome</Button>
-            <Button size="sm" variant="outline">Matrícula</Button>
-            <Button size="sm" variant="outline">RG</Button>
-            <Button size="sm" variant="outline">PIS</Button>
-          </div>
-
-          {/* Search input */}
-          <div className="space-y-4">
-            <Input 
-              placeholder="Buscar por nome..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="text-lg"
-            />
-          </div>
-
-          {/* Results table */}
-          <div className="flex-1 overflow-hidden">
-            <div className="h-80 overflow-y-auto border rounded">
-              <Table>
-                <TableHeader className="bg-gray-50 sticky top-0">
-                  <TableRow>
-                    <TableHead>Matrícula</TableHead>
-                    <TableHead>Nome Completo</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Centro de Custo</TableHead>
-                    <TableHead>Admissão</TableHead>
-                    <TableHead className="text-center">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees?.slice(0, 10).map((employee) => (
-                    <TableRow key={employee.id} className="hover:bg-gray-50">
-                      <TableCell className="font-mono text-sm">
-                        {employee.matricula}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{employee.nome}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col text-sm">
-                          <span className="font-medium">
-                            {employee.cargo || "Analista Administrativo"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            R$ {employee.salario || "3.500"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {employee.centroCusto || "ADMIN001"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {employee.departamento || "Administração Geral"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        📅 {formatDate(employee.dataAdmissao)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            openEditModal(employee);
-                            setIsSearchModalOpen(false);
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          Selecionar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          {/* Footer info */}
-          <div className="pt-4 border-t space-y-3">
-            <div className="flex items-center justify-between text-sm text-blue-600">
-              <span>📋 Base de Dados: 35.000+ funcionários cadastrados</span>
-              <span>Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.</span>
-            </div>
-            
-            {/* Botão de cadastro */}
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => {
-                  setIsSearchModalOpen(false);
-                  openCreateModal();
-                }}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                size="sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Cadastrar Novo Funcionário
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create/Edit Employee Modal */}
+      {/* Modal de Criar/Editar Funcionário */}
       <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(open) => {
         if (!open) {
           setIsCreateModalOpen(false);
@@ -663,241 +549,160 @@ export default function Employees() {
           resetForm();
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedEmployee ? 'Editar Funcionário' : 'Novo Funcionário'}
             </DialogTitle>
             <DialogDescription>
-              Preencha os dados do funcionário. Campos marcados com * são obrigatórios.
+              {selectedEmployee ? 'Altere os dados do funcionário selecionado.' : 'Preencha os dados do novo funcionário.'}
             </DialogDescription>
           </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Coluna 1: Empresa */}
-            <div className="space-y-2">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
+            <div>
               <Label htmlFor="empresa">Empresa</Label>
               <Input
                 id="empresa"
                 value={formData.empresa}
-                onChange={(e) => setFormData(prev => ({ ...prev, empresa: e.target.value }))}
-                placeholder="Ex: BASE FACILITIES LTDA"
+                onChange={(e) => setFormData({...formData, empresa: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 2: Nome */}
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo *</Label>
+            
+            <div>
+              <Label htmlFor="nome">Nome *</Label>
               <Input
                 id="nome"
                 value={formData.nome}
-                onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                placeholder="Ex: João da Silva Santos"
+                onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                className="mt-1"
+                required
               />
             </div>
-
-            {/* Coluna 3: Matrícula */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="matricula">Matrícula *</Label>
               <Input
                 id="matricula"
                 value={formData.matricula}
-                onChange={(e) => setFormData(prev => ({ ...prev, matricula: e.target.value }))}
-                placeholder="Ex: 001234"
+                onChange={(e) => setFormData({...formData, matricula: e.target.value})}
+                className="mt-1"
+                required
               />
             </div>
-
-            {/* Coluna 4: RG */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="rg">RG</Label>
               <Input
                 id="rg"
                 value={formData.rg}
-                onChange={(e) => setFormData(prev => ({ ...prev, rg: e.target.value }))}
-                placeholder="Ex: 12.345.678-9"
+                onChange={(e) => setFormData({...formData, rg: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 5: PIS */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="pis">PIS</Label>
               <Input
                 id="pis"
                 value={formData.pis}
-                onChange={(e) => setFormData(prev => ({ ...prev, pis: e.target.value }))}
-                placeholder="Ex: 123.45678.90-1"
+                onChange={(e) => setFormData({...formData, pis: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 6: Data Admissão */}
-            <div className="space-y-2">
-              <Label htmlFor="dataAdmissao">Data de Admissão</Label>
+            
+            <div>
+              <Label htmlFor="dataAdmissao">Data Admissão</Label>
               <Input
                 id="dataAdmissao"
                 type="date"
                 value={formData.dataAdmissao}
-                onChange={(e) => setFormData(prev => ({ ...prev, dataAdmissao: e.target.value }))}
+                onChange={(e) => setFormData({...formData, dataAdmissao: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 7: Data Demissão */}
-            <div className="space-y-2">
-              <Label htmlFor="dataDemissao">Data de Demissão</Label>
+            
+            <div>
+              <Label htmlFor="dataDemissao">Data Demissão</Label>
               <Input
                 id="dataDemissao"
                 type="date"
                 value={formData.dataDemissao}
-                onChange={(e) => setFormData(prev => ({ ...prev, dataDemissao: e.target.value }))}
+                onChange={(e) => setFormData({...formData, dataDemissao: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 8: Salário */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="salario">Salário</Label>
               <Input
                 id="salario"
                 value={formData.salario}
-                onChange={(e) => setFormData(prev => ({ ...prev, salario: e.target.value }))}
-                placeholder="Ex: 3500.00"
+                onChange={(e) => setFormData({...formData, salario: e.target.value})}
+                placeholder="1000.00"
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 9: Cargo */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="cargo">Cargo</Label>
               <Input
                 id="cargo"
                 value={formData.cargo}
-                onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
-                placeholder="Ex: Analista Jurídico"
+                onChange={(e) => setFormData({...formData, cargo: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 10: Centro Custo */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="centroCusto">Centro de Custo</Label>
               <Input
                 id="centroCusto"
                 value={formData.centroCusto}
-                onChange={(e) => setFormData(prev => ({ ...prev, centroCusto: e.target.value }))}
-                placeholder="Ex: ADMIN001"
+                onChange={(e) => setFormData({...formData, centroCusto: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Coluna 11: Departamento */}
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="departamento">Departamento</Label>
               <Input
                 id="departamento"
                 value={formData.departamento}
-                onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
-                placeholder="Ex: Departamento Jurídico"
+                onChange={(e) => setFormData({...formData, departamento: e.target.value})}
+                className="mt-1"
               />
             </div>
-
-            {/* Campos adicionais do sistema */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Ex: joao@empresa.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="telefone">Telefone</Label>
-              <Input
-                id="telefone"
-                value={formData.telefone}
-                onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
-                placeholder="Ex: (11) 99999-9999"
-              />
-            </div>
-
-            <div className="space-y-2">
+            
+            <div>
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o status" />
+              <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
                   <SelectItem value="demitido">Demitido</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="endereco">Endereço</Label>
-              <Input
-                id="endereco"
-                value={formData.endereco}
-                onChange={(e) => setFormData(prev => ({ ...prev, endereco: e.target.value }))}
-                placeholder="Ex: Rua das Flores, 123 - São Paulo/SP"
-              />
-            </div>
           </div>
-
-          <DialogFooter className="flex justify-between">
-            <div className="flex-1">
-              {selectedEmployee && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="mr-2">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que deseja excluir o funcionário <strong>{selectedEmployee.nome}</strong>? 
-                        Esta ação não pode ser desfeita.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => {
-                          deleteEmployeeMutation.mutate(selectedEmployee.id);
-                          setIsEditModalOpen(false);
-                          resetForm();
-                        }}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                  setIsEditModalOpen(false);
-                  resetForm();
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleSubmit}
-                disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {(createEmployeeMutation.isPending || updateEmployeeMutation.isPending) ? 'Salvando...' : 
-                 selectedEmployee ? 'Atualizar' : 'Criar'}
-              </Button>
-            </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsCreateModalOpen(false);
+              setIsEditModalOpen(false);
+              resetForm();
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
+            >
+              {selectedEmployee ? 'Salvar Alterações' : 'Criar Funcionário'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
