@@ -90,9 +90,8 @@ function Router() {
   return (
     <Layout>
       <Switch>
-        {hasPagePermission('dashboard') && <Route path="/" component={CustomDashboard} />}
+        <Route path="/" component={CustomDashboard} />
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
-
         <Route path="/employees" component={Employees} />
         {hasPagePermission('users') && <Route path="/users" component={Users} />}
         {hasPagePermission('activityLog') && <Route path="/activity-log" component={ActivityLog} />}

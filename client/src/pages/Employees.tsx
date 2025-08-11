@@ -431,47 +431,55 @@ export default function Employees() {
               <Table>
                 <TableHeader className="bg-gray-50">
                   <TableRow>
-                    <TableHead className="font-semibold">Código</TableHead>
-                    <TableHead className="font-semibold">Nome Completo</TableHead>
+                    <TableHead className="font-semibold">Empresa</TableHead>
+                    <TableHead className="font-semibold">Nome</TableHead>
+                    <TableHead className="font-semibold">Matrícula</TableHead>
+                    <TableHead className="font-semibold">RG</TableHead>
+                    <TableHead className="font-semibold">PIS</TableHead>
+                    <TableHead className="font-semibold">Data Admissão</TableHead>
+                    <TableHead className="font-semibold">Data Demissão</TableHead>
+                    <TableHead className="font-semibold">Salário</TableHead>
                     <TableHead className="font-semibold">Cargo</TableHead>
-                    <TableHead className="font-semibold">Centro de Custo</TableHead>
-                    <TableHead className="font-semibold">Admissão</TableHead>
+                    <TableHead className="font-semibold">Centro Custo</TableHead>
+                    <TableHead className="font-semibold">Departamento</TableHead>
                     <TableHead className="font-semibold text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {employees?.map((employee) => (
                     <TableRow key={employee.id} className="hover:bg-gray-50">
+                      <TableCell className="text-sm">
+                        {employee.empresa || 'BASE FACILITIES'}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {employee.nome}
+                      </TableCell>
                       <TableCell className="font-mono text-sm">
                         {employee.matricula}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{employee.nome}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col text-sm">
-                          <span className="font-medium">
-                            {employee.cargo || "Analista Administrativo"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            R$ {employee.salario || "3.500"}
-                          </span>
-                        </div>
+                      <TableCell className="text-sm">
+                        {employee.rg || '-'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {employee.centroCusto || "ADMIN001"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {employee.departamento || "Administração Geral"}
-                          </span>
-                        </div>
+                        {employee.pis || '-'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        📅 {formatDate(employee.dataAdmissao)}
+                        {formatDate(employee.dataAdmissao)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatDate(employee.dataDemissao)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {employee.salario ? `R$ ${employee.salario}` : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {employee.cargo || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {employee.centroCusto || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {employee.departamento || '-'}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1 justify-center">
@@ -480,7 +488,7 @@ export default function Employees() {
                             onClick={() => openEditModal(employee)}
                             className="bg-blue-600 hover:bg-blue-700 text-white"
                           >
-                            Selecionar
+                            Editar
                           </Button>
                         </div>
                       </TableCell>
