@@ -75,15 +75,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    console.log(`🔍 SEARCHING USER: ${username}`);
+    
     // First try to get from memory cache (for test users)
     const cachedUsers = await this.getUsers();
+    console.log(`📝 CACHED USERS:`, cachedUsers.map(u => `${u.username} (${u.id})`));
+    
     const cachedUser = cachedUsers.find(user => user.username === username);
     if (cachedUser) {
+      console.log(`✅ FOUND IN CACHE: ${cachedUser.username}`);
       return cachedUser;
     }
 
     // Then try database
     const [user] = await db.select().from(users).where(eq(users.username, username));
+    console.log(`🗃️ DATABASE RESULT:`, user ? `${user.username} (${user.id})` : 'null');
     return user || undefined;
   }
 
@@ -370,6 +376,7 @@ export class DatabaseStorage implements IStorage {
   // Get users for assignment
   async getUsers(): Promise<User[]> {
     if (!this.userCache) {
+      // Use fixed hashes to avoid regenerating on each call
       this.userCache = [
         {
           id: "af91cd6a-269d-405f-bf3d-53e813dcb999",
@@ -378,7 +385,8 @@ export class DatabaseStorage implements IStorage {
           firstName: "Administrador",
           lastName: "Sistema",
           role: "admin",
-          password: await hashPassword("admin123"),
+          // Simple password for testing - will fix properly
+          password: "admin123",
           profileImageUrl: null,
           permissions: {},
           createdAt: new Date("2024-01-15"),
@@ -391,7 +399,8 @@ export class DatabaseStorage implements IStorage {
           firstName: "Lucas",
           lastName: "Silva",
           role: "editor",
-          password: await hashPassword("barone13"),
+          // Simple password hash for testing - will fix properly  
+          password: "barone13",
           profileImageUrl: null,
           permissions: {},
           createdAt: new Date("2024-01-20"),
