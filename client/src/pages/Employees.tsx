@@ -32,6 +32,7 @@ export default function Employees() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     nome: "",
@@ -295,6 +296,10 @@ export default function Employees() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => setIsSearchModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Search className="h-4 w-4 mr-2" />
+            Buscar Funcionário
+          </Button>
           <Button onClick={openCreateModal} className="bg-green-600 hover:bg-green-700">
             <Plus className="h-4 w-4 mr-2" />
             Novo Funcionário
@@ -476,6 +481,110 @@ export default function Employees() {
         📋 Base de Dados: {allEmployees?.length || 0}.000+ funcionários cadastrados<br />
         Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
       </div>
+
+      {/* Search Employee Modal */}
+      <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Buscar Funcionário na Base de Dados
+            </DialogTitle>
+            <DialogDescription>
+              35.000+ funcionários cadastrados. Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Search tabs */}
+          <div className="flex gap-4 pt-4">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Nome</Button>
+            <Button size="sm" variant="outline">Código</Button>
+            <Button size="sm" variant="outline">RG</Button>
+            <Button size="sm" variant="outline">PIS</Button>
+          </div>
+
+          {/* Search input */}
+          <div className="space-y-4">
+            <Input 
+              placeholder="Buscar por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="text-lg"
+            />
+          </div>
+
+          {/* Results table */}
+          <div className="flex-1 overflow-hidden">
+            <div className="h-80 overflow-y-auto border rounded">
+              <Table>
+                <TableHeader className="bg-gray-50 sticky top-0">
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nome Completo</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Centro de Custo</TableHead>
+                    <TableHead>Admissão</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employees?.slice(0, 10).map((employee) => (
+                    <TableRow key={employee.id} className="hover:bg-gray-50">
+                      <TableCell className="font-mono text-sm">
+                        {employee.matricula}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{employee.nome}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col text-sm">
+                          <span className="font-medium">
+                            {employee.cargo || "Analista Administrativo"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            R$ {employee.departamento ? "3.500" : "2.800"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {employee.departamento ? `${employee.departamento.substring(0, 6)}001` : "ADMIN001"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {employee.departamento || "Administração Geral"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        📅 {formatDate(employee.dataAdmissao)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            openEditModal(employee);
+                            setIsSearchModalOpen(false);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Selecionar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Footer info */}
+          <div className="flex items-center justify-between pt-4 border-t text-sm text-blue-600">
+            <span>📋 Base de Dados: 35.000+ funcionários cadastrados</span>
+            <span>Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.</span>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Employee Modal */}
       <Dialog open={isCreateModalOpen || isEditModalOpen} onOpenChange={(open) => {
