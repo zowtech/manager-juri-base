@@ -21,6 +21,7 @@ import EmployeeSearchModal from "@/components/EmployeeSearchModal";
 import { getUserPermissions, canChangeStatus } from "@/lib/permissions";
 import ConfirmStatusDialog from "@/components/ConfirmStatusDialog";
 import { Link } from "wouter";
+import "@/styles/responsive-cases.css";
 
 export default function Cases() {
   const { user } = useAuth();
@@ -315,35 +316,35 @@ export default function Cases() {
 
 
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
-    <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg">
-      <Table>
+    <div className="overflow-x-auto max-h-[400px] md:max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg cases-table-wrapper">
+      <Table className="cases-table">
         <TableHeader className="bg-gray-50/80 sticky top-0 z-10">
           <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Nome do Funcionário</TableHead>  
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Processo</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Descrição</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Observação</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Prazo de Entrega</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Data Início</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Status</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50">Data Entrega</TableHead>
-            <TableHead className="font-semibold text-gray-700 bg-gray-50">Ações</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Nome do Funcionário</TableHead>  
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Processo</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Descrição</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Observação</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Prazo</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data Início</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Status</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data Entrega</TableHead>
+            <TableHead className="font-semibold text-gray-700 bg-gray-50 text-xs md:text-sm">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
             <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
-              <TableCell className="font-medium border-r border-gray-100 py-4">
+              <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">
                 <div className="flex flex-col">
-                  <span className="font-semibold text-gray-900">{caseData.clientName}</span>
+                  <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">{caseData.clientName}</span>
                 </div>
               </TableCell>
-              <TableCell className="font-medium border-r border-gray-100 py-4">{caseData.processNumber}</TableCell>
-              <TableCell className="border-r border-gray-100 py-4 max-w-xs">
+              <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">{caseData.processNumber}</TableCell>
+              <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs hide-mobile">
                 <ProcessTagRenderer processo={caseData.description} />
               </TableCell>
-              <TableCell className="border-r border-gray-100 py-4 max-w-xs">
-                <div className="text-sm text-gray-600 truncate" title={caseData.observacoes || ''}>
+              <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs hide-mobile">
+                <div className="text-xs md:text-sm text-gray-600 truncate" title={caseData.observacoes || ''}>
                   {caseData.observacoes || '-'}
                 </div>
               </TableCell>
@@ -485,22 +486,23 @@ export default function Cases() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl h-screen overflow-hidden">
-      <div className="space-y-6 h-full flex flex-col">
+    <div className="container mx-auto px-2 md:px-4 py-4 md:py-8 max-w-7xl min-h-screen">
+      <div className="space-y-4 md:space-y-6 h-full flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-xl flex-shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl md:rounded-2xl p-4 md:p-6 text-white shadow-xl flex-shrink-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Processos Jurídicos dos Funcionários</h1>
-            <p className="text-blue-100">
+            <h1 className="text-xl md:text-3xl font-bold mb-1 md:mb-2">Processos Jurídicos dos Funcionários</h1>
+            <p className="text-sm md:text-base text-blue-100">
               Sistema integrado para processos trabalhistas e jurídicos da empresa
             </p>
           </div>
-          <div className="mt-4 md:mt-0 flex items-center space-x-4">
+          <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-4 md:items-center">
             {user?.role === 'admin' && (
               <Button 
                 onClick={() => { setSelectedCase(null); setIsModalOpen(true); }}
-                className="bg-white text-blue-600 hover:bg-blue-50 font-medium"
+                className="bg-white text-blue-600 hover:bg-blue-50 font-medium w-full md:w-auto"
+                size="sm"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Processo
@@ -508,7 +510,8 @@ export default function Cases() {
             )}
             <Button 
               variant="outline" 
-              className="border-white text-white hover:bg-white hover:text-blue-600 bg-blue-600 hover:bg-blue-50"
+              className="border-white text-white hover:bg-white hover:text-blue-600 bg-blue-600 hover:bg-blue-50 w-full md:w-auto"
+              size="sm"
               onClick={() => {
                 if (!cases || cases.length === 0) {
                   toast({
@@ -549,24 +552,24 @@ export default function Cases() {
 
       {/* Filtros Avançados */}
       <Card className="shadow-lg flex-shrink-0">
-        <CardHeader>
-          <CardTitle className="flex items-center text-gray-800">
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="flex items-center text-gray-800 text-base md:text-lg">
             <Filter className="mr-2 h-4 w-4" />
             Filtros Avançados de Busca
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-3 md:p-6">
+          <div className="space-y-3 md:space-y-4">
             {/* Primeira linha de filtros */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Nome do Funcionário</label>
+                <label className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2 block">Nome do Funcionário</label>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Ex: CÉLIA MARIA, CRISTINA..."
                     value={nomeFilter}
                     onChange={(e) => setNomeFilter(e.target.value)}
-                    className="border-gray-300 flex-1"
+                    className="border-gray-300 flex-1 text-sm h-8"
                   />
                   <EmployeeSearchModal
                     onSelectEmployee={(employee) => {
@@ -574,20 +577,20 @@ export default function Cases() {
                       setNomeFilter(employee.nomeCompleto);
                     }}
                     trigger={
-                      <Button variant="outline" size="sm" className="px-3">
-                        <Users className="h-4 w-4" />
+                      <Button variant="outline" size="sm" className="px-2 h-8">
+                        <Users className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     }
                   />
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Processo</label>
+                <label className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2 block">Processo</label>
                 <Input
                   placeholder="Ex: 1500258, 217584..."
                   value={matriculaFilter}
                   onChange={(e) => setMatriculaFilter(e.target.value)}
-                  className="border-gray-300"
+                  className="border-gray-300 text-sm h-8"
                 />
               </div>
               <div>
@@ -611,7 +614,7 @@ export default function Cases() {
             </div>
 
             {/* Segunda linha - Filtros de data */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 pt-3 md:pt-4 border-t border-gray-200">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Data de - Início</label>
                 <Input
