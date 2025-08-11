@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
 import { z } from "zod";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { employees } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
@@ -48,33 +48,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      // Buscar direto no banco para garantir permissões atualizadas
-      const userQuery = `SELECT * FROM users WHERE id = $1`;
-      const userResult = await pool.query(userQuery, [req.user.id]);
+      // Usar storage para buscar o usuário com permissões
+      const user = await storage.getUser(req.user.id);
       
-      if (userResult.rows.length === 0) {
-        console.log('❌ USUÁRIO NÃO ENCONTRADO NO BANCO');
+      if (!user) {
+        console.log('❌ USUÁRIO NÃO ENCONTRADO');
         return res.status(404).json({ message: "User not found" });
       }
       
-      const user = userResult.rows[0];
-      console.log('✅ USUÁRIO CARREGADO DO BANCO:', user.username, 'Permissões:', user.permissions);
+      console.log('✅ USUÁRIO CARREGADO:', user.username, 'Permissões:', JSON.stringify(user.permissions, null, 2));
       
-      const formattedUser = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        role: user.role,
-        password: user.password,
-        profileImageUrl: user.profile_image_url,
-        permissions: user.permissions || {},
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
-      };
-      
-      res.json(formattedUser);
+      res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
