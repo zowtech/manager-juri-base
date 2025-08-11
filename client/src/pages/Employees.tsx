@@ -96,8 +96,20 @@ export default function Employees() {
   }, [allEmployees, searchTerm, filters]);
 
   const importMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/employees/import');
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/employees/import', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
       return response.json();
     },
     onSuccess: (result) => {
@@ -115,6 +127,10 @@ export default function Employees() {
       });
     },
   });
+
+  const uploadAndImportFile = (file: File) => {
+    importMutation.mutate(file);
+  };
 
   const linkCasesMutation = useMutation({
     mutationFn: async () => {
@@ -324,14 +340,26 @@ export default function Employees() {
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
-          <Button
-            onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending}
-            variant="outline"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            {importMutation.isPending ? "Importando..." : "Importar"}
-          </Button>
+          <div className="relative">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  uploadAndImportFile(file);
+                }
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <Button
+              disabled={importMutation.isPending}
+              variant="outline"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {importMutation.isPending ? "Importando..." : "Importar Planilha"}
+            </Button>
+          </div>
         </div>
       </div>
 

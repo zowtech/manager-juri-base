@@ -1,5 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import * as fs from "fs";
+import multer from "multer";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
@@ -541,20 +543,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/employees/import', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // Setup multer for file uploads
+  const upload = multer({ dest: 'uploads/' });
+  app.post('/api/employees/import', isAuthenticated, upload.single('file'), async (req: AuthenticatedRequest, res) => {
     try {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      const { importEmployeesFromCSV } = await import('./importEmployees');
-      const filePath = 'exemplo_funcionarios.csv';
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+      }
+
+      const { importEmployeesFromExcel } = await import('./importEmployees');
+      const result = await importEmployeesFromExcel(req.file.path);
       
-      const result = await importEmployeesFromCSV(filePath);
+      // Limpar arquivo temporário
+      fs.unlinkSync(req.file.path);
+      
+      await logActivity(
+        req,
+        'IMPORT_EMPLOYEES',
+        'EMPLOYEE',
+        'bulk',
+        `Importou ${result.imported} funcionários do Excel`
+      );
+      
       res.json(result);
     } catch (error) {
       console.error("Error importing employees:", error);
-      res.status(500).json({ message: "Failed to import employees" });
+      res.status(500).json({ success: false, error: "Failed to import employees: " + error.message });
     }
   });
 
