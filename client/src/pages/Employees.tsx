@@ -596,7 +596,20 @@ export default function Employees() {
           {/* Footer info */}
           <div className="flex items-center justify-between pt-4 border-t text-sm text-blue-600">
             <span>📋 Base de Dados: 35.000+ funcionários cadastrados</span>
-            <span>Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.</span>
+            <div className="flex items-center gap-4">
+              <span>Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.</span>
+              <Button 
+                onClick={() => {
+                  setIsSearchModalOpen(false);
+                  openCreateModal();
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Cadastrar Novo
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
