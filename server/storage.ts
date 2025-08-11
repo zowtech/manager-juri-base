@@ -62,16 +62,31 @@ export class DatabaseStorage implements IStorage {
   private static casesCache: CaseWithRelations[] = []; // Static para persistir mudanças de status
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    // First try to get from memory cache (for test users)
-    const cachedUsers = await this.getUsers();
-    const cachedUser = cachedUsers.find(user => user.id === id);
-    if (cachedUser) {
-      return cachedUser;
+    console.log(`🔍 BUSCANDO USUÁRIO: ${id}`);
+    
+    // Always get fresh data from database for permissions
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      
+      if (user) {
+        console.log(`✅ USUÁRIO ENCONTRADO: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
+        return user;
+      }
+      
+      // Fallback to cache for test users
+      const cachedUsers = await this.getUsers();
+      const cachedUser = cachedUsers.find(user => user.id === id);
+      if (cachedUser) {
+        console.log(`📝 ENCONTRADO NO CACHE: ${cachedUser.username}`);
+        return cachedUser;
+      }
+      
+      console.log(`❌ USUÁRIO NÃO ENCONTRADO: ${id}`);
+      return undefined;
+    } catch (error) {
+      console.error('❌ ERRO AO BUSCAR USUÁRIO:', error);
+      return undefined;
     }
-
-    // Then try database
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

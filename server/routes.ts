@@ -41,12 +41,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   // Auth routes
-  app.get('/api/user', (req, res) => {
+  app.get('/api/user', async (req: any, res: any) => {
     console.log('🔍 USER CHECK:', req.isAuthenticated(), req.user);
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    res.json(req.user);
+    
+    try {
+      // Buscar direto no banco para garantir permissões atualizadas
+      const userQuery = `SELECT * FROM users WHERE id = $1`;
+      const userResult = await pool.query(userQuery, [req.user.id]);
+      
+      if (userResult.rows.length === 0) {
+        console.log('❌ USUÁRIO NÃO ENCONTRADO NO BANCO');
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const user = userResult.rows[0];
+      console.log('✅ USUÁRIO CARREGADO DO BANCO:', user.username, 'Permissões:', user.permissions);
+      
+      const formattedUser = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        password: user.password,
+        profileImageUrl: user.profile_image_url,
+        permissions: user.permissions || {},
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
+      };
+      
+      res.json(formattedUser);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
   });
 
   // Enhanced activity logging middleware
