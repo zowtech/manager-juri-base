@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check permissions - admin can edit everything, editor can only edit certain fields
-      if (req.user.role !== 'admin') {
+      if (req.user?.role !== 'admin') {
         const allowedFields = ['description', 'dueDate', 'assignedToId'];
         const requestedFields = Object.keys(req.body);
         const hasRestrictedFields = requestedFields.some(field => !allowedFields.includes(field));

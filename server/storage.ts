@@ -218,26 +218,75 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCaseById(id: string): Promise<CaseWithRelations | undefined> {
-    await this.getCases(); // Garantir que cache está inicializado
-    return DatabaseStorage.casesCache.find(c => c.id === id);
+    const allCases = await this.getCases(); // Garantir que cases são buscados do banco
+    console.log('🔍 DEBUG: Buscando caso por ID no storage:', id);
+    console.log('📋 DEBUG: Total casos carregados:', allCases.length);
+    const foundCase = allCases.find(c => c.id === id);
+    console.log('🎯 DEBUG: Caso encontrado:', foundCase ? foundCase.id : 'NÃO ENCONTRADO');
+    return foundCase;
   }
 
   async updateCase(id: string, updates: Partial<InsertCase>): Promise<Case> {
-    const allCases = await this.getCases();
-    const caseToUpdate = allCases.find(c => c.id === id);
+    console.log('🔧 DEBUG: Iniciando updateCase para ID:', id);
+    console.log('📝 DEBUG: Updates recebidos:', updates);
     
-    if (!caseToUpdate) {
-      throw new Error("Case not found");
+    try {
+      // Buscar o caso no banco de dados usando SQL direto
+      const query = `
+        UPDATE cases 
+        SET 
+          client_name = COALESCE($2, client_name),
+          process_number = COALESCE($3, process_number), 
+          description = COALESCE($4, description),
+          status = COALESCE($5, status),
+          due_date = COALESCE($6, due_date),
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, [
+        id,
+        updates.clientName || null,
+        updates.processNumber || null,
+        updates.description || null,
+        updates.status || null,
+        updates.dueDate || null
+      ]);
+      
+      if (result.rows.length === 0) {
+        console.log('❌ DEBUG: Caso não encontrado no banco');
+        throw new Error("Case not found");
+      }
+      
+      const updatedCase = result.rows[0];
+      console.log('✅ DEBUG: Caso atualizado no banco:', updatedCase.id);
+      
+      // Converter para o formato correto
+      return {
+        id: updatedCase.id,
+        clientName: updatedCase.client_name,
+        processNumber: updatedCase.process_number,
+        description: updatedCase.description,
+        status: updatedCase.status,
+        startDate: updatedCase.start_date,
+        dueDate: updatedCase.due_date,
+        completedDate: updatedCase.completed_date,
+        dataEntrega: updatedCase.data_entrega,
+        tipoProcesso: updatedCase.tipo_processo,
+        documentosSolicitados: updatedCase.documentos_solicitados,
+        documentosAnexados: updatedCase.documentos_anexados,
+        observacoes: updatedCase.observacoes,
+        assignedToId: updatedCase.assigned_to_id,
+        createdById: updatedCase.created_by_id,
+        createdAt: new Date(updatedCase.created_at),
+        updatedAt: new Date(updatedCase.updated_at),
+        employeeId: updatedCase.employee_id
+      };
+    } catch (error) {
+      console.error('❌ DEBUG: Erro ao atualizar caso:', error);
+      throw error;
     }
-    
-    // Simular atualização
-    const updatedCase = {
-      ...caseToUpdate,
-      ...updates,
-      updatedAt: new Date(),
-    };
-    
-    return updatedCase as Case;
   }
 
   async deleteCase(id: string): Promise<void> {
