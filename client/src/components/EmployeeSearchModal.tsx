@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Building, MapPin, Calendar, DollarSign } from "lucide-react";
+import { Search, User, Building, MapPin, Calendar, DollarSign, Plus } from "lucide-react";
 
 interface Employee {
   codigo: string;          // Código do Funcionário
@@ -216,16 +216,32 @@ export default function EmployeeSearchModal({ onSelectEmployee, trigger }: Emplo
             )}
           </div>
 
-          {/* Info sobre a base de dados */}
+          {/* Info sobre a base de dados e botão de cadastro */}
           <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="flex items-center gap-2 text-blue-700 text-sm">
-              <Building className="h-4 w-4" />
-              <span className="font-medium">Base de Dados:</span>
-              <span>35.000+ funcionários cadastrados</span>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-blue-700 text-sm">
+                  <Building className="h-4 w-4" />
+                  <span className="font-medium">Base de Dados:</span>
+                  <span>35.000+ funcionários cadastrados</span>
+                </div>
+                <p className="text-xs text-blue-600 mt-1">
+                  Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
+                </p>
+              </div>
+              <Button 
+                onClick={() => {
+                  setIsOpen(false);
+                  // Navegar para página de funcionários para criar novo
+                  window.location.href = '/employees';
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Cadastrar Novo
+              </Button>
             </div>
-            <p className="text-xs text-blue-600 mt-1">
-              Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
-            </p>
           </div>
         </div>
       </DialogContent>
