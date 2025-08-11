@@ -6,7 +6,7 @@ import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/sc
 import { z } from "zod";
 import { db, pool } from "./db";
 import { employees } from "@shared/schema";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 
 
@@ -378,6 +378,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching employees:", error);
       res.status(500).json({ message: "Failed to fetch employees" });
+    }
+  });
+
+  // Create employee
+  app.post('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const employeeData = req.body;
+      
+      // Validar dados obrigatórios
+      if (!employeeData.matricula || !employeeData.nome) {
+        return res.status(400).json({ message: "Matrícula e nome são obrigatórios" });
+      }
+
+      // Verificar se matrícula já existe
+      const existing = await db.select().from(employees).where(sql`matricula = ${employeeData.matricula}`);
+      if (existing.length > 0) {
+        return res.status(400).json({ message: "Matrícula já existe" });
+      }
+
+      const [newEmployee] = await db.insert(employees).values({
+        matricula: employeeData.matricula,
+        nome: employeeData.nome,
+        rg: employeeData.rg || null,
+        departamento: employeeData.departamento || null,
+        cargo: employeeData.cargo || null,
+        dataAdmissao: employeeData.dataAdmissao ? new Date(employeeData.dataAdmissao) : null,
+        status: employeeData.status || 'ativo',
+        email: employeeData.email || null,
+        telefone: employeeData.telefone || null,
+        endereco: employeeData.endereco || null,
+      }).returning();
+
+      await logActivity(
+        req,
+        'CREATE_EMPLOYEE',
+        'EMPLOYEE',
+        newEmployee.id,
+        `Criou funcionário ${newEmployee.nome} (${newEmployee.matricula})`
+      );
+
+      res.status(201).json(newEmployee);
+    } catch (error) {
+      console.error("Error creating employee:", error);
+      res.status(500).json({ message: "Failed to create employee" });
+    }
+  });
+
+  // Update employee
+  app.put('/api/employees/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const employeeData = req.body;
+
+      // Verificar se funcionário existe
+      const existing = await db.select().from(employees).where(eq(employees.id, id));
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Funcionário não encontrado" });
+      }
+
+      const [updatedEmployee] = await db.update(employees)
+        .set({
+          ...employeeData,
+          dataAdmissao: employeeData.dataAdmissao ? new Date(employeeData.dataAdmissao) : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(employees.id, id))
+        .returning();
+
+      await logActivity(
+        req,
+        'UPDATE_EMPLOYEE',
+        'EMPLOYEE',
+        id,
+        `Atualizou funcionário ${updatedEmployee.nome} (${updatedEmployee.matricula})`
+      );
+
+      res.json(updatedEmployee);
+    } catch (error) {
+      console.error("Error updating employee:", error);
+      res.status(500).json({ message: "Failed to update employee" });
+    }
+  });
+
+  // Delete employee
+  app.delete('/api/employees/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verificar se funcionário existe
+      const existing = await db.select().from(employees).where(eq(employees.id, id));
+      if (existing.length === 0) {
+        return res.status(404).json({ message: "Funcionário não encontrado" });
+      }
+
+      const employee = existing[0];
+      await db.delete(employees).where(eq(employees.id, id));
+
+      await logActivity(
+        req,
+        'DELETE_EMPLOYEE',
+        'EMPLOYEE',
+        id,
+        `Excluiu funcionário ${employee.nome} (${employee.matricula})`
+      );
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      res.status(500).json({ message: "Failed to delete employee" });
+    }
+  });
+
+  // Export employees
+  app.get('/api/employees/export', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const allEmployees = await db.select().from(employees).orderBy(employees.nome);
+      
+      const XLSX = require('xlsx');
+      const workbook = XLSX.utils.book_new();
+      
+      const worksheetData = [
+        ['Empresa', 'Nome do Funcionário', 'Código do Funcionário', 'Número do RG', 'Email', 'Telefone', 'Data Admissão', 'Status', 'Descrição do Cargo', 'Departamento', 'Endereço']
+      ];
+
+      allEmployees.forEach(emp => {
+        worksheetData.push([
+          'BASE FACILITIES',
+          emp.nome,
+          emp.matricula,
+          emp.rg || '',
+          emp.email || '',
+          emp.telefone || '',
+          emp.dataAdmissao ? new Date(emp.dataAdmissao).toLocaleDateString('pt-BR') : '',
+          emp.status,
+          emp.cargo || '',
+          emp.departamento || '',
+          emp.endereco || ''
+        ]);
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Funcionários');
+
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Disposition', `attachment; filename="funcionarios_${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+
+      await logActivity(
+        req,
+        'EXPORT_EMPLOYEES',
+        'EMPLOYEE',
+        'all',
+        `Exportou ${allEmployees.length} funcionários`
+      );
+
+    } catch (error) {
+      console.error("Error exporting employees:", error);
+      res.status(500).json({ message: "Failed to export employees" });
     }
   });
 
