@@ -62,11 +62,27 @@ export class DatabaseStorage implements IStorage {
   private static casesCache: CaseWithRelations[] = []; // Static para persistir mudanças de status
   // User operations
   async getUser(id: string): Promise<User | undefined> {
+    // First try to get from memory cache (for test users)
+    const cachedUsers = await this.getUsers();
+    const cachedUser = cachedUsers.find(user => user.id === id);
+    if (cachedUser) {
+      return cachedUser;
+    }
+
+    // Then try database
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    // First try to get from memory cache (for test users)
+    const cachedUsers = await this.getUsers();
+    const cachedUser = cachedUsers.find(user => user.username === username);
+    if (cachedUser) {
+      return cachedUser;
+    }
+
+    // Then try database
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user || undefined;
   }

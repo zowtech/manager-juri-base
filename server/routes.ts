@@ -23,6 +23,12 @@ interface AuthenticatedRequest extends Request {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Test route to verify API routing works
+  app.get('/api/test', (req, res) => {
+    console.log('🟢 TEST ROUTE HIT');
+    res.json({ message: 'API routing is working', timestamp: new Date().toISOString() });
+  });
+
   // Auth middleware
   setupAuth(app);
 
