@@ -594,10 +594,14 @@ export default function Employees() {
           </div>
 
           {/* Footer info */}
-          <div className="flex items-center justify-between pt-4 border-t text-sm text-blue-600">
-            <span>📋 Base de Dados: 35.000+ funcionários cadastrados</span>
-            <div className="flex items-center gap-4">
+          <div className="pt-4 border-t space-y-3">
+            <div className="flex items-center justify-between text-sm text-blue-600">
+              <span>📋 Base de Dados: 35.000+ funcionários cadastrados</span>
               <span>Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.</span>
+            </div>
+            
+            {/* Botão de cadastro */}
+            <div className="flex justify-end">
               <Button 
                 onClick={() => {
                   setIsSearchModalOpen(false);
@@ -607,7 +611,7 @@ export default function Employees() {
                 size="sm"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Cadastrar Novo
+                Cadastrar Novo Funcionário
               </Button>
             </div>
           </div>
