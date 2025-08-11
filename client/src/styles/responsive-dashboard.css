@@ -42,37 +42,35 @@
 /* Mobile Optimizations (xs and xxs) */
 @media (max-width: 768px) {
   .react-grid-layout {
-    margin: 0 -8px;
+    margin: 0 -4px;
   }
   
   .react-grid-item {
-    margin: 4px;
-  }
-  
-  /* Smaller margins for mobile */
-  .react-grid-layout .react-grid-item {
-    margin: 8px;
+    margin: 6px;
   }
   
   /* Adjust widget content for smaller screens */
   .widget-container {
-    padding: 8px;
+    padding: 12px;
+    min-height: 120px;
   }
   
-  /* Make text smaller on mobile */
+  /* Make text readable on mobile */
   .widget-container h3 {
-    font-size: 0.875rem;
-    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
   }
   
-  /* Compact table view for mobile */
+  /* Readable table view for mobile */
   .widget-container table {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
   }
   
-  /* Hide resize handles on touch devices */
+  /* Show resize handles on mobile for better UX */
   .react-grid-item > .react-resizable-handle {
-    display: none;
+    display: block;
+    width: 24px;
+    height: 24px;
   }
 }
 

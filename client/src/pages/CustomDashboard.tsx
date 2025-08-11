@@ -7,6 +7,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
 import type { WidgetConfig, LayoutItem, CaseWithRelations, ActivityLogWithUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+import "@/styles/dashboard-layout-fix.css";
 
 // Default widgets available
 const AVAILABLE_WIDGETS: WidgetConfig[] = [
@@ -49,28 +50,42 @@ const AVAILABLE_WIDGETS: WidgetConfig[] = [
   },
 ];
 
-// Default layout for new users
+// Default layout for new users - LAYOUT CORRIGIDO
 const DEFAULT_LAYOUTS = {
   lg: [
-    { i: 'stats-1', x: 0, y: 0, w: 6, h: 2 },
-    { i: 'quick-actions-1', x: 6, y: 0, w: 6, h: 2 },
-    { i: 'chart-status-1', x: 0, y: 2, w: 6, h: 4 },
-    { i: 'recent-cases-1', x: 6, y: 2, w: 6, h: 4 },
-    { i: 'activity-feed-1', x: 0, y: 6, w: 12, h: 3 },
+    { i: 'stats-1', x: 0, y: 0, w: 6, h: 3 },
+    { i: 'quick-actions-1', x: 6, y: 0, w: 6, h: 3 },
+    { i: 'chart-status-1', x: 0, y: 3, w: 8, h: 5 },
+    { i: 'recent-cases-1', x: 8, y: 3, w: 4, h: 5 },
+    { i: 'activity-feed-1', x: 0, y: 8, w: 12, h: 4 },
   ],
   md: [
-    { i: 'stats-1', x: 0, y: 0, w: 10, h: 2 },
-    { i: 'quick-actions-1', x: 0, y: 2, w: 10, h: 2 },
-    { i: 'chart-status-1', x: 0, y: 4, w: 5, h: 4 },
-    { i: 'recent-cases-1', x: 5, y: 4, w: 5, h: 4 },
-    { i: 'activity-feed-1', x: 0, y: 8, w: 10, h: 3 },
+    { i: 'stats-1', x: 0, y: 0, w: 5, h: 3 },
+    { i: 'quick-actions-1', x: 5, y: 0, w: 5, h: 3 },
+    { i: 'chart-status-1', x: 0, y: 3, w: 7, h: 5 },
+    { i: 'recent-cases-1', x: 7, y: 3, w: 3, h: 5 },
+    { i: 'activity-feed-1', x: 0, y: 8, w: 10, h: 4 },
   ],
   sm: [
-    { i: 'stats-1', x: 0, y: 0, w: 6, h: 2 },
-    { i: 'quick-actions-1', x: 0, y: 2, w: 6, h: 2 },
-    { i: 'chart-status-1', x: 0, y: 4, w: 6, h: 3 },
-    { i: 'recent-cases-1', x: 0, y: 7, w: 6, h: 3 },
-    { i: 'activity-feed-1', x: 0, y: 10, w: 6, h: 3 },
+    { i: 'stats-1', x: 0, y: 0, w: 6, h: 3 },
+    { i: 'quick-actions-1', x: 0, y: 3, w: 6, h: 3 },
+    { i: 'chart-status-1', x: 0, y: 6, w: 6, h: 5 },
+    { i: 'recent-cases-1', x: 0, y: 11, w: 6, h: 4 },
+    { i: 'activity-feed-1', x: 0, y: 15, w: 6, h: 4 },
+  ],
+  xs: [
+    { i: 'stats-1', x: 0, y: 0, w: 4, h: 3 },
+    { i: 'quick-actions-1', x: 0, y: 3, w: 4, h: 3 },
+    { i: 'chart-status-1', x: 0, y: 6, w: 4, h: 5 },
+    { i: 'recent-cases-1', x: 0, y: 11, w: 4, h: 4 },
+    { i: 'activity-feed-1', x: 0, y: 15, w: 4, h: 4 },
+  ],
+  xxs: [
+    { i: 'stats-1', x: 0, y: 0, w: 2, h: 3 },
+    { i: 'quick-actions-1', x: 0, y: 3, w: 2, h: 3 },
+    { i: 'chart-status-1', x: 0, y: 6, w: 2, h: 5 },
+    { i: 'recent-cases-1', x: 0, y: 11, w: 2, h: 4 },
+    { i: 'activity-feed-1', x: 0, y: 15, w: 2, h: 4 },
   ],
 };
 
@@ -217,41 +232,46 @@ export default function CustomDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <DashboardCustomizer
-          availableWidgets={AVAILABLE_WIDGETS}
-          activeWidgets={activeWidgets}
-          layout={layouts.lg || []}
-          onWidgetToggle={handleWidgetToggle}
-          onSaveLayout={saveDashboardLayout}
-        />
-      </div>
-
-      <DashboardGrid
-        widgets={activeWidgets}
-        layouts={layouts}
-        onLayoutChange={handleLayoutChange}
-        dashboardData={dashboardData}
-        onNewCase={() => {
-          // Navigate to cases page with new case modal
-          window.location.href = '/cases?new=true';
-        }}
-        onSearchEmployees={() => {
-          // Navigate to cases page with search focus
-          window.location.href = '/cases?search=true';
-        }}
-      />
-
-      {isSavingLayout && (
-        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
-          <div className="flex items-center space-x-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Salvando layout...</span>
+    <div className="dashboard-container min-h-screen bg-gray-50">
+      <div className="max-w-full mx-auto">
+        <div className="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Dashboard Personalizado</h1>
+            <p className="text-gray-600 text-sm lg:text-base">Organize seu workspace arrastando e redimensionando os widgets</p>
           </div>
+          <DashboardCustomizer
+            availableWidgets={AVAILABLE_WIDGETS}
+            activeWidgets={activeWidgets}
+            layout={layouts.lg || []}
+            onWidgetToggle={handleWidgetToggle}
+            onSaveLayout={saveDashboardLayout}
+          />
         </div>
-      )}
+
+        <DashboardGrid
+          widgets={activeWidgets}
+          layouts={layouts}
+          onLayoutChange={handleLayoutChange}
+          dashboardData={dashboardData}
+          onNewCase={() => {
+            // Navigate to cases page with new case modal
+            window.location.href = '/cases?new=true';
+          }}
+          onSearchEmployees={() => {
+            // Navigate to cases page with search focus
+            window.location.href = '/cases?search=true';
+          }}
+        />
+
+        {isSavingLayout && (
+          <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Salvando layout...</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

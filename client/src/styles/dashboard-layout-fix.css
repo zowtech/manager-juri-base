@@ -1,0 +1,195 @@
+/* DASHBOARD LAYOUT FIX - Corrigindo layout corrompido */
+
+/* Container principal do dashboard */
+.dashboard-container {
+  width: 100%;
+  min-height: calc(100vh - 80px);
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* Grid responsivo corrigido */
+.react-grid-layout {
+  position: relative;
+  margin: 0 auto;
+  max-width: 100%;
+  overflow-x: visible;
+}
+
+/* Widget containers - tamanhos fixos */
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+  box-sizing: border-box;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgba(59, 130, 246, 0.2);
+  opacity: 0.2;
+  transition-duration: 100ms;
+  z-index: 2;
+  user-select: none;
+  border-radius: 8px;
+}
+
+/* Widget content styling */
+.widget-container {
+  height: 100%;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.widget-container h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .dashboard-container {
+    padding: 16px;
+  }
+  
+  .widget-container {
+    padding: 16px;
+  }
+  
+  .widget-container h3 {
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 12px;
+  }
+  
+  .react-grid-layout {
+    margin: 0;
+  }
+  
+  .widget-container {
+    padding: 12px;
+    border-radius: 8px;
+  }
+  
+  .widget-container h3 {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 8px;
+  }
+  
+  .widget-container {
+    padding: 8px;
+    border-radius: 6px;
+  }
+  
+  .widget-container h3 {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
+}
+
+/* Drag handle styling */
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIGZpbGw9IiM5OTkiIGZpbGwtcnVsZT0iZXZlbm9kZCI+PGNpcmNsZSBjeD0iNSIgY3k9IjUiIHI9IjEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMSIgcj0iMSIvPjxjaXJjbGUgY3g9IjEiIGN5PSI1IiByPSIxIi8+PC9nPjwvc3ZnPg==') center center no-repeat;
+  background-size: 6px 6px;
+  padding: 0;
+  cursor: se-resize;
+  border: none;
+  outline: none;
+}
+
+.react-grid-item:hover > .react-resizable-handle {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 0 0 12px 0;
+}
+
+/* Dragging state */
+.react-grid-item.react-dragging {
+  transition: none;
+  z-index: 3;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.react-grid-item.react-dragging .widget-container {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  transform: rotate(2deg);
+}
+
+/* Ensure full height usage */
+.react-grid-layout,
+.react-grid-item,
+.widget-container {
+  box-sizing: border-box;
+}
+
+/* Hide overflow on mobile to prevent horizontal scroll */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+  
+  .dashboard-container {
+    overflow-x: hidden;
+  }
+}
+
+/* Widget specific fixes */
+.widget-container .recharts-wrapper {
+  width: 100% !important;
+  height: auto !important;
+}
+
+.widget-container table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.widget-container .stat-card {
+  margin: 0;
+  padding: 0;
+}
+
+/* Loading states */
+.widget-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: #f9fafb;
+}
+
+/* Error states */
+.widget-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: #fef2f2;
+  color: #dc2626;
+  text-align: center;
+  padding: 20px;
+}
