@@ -9,6 +9,7 @@ import type { WidgetConfig, LayoutItem } from "@shared/schema";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import "@/styles/dashboard-grid.css";
+import "@/styles/responsive-dashboard.css";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -75,9 +76,9 @@ export default function DashboardGrid({
         onResizeStop={() => setIsDragging(false)}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={100}
-        margin={[16, 16]}
-        containerPadding={[0, 0]}
+        rowHeight={80}
+        margin={[8, 8]}
+        containerPadding={[8, 8]}
         isDraggable={true}
         isResizable={true}
         useCSSTransforms={true}

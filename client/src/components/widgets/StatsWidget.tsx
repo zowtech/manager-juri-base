@@ -58,19 +58,19 @@ export default function StatsWidget({ config, data }: StatsWidgetProps) {
 
   return (
     <Card className="h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">{config.title}</CardTitle>
+      <CardHeader className="pb-1 md:pb-2">
+        <CardTitle className="text-xs md:text-sm font-medium">{config.title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
           {stats.map((stat) => (
-            <div key={stat.label} className="flex items-center space-x-2">
-              <div className={`p-1 rounded ${stat.color}`}>
-                <stat.icon className="h-3 w-3 text-white" />
+            <div key={stat.label} className="flex items-center space-x-1 md:space-x-2">
+              <div className={`p-0.5 md:p-1 rounded ${stat.color}`}>
+                <stat.icon className="h-2 w-2 md:h-3 md:w-3 text-white" />
               </div>
-              <div>
-                <p className="text-xs text-gray-500">{stat.label}</p>
-                <p className="text-sm font-semibold">{stat.value}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs text-gray-500 truncate">{stat.label}</p>
+                <p className="text-xs md:text-sm font-semibold">{stat.value}</p>
               </div>
             </div>
           ))}

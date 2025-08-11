@@ -1,0 +1,185 @@
+/* Responsive Dashboard Styles */
+
+/* Base Grid Adjustments */
+.react-grid-layout {
+  position: relative;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="6" viewBox="0 0 6 6"><path d="m 6,6 0,-6 0,1 -1,0 0,1 -1,0 0,1 -1,0 0,1 -1,0 0,1 -1,0 0,1 z" fill="%23999999"/></svg>');
+  background-position: bottom right;
+  padding: 0 3px 3px 0;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  cursor: se-resize;
+}
+
+/* Widget Container Responsive Improvements */
+.widget-container {
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: white;
+  border: 1px solid #e5e7eb;
+}
+
+/* Mobile Optimizations (xs and xxs) */
+@media (max-width: 768px) {
+  .react-grid-layout {
+    margin: 0 -8px;
+  }
+  
+  .react-grid-item {
+    margin: 4px;
+  }
+  
+  /* Smaller margins for mobile */
+  .react-grid-layout .react-grid-item {
+    margin: 8px;
+  }
+  
+  /* Adjust widget content for smaller screens */
+  .widget-container {
+    padding: 8px;
+  }
+  
+  /* Make text smaller on mobile */
+  .widget-container h3 {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Compact table view for mobile */
+  .widget-container table {
+    font-size: 0.75rem;
+  }
+  
+  /* Hide resize handles on touch devices */
+  .react-grid-item > .react-resizable-handle {
+    display: none;
+  }
+}
+
+/* Tablet Optimizations (sm and md) */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .react-grid-layout {
+    margin: 0 -12px;
+  }
+  
+  .react-grid-item {
+    margin: 8px;
+  }
+  
+  .widget-container {
+    padding: 12px;
+  }
+}
+
+/* Desktop Optimizations (lg) */
+@media (min-width: 1200px) {
+  .react-grid-layout {
+    margin: 0 -16px;
+  }
+  
+  .react-grid-item {
+    margin: 12px;
+  }
+  
+  .widget-container {
+    padding: 16px;
+  }
+}
+
+/* Dashboard Layout Fixes */
+.dashboard-container {
+  min-height: 100vh;
+  padding: 1rem;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@media (max-width: 640px) {
+  .dashboard-container {
+    padding: 0.5rem;
+  }
+}
+
+/* Widget Content Responsive */
+.widget-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 480px) {
+  .widget-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+.widget-chart {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+}
+
+@media (max-width: 768px) {
+  .widget-chart {
+    min-height: 150px;
+  }
+}
+
+/* Quick Actions responsive */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Activity Feed responsive */
+.activity-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+@media (max-width: 480px) {
+  .activity-item {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Dragging state improvements */
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  opacity: 0.8;
+}
+
+.react-grid-item.resizing {
+  opacity: 0.8;
+  z-index: 3;
+}
