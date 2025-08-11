@@ -131,7 +131,7 @@ export default function Cases() {
 
   const updateCaseMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("PUT", `/api/cases/${data.id}`, data);
+      const response = await apiRequest("PATCH", `/api/cases/${data.id}`, data);
       return response.json();
     },
     onSuccess: () => {

@@ -12,7 +12,7 @@ import { sql } from "drizzle-orm";
 
 // Extend Request type to include user
 interface AuthenticatedRequest extends Request {
-  user: {
+  user?: {
     id: string;
     username: string;
     email: string;
@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced activity logging middleware
-  const logActivity = async (req: AuthenticatedRequest, action: string, resourceType: string, resourceId: string, description: string, metadata?: any) => {
+  const logActivity = async (req: any, action: string, resourceType: string, resourceId: string, description: string, metadata?: any) => {
     try {
       const timestamp = new Date().toISOString();
       const userInfo = `${req.user.firstName} ${req.user.lastName} (${req.user.username})`;
@@ -140,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/cases/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.patch('/api/cases/:id', isAuthenticated, async (req: any, res: any) => {
     try {
       const { id } = req.params;
 
@@ -163,18 +163,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertCaseSchema.partial().parse(req.body);
       const updatedCase = await storage.updateCase(id, validatedData);
       
-      await logActivity(
-        req,
-        'UPDATE_CASE',
-        'CASE',
-        id,
-        `Editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
-        { 
-          originalData: { processNumber: caseData.processNumber, clientName: caseData.clientName },
-          updatedFields: Object.keys(validatedData),
-          newData: validatedData
-        }
-      );
+      // Log atividade apenas se usuário estiver definido
+      if (req.user) {
+        await logActivity(
+          req as any,
+          'UPDATE_CASE',
+          'CASE',
+          id,
+          `Editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
+          { 
+            originalData: { processNumber: caseData.processNumber, clientName: caseData.clientName },
+            updatedFields: Object.keys(validatedData),
+            newData: validatedData
+          }
+        );
+      }
 
       res.json(updatedCase);
     } catch (error) {
@@ -186,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/cases/:id/status', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.patch('/api/cases/:id/status', isAuthenticated, async (req: any, res: any) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
