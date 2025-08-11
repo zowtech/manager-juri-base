@@ -49,7 +49,7 @@ export default function Cases() {
     );
   }
 
-  const [activeTab, setActiveTab] = useState("completed");
+  const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [dateFilterTo, setDateFilterTo] = useState("");
