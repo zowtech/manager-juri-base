@@ -161,7 +161,19 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
         assignedTo: null,
-        createdBy: null,
+        createdBy: {
+          id: row.created_by_id,
+          email: null,
+          username: null, 
+          password: null,
+          firstName: null,
+          lastName: null,
+          profileImageUrl: null,
+          role: 'admin',
+          permissions: {},
+          createdAt: null,
+          updatedAt: null
+        },
         // Campos específicos do sistema brasileiro
         matricula: row.matricula,
         nome: row.employee_name || row.client_name,

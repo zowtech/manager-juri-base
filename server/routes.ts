@@ -1,18 +1,14 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
-import { insertCaseSchema, insertUserSchema, updateUserSchema, loginUserSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
 import { z } from "zod";
-import { hashPassword } from "./auth";
+import { db } from "./db";
+import { employees } from "@shared/schema";
+import { sql } from "drizzle-orm";
 
-// Middleware to check authentication
-const isAuthenticated = (req: Request, res: any, next: any) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-  next();
-};
+
 
 // Extend Request type to include user
 interface AuthenticatedRequest extends Request {
@@ -105,10 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertCaseSchema.parse(req.body);
-      const newCase = await storage.createCase({
-        ...validatedData,
-        createdById: req.user.id,
-      });
+      const newCase = await storage.createCase(validatedData);
       
       await logActivity(
         req,

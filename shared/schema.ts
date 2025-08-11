@@ -177,7 +177,6 @@ export const insertCaseSchema = createInsertSchema(cases).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  createdById: true,
   completedDate: true,
 });
 
