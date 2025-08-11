@@ -37,8 +37,7 @@ export default function Employees() {
     nome: "",
     matricula: "",
     cargo: "",
-    departamento: "",
-    status: ""
+    departamento: ""
   });
   const [formData, setFormData] = useState({
     empresa: "BASE FACILITIES",
@@ -92,8 +91,7 @@ export default function Employees() {
         (!filters.nome || emp.nome?.toLowerCase().includes(filters.nome.toLowerCase())) &&
         (!filters.matricula || emp.matricula?.toLowerCase().includes(filters.matricula.toLowerCase())) &&
         (!filters.cargo || emp.cargo?.toLowerCase().includes(filters.cargo.toLowerCase())) &&
-        (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase())) &&
-        (!filters.status || emp.status === filters.status);
+        (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase()));
         
       return matchesSearch && matchesFilters;
     });
@@ -238,8 +236,7 @@ export default function Employees() {
       nome: "",
       matricula: "",
       cargo: "",
-      departamento: "",
-      status: ""
+      departamento: ""
     });
     setSearchTerm("");
   };
@@ -352,7 +349,7 @@ export default function Employees() {
           {/* Painel de Filtros Avançados */}
           {showFilters && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Nome</Label>
                   <Input
@@ -391,20 +388,6 @@ export default function Employees() {
                     onChange={(e) => setFilters({...filters, departamento: e.target.value})}
                     className="mt-1"
                   />
-                </div>
-                
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
-                      <SelectItem value="ativo">Ativo</SelectItem>
-                      <SelectItem value="demitido">Demitido</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
               
