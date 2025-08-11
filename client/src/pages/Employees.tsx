@@ -440,14 +440,14 @@ export default function Employees() {
                             {employee.cargo || "Analista Administrativo"}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            $ R$ {employee.departamento ? "3.500" : "2.800"}
+                            R$ {employee.salario || "3.500"}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {employee.departamento ? `${employee.departamento.substring(0, 6)}001` : "ADMIN001"}
+                            {employee.centroCusto || "ADMIN001"}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {employee.departamento || "Administração Geral"}
@@ -542,14 +542,14 @@ export default function Employees() {
                             {employee.cargo || "Analista Administrativo"}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            R$ {employee.departamento ? "3.500" : "2.800"}
+                            R$ {employee.salario || "3.500"}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {employee.departamento ? `${employee.departamento.substring(0, 6)}001` : "ADMIN001"}
+                            {employee.centroCusto || "ADMIN001"}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {employee.departamento || "Administração Geral"}

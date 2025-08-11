@@ -10,6 +10,7 @@ import {
   integer,
   boolean,
   date,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -89,16 +90,22 @@ export const tiposProcesso = pgTable("tipos_processo", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Funcionários table
+// Funcionários table - 11 colunas do Excel
 export const employees = pgTable("employees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  matricula: varchar("matricula").unique().notNull(),
-  nome: varchar("nome").notNull(),
+  empresa: varchar("empresa"), // Coluna 1: Empresa
+  nome: varchar("nome").notNull(), // Coluna 2: Nome
+  matricula: varchar("matricula").unique().notNull(), // Coluna 3: Matrícula
+  rg: varchar("rg"), // Coluna 4: RG
+  pis: varchar("pis"), // Coluna 5: PIS
+  dataAdmissao: date("data_admissao"), // Coluna 6: Data Admissão
+  dataDemissao: date("data_demissao"), // Coluna 7: Data Demissão
+  salario: varchar("salario"), // Coluna 8: Salário
+  cargo: varchar("cargo"), // Coluna 9: Cargo
+  centroCusto: varchar("centro_custo"), // Coluna 10: Centro Custo
+  departamento: varchar("departamento"), // Coluna 11: Departamento
+  // Campos adicionais do sistema
   cpf: varchar("cpf").unique(),
-  rg: varchar("rg"),
-  departamento: varchar("departamento"),
-  cargo: varchar("cargo"),
-  dataAdmissao: date("data_admissao"),
   status: varchar("status").default("ativo"), // ativo, inativo, demitido
   email: varchar("email"),
   telefone: varchar("telefone"),

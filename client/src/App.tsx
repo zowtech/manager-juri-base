@@ -53,8 +53,6 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
-
-
   // Redirecionar se estiver na home e não tiver permissão para dashboard
   if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
     if (firstAllowedPage === 'cases') {
