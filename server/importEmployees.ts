@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx';
 import * as fs from 'fs';
 import { db } from './db';
 import { employees, cases } from '@shared/schema';
@@ -7,7 +7,8 @@ import { eq, sql, isNull } from 'drizzle-orm';
 export async function importEmployeesFromExcel(filePath: string) {
   try {
     // Ler arquivo Excel
-    const workbook = XLSX.readFile(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
@@ -18,27 +19,37 @@ export async function importEmployeesFromExcel(filePath: string) {
     const headers = data[0] as string[];
     const rows = data.slice(1) as any[][];
     
-    console.log('Cabeçalhos encontrados:', headers);
-    console.log('Total de linhas:', rows.length);
+    console.log('📊 Cabeçalhos Excel encontrados:', headers);
+    console.log('📈 Total de linhas para processar:', rows.length);
     
     const importedEmployees = [];
     let errors = [];
     
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || row.length === 0) continue;
+      if (!row || row.length === 0 || !row[0]) continue;
       
       try {
-        // Mapear dados da planilha Base Facilities
-        // Empresa, Nome do Funcionário, Código do Funcionário, Número do RG, Número do PIS, Data Admissão, Data demissão, SALÁRIO, Descrição do Cargo, Centro de Custo, Descrição do Custo
+        // Mapear dados da planilha Excel com formato específico BASE FACILITIES
         const employee = {
-          matricula: String(row[2] || '').trim(), // Código do Funcionário
-          nome: String(row[1] || '').trim(), // Nome do Funcionário  
-          rg: String(row[3] || '').trim() || null, // Número do RG
-          departamento: String(row[10] || '').trim() || null, // Descrição do Custo
-          cargo: String(row[8] || '').trim() || null, // Descrição do Cargo
-          dataAdmissao: row[5] ? new Date(Math.round((row[5] - 25569) * 86400 * 1000)) : null, // Conversão Excel date
-          status: row[6] ? 'demitido' : 'ativo' // Se tem data demissão = demitido
+          empresa: String(row[0] || 'BASE FACILITIES').trim(),
+          nome: String(row[1] || '').trim(),
+          matricula: String(row[2] || '').trim(),
+          rg: String(row[3] || '').trim() || null,
+          pis: String(row[4] || '').trim() || null,
+          // Converter data Excel para formato ISO
+          dataAdmissao: row[5] && typeof row[5] === 'number' ? 
+            new Date(Math.round((row[5] - 25569) * 86400 * 1000)).toISOString().split('T')[0] : null,
+          dataDemissao: row[6] && typeof row[6] === 'number' ? 
+            new Date(Math.round((row[6] - 25569) * 86400 * 1000)).toISOString().split('T')[0] : null,
+          salario: row[7] ? String(row[7]).replace(/[^\d.,]/g, '') : null,
+          cargo: String(row[8] || '').trim() || null,
+          centroCusto: String(row[9] || '').trim() || null,
+          departamento: String(row[10] || '').trim() || null,
+          status: row[6] ? 'demitido' : 'ativo',
+          email: null,
+          telefone: null,
+          endereco: null
         };
         
         // Validar campos obrigatórios
@@ -46,6 +57,8 @@ export async function importEmployeesFromExcel(filePath: string) {
           errors.push(`Linha ${i + 2}: Matrícula e nome são obrigatórios`);
           continue;
         }
+        
+        console.log(`🔄 Processando: ${employee.nome} (${employee.matricula})`);
         
         // Verificar se funcionário já existe
         const existing = await db.select().from(employees).where(eq(employees.matricula, employee.matricula));

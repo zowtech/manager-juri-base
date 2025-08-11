@@ -53,11 +53,9 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
-  // SEMPRE redirecionar para Dashboard se disponível ou primeira página permitida  
-  if (location === '/' && firstAllowedPage) {
-    if (firstAllowedPage === 'dashboard') {
-      // Dashboard é a prioridade - não redirecionar, mostrar dashboard
-    } else if (firstAllowedPage === 'cases') {
+  // SEMPRE garantir que Dashboard seja exibido na página inicial
+  if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
+    if (firstAllowedPage === 'cases') {
       navigate('/cases');
       return null;
     } else if (firstAllowedPage === 'activityLog') {
@@ -90,6 +88,7 @@ function Router() {
   return (
     <Layout>
       <Switch>
+        {/* SEMPRE exibir Dashboard na página principal */}
         <Route path="/" component={CustomDashboard} />
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
         <Route path="/employees" component={Employees} />
