@@ -53,9 +53,11 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
-  // Redirecionar se estiver na home e não tiver permissão para dashboard
-  if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
-    if (firstAllowedPage === 'cases') {
+  // SEMPRE redirecionar para Dashboard se disponível ou primeira página permitida  
+  if (location === '/' && firstAllowedPage) {
+    if (firstAllowedPage === 'dashboard') {
+      // Dashboard é a prioridade - não redirecionar, mostrar dashboard
+    } else if (firstAllowedPage === 'cases') {
       navigate('/cases');
       return null;
     } else if (firstAllowedPage === 'activityLog') {
