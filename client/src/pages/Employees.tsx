@@ -42,12 +42,17 @@ export default function Employees() {
     status: ""
   });
   const [formData, setFormData] = useState({
-    matricula: "",
+    empresa: "",
     nome: "",
+    matricula: "",
     rg: "",
-    departamento: "",
-    cargo: "",
+    pis: "",
     dataAdmissao: "",
+    dataDemissao: "",
+    salario: "",
+    cargo: "",
+    centroCusto: "",
+    departamento: "",
     status: "ativo",
     email: "",
     telefone: "",
@@ -226,12 +231,17 @@ export default function Employees() {
   // Helper functions
   const resetForm = () => {
     setFormData({
-      matricula: "",
+      empresa: "",
       nome: "",
+      matricula: "",
       rg: "",
-      departamento: "",
-      cargo: "",
+      pis: "",
       dataAdmissao: "",
+      dataDemissao: "",
+      salario: "",
+      cargo: "",
+      centroCusto: "",
+      departamento: "",
       status: "ativo",
       email: "",
       telefone: "",
@@ -247,12 +257,17 @@ export default function Employees() {
   const openEditModal = (employee: Employee) => {
     setSelectedEmployee(employee);
     setFormData({
-      matricula: employee.matricula || "",
+      empresa: employee.empresa || "",
       nome: employee.nome || "",
+      matricula: employee.matricula || "",
       rg: employee.rg || "",
-      departamento: employee.departamento || "",
-      cargo: employee.cargo || "",
+      pis: employee.pis || "",
       dataAdmissao: employee.dataAdmissao || "",
+      dataDemissao: employee.dataDemissao || "",
+      salario: employee.salario || "",
+      cargo: employee.cargo || "",
+      centroCusto: employee.centroCusto || "",
+      departamento: employee.departamento || "",
       status: employee.status || "ativo",
       email: employee.email || "",
       telefone: employee.telefone || "",
@@ -498,7 +513,7 @@ export default function Employees() {
           {/* Search tabs */}
           <div className="flex gap-4 pt-4">
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Nome</Button>
-            <Button size="sm" variant="outline">Código</Button>
+            <Button size="sm" variant="outline">Matrícula</Button>
             <Button size="sm" variant="outline">RG</Button>
             <Button size="sm" variant="outline">PIS</Button>
           </div>
@@ -519,7 +534,7 @@ export default function Employees() {
               <Table>
                 <TableHeader className="bg-gray-50 sticky top-0">
                   <TableRow>
-                    <TableHead>Código</TableHead>
+                    <TableHead>Matrícula</TableHead>
                     <TableHead>Nome Completo</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Centro de Custo</TableHead>
@@ -605,6 +620,29 @@ export default function Employees() {
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Coluna 1: Empresa */}
+            <div className="space-y-2">
+              <Label htmlFor="empresa">Empresa</Label>
+              <Input
+                id="empresa"
+                value={formData.empresa}
+                onChange={(e) => setFormData(prev => ({ ...prev, empresa: e.target.value }))}
+                placeholder="Ex: BASE FACILITIES LTDA"
+              />
+            </div>
+
+            {/* Coluna 2: Nome */}
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome Completo *</Label>
+              <Input
+                id="nome"
+                value={formData.nome}
+                onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                placeholder="Ex: João da Silva Santos"
+              />
+            </div>
+
+            {/* Coluna 3: Matrícula */}
             <div className="space-y-2">
               <Label htmlFor="matricula">Matrícula *</Label>
               <Input
@@ -615,26 +653,95 @@ export default function Employees() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome Completo *</Label>
-              <Input
-                id="nome"
-                value={formData.nome}
-                onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                placeholder="Ex: João da Silva"
-              />
-            </div>
-
+            {/* Coluna 4: RG */}
             <div className="space-y-2">
               <Label htmlFor="rg">RG</Label>
               <Input
                 id="rg"
                 value={formData.rg}
                 onChange={(e) => setFormData(prev => ({ ...prev, rg: e.target.value }))}
-                placeholder="Ex: 12345678-9"
+                placeholder="Ex: 12.345.678-9"
               />
             </div>
 
+            {/* Coluna 5: PIS */}
+            <div className="space-y-2">
+              <Label htmlFor="pis">PIS</Label>
+              <Input
+                id="pis"
+                value={formData.pis}
+                onChange={(e) => setFormData(prev => ({ ...prev, pis: e.target.value }))}
+                placeholder="Ex: 123.45678.90-1"
+              />
+            </div>
+
+            {/* Coluna 6: Data Admissão */}
+            <div className="space-y-2">
+              <Label htmlFor="dataAdmissao">Data de Admissão</Label>
+              <Input
+                id="dataAdmissao"
+                type="date"
+                value={formData.dataAdmissao}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataAdmissao: e.target.value }))}
+              />
+            </div>
+
+            {/* Coluna 7: Data Demissão */}
+            <div className="space-y-2">
+              <Label htmlFor="dataDemissao">Data de Demissão</Label>
+              <Input
+                id="dataDemissao"
+                type="date"
+                value={formData.dataDemissao}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataDemissao: e.target.value }))}
+              />
+            </div>
+
+            {/* Coluna 8: Salário */}
+            <div className="space-y-2">
+              <Label htmlFor="salario">Salário</Label>
+              <Input
+                id="salario"
+                value={formData.salario}
+                onChange={(e) => setFormData(prev => ({ ...prev, salario: e.target.value }))}
+                placeholder="Ex: 3500.00"
+              />
+            </div>
+
+            {/* Coluna 9: Cargo */}
+            <div className="space-y-2">
+              <Label htmlFor="cargo">Cargo</Label>
+              <Input
+                id="cargo"
+                value={formData.cargo}
+                onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
+                placeholder="Ex: Analista Jurídico"
+              />
+            </div>
+
+            {/* Coluna 10: Centro Custo */}
+            <div className="space-y-2">
+              <Label htmlFor="centroCusto">Centro de Custo</Label>
+              <Input
+                id="centroCusto"
+                value={formData.centroCusto}
+                onChange={(e) => setFormData(prev => ({ ...prev, centroCusto: e.target.value }))}
+                placeholder="Ex: ADMIN001"
+              />
+            </div>
+
+            {/* Coluna 11: Departamento */}
+            <div className="space-y-2">
+              <Label htmlFor="departamento">Departamento</Label>
+              <Input
+                id="departamento"
+                value={formData.departamento}
+                onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
+                placeholder="Ex: Departamento Jurídico"
+              />
+            </div>
+
+            {/* Campos adicionais do sistema */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -653,36 +760,6 @@ export default function Employees() {
                 value={formData.telefone}
                 onChange={(e) => setFormData(prev => ({ ...prev, telefone: e.target.value }))}
                 placeholder="Ex: (11) 99999-9999"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cargo">Cargo</Label>
-              <Input
-                id="cargo"
-                value={formData.cargo}
-                onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
-                placeholder="Ex: Analista Jurídico"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="departamento">Departamento</Label>
-              <Input
-                id="departamento"
-                value={formData.departamento}
-                onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
-                placeholder="Ex: Departamento Jurídico"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dataAdmissao">Data de Admissão</Label>
-              <Input
-                id="dataAdmissao"
-                type="date"
-                value={formData.dataAdmissao}
-                onChange={(e) => setFormData(prev => ({ ...prev, dataAdmissao: e.target.value }))}
               />
             </div>
 

@@ -56,10 +56,12 @@ Preferred communication style: Simple, everyday language.
 - **Authorization**: Role-based access control (admin/editor roles)
 - **Security**: Secure HTTP-only cookies with CSRF protection
 
-### Data Import System (Updated January 2025)
-- **System Reset**: All data cleared at user request (January 2025)
-- **Manual Entry**: User will populate data manually through interface
-- **Clean Database**: Fresh start with empty tables for cases and employees
+### Employee Management System (Updated August 2025)
+- **Excel Schema**: Full 11-column support (Empresa|Nome|Matrícula|RG|PIS|Data Admissão|Data Demissão|Salário|Cargo|Centro Custo|Departamento)
+- **Database Schema**: Updated PostgreSQL tables with all Excel columns
+- **Search Interface**: Professional table-based layout with advanced search modal
+- **Navigation**: Default route corrected to open Dashboard on login
+- **Manual Entry**: Complete forms with all 11 Excel fields for data entry
 
 ### Case Management (Updated July 2025)
 - **Field Structure**: Matrícula, Nome, Processo, Prazo de entrega, Audiência, Status
