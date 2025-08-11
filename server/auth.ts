@@ -126,18 +126,24 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
+    console.log('🔐 LOGIN REQUEST BODY:', req.body);
     passport.authenticate("local", (err, user, info) => {
+      console.log('🔐 PASSPORT RESULT:', { err, user: user ? user.username : null, info });
       if (err) {
+        console.error('🚨 PASSPORT ERROR:', err);
         return next(err);
       }
       if (!user) {
-        return res.status(401).json({ message: "Credenciais inválidas. Verifique usuário e senha." });
+        console.log('❌ AUTHENTICATION FAILED');
+        return res.status(401).json({ message: "Credenciais inválidas" });
       }
       req.logIn(user, (err) => {
         if (err) {
+          console.error('🚨 LOGIN ERROR:', err);
           return next(err);
         }
-        return res.status(200).json(user);
+        console.log('✅ LOGIN SUCCESS:', user.username);
+        res.status(200).json(user);
       });
     })(req, res, next);
   });

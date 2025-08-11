@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth } from "./auth";
 import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { db } from "./db";
@@ -22,6 +22,14 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+// Authentication middleware
+function isAuthenticated(req: any, res: any, next: any) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Test route to verify API routing works
   app.get('/api/test', (req, res) => {
@@ -33,13 +41,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   // Auth routes
-  app.get('/api/user', isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      res.json(req.user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+  app.get('/api/user', (req, res) => {
+    console.log('🔍 USER CHECK:', req.isAuthenticated(), req.user);
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+    res.json(req.user);
   });
 
   // Enhanced activity logging middleware
