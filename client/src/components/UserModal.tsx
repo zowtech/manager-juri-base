@@ -57,6 +57,12 @@ const userSchema = z.object({
       view: z.boolean().optional().default(false),
       edit: z.boolean().optional().default(false),
     }).optional(),
+    pages: z.object({
+      dashboard: z.boolean().optional().default(false),
+      cases: z.boolean().optional().default(false),
+      users: z.boolean().optional().default(false),
+      activityLog: z.boolean().optional().default(false),
+    }).optional(),
     canCreateCases: z.boolean().optional().default(false),
     canDeleteCases: z.boolean().optional().default(false),
   }).optional(),
@@ -363,6 +369,78 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Permissões de Páginas */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <h4 className="font-medium text-sm">Acesso às Páginas</h4>
+                    <p className="text-xs text-gray-500 mb-3">Selecione quais páginas o usuário pode acessar</p>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="permissions.pages.dashboard"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm">Dashboard</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="permissions.pages.cases"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm">Gerenciar Processos</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="permissions.pages.users"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm">Gerenciar Usuários</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="permissions.pages.activityLog"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormLabel className="text-sm">Log de Atividades</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
 
                   {/* Permissões Gerais - Opcionais */}
