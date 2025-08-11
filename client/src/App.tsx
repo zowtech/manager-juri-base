@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 
 import AuthPage from "@/pages/AuthPage";
-import Dashboard from "@/pages/Dashboard";
+import CustomDashboard from "@/pages/CustomDashboard";
 import Cases from "@/pages/Cases";
 import Users from "@/pages/Users";
 import ActivityLog from "@/pages/ActivityLog";
@@ -90,7 +90,7 @@ function Router() {
   return (
     <Layout>
       <Switch>
-        {hasPagePermission('dashboard') && <Route path="/" component={Dashboard} />}
+        {hasPagePermission('dashboard') && <Route path="/" component={CustomDashboard} />}
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
 
         <Route path="/employees" component={Employees} />

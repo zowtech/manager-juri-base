@@ -276,6 +276,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard layout endpoints
+  app.get('/api/dashboard/layout', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const layout = await storage.getDashboardLayout(req.user.id);
+      res.json(layout);
+    } catch (error) {
+      console.error("Error fetching dashboard layout:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard layout" });
+    }
+  });
+
+  app.post('/api/dashboard/layout', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { layout, widgets } = req.body;
+      const savedLayout = await storage.saveDashboardLayout(req.user.id, layout, widgets);
+      
+      await logActivity(
+        req,
+        'UPDATE_DASHBOARD',
+        'DASHBOARD',
+        savedLayout.id,
+        'Personalizou layout do dashboard',
+        { widgetCount: widgets?.length || 0 }
+      );
+
+      res.json(savedLayout);
+    } catch (error) {
+      console.error("Error saving dashboard layout:", error);
+      res.status(500).json({ message: "Failed to save dashboard layout" });
+    }
+  });
+
   // Activity log routes
   app.get('/api/activity-logs', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {

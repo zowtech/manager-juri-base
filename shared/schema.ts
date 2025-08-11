@@ -121,6 +121,16 @@ export const activityLog = pgTable("activity_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Dashboard layouts table - for drag-and-drop widget customization
+export const dashboardLayouts = pgTable("dashboard_layouts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  layout: jsonb("layout").notNull(), // Grid layout configuration  
+  widgets: jsonb("widgets").notNull(), // Widget configurations
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   assignedCases: many(cases, { relationName: "assignedTo" }),
@@ -213,3 +223,43 @@ export const insertEmployeeSchema = createInsertSchema(employees).omit({
   createdAt: true,
   updatedAt: true,
 });
+
+// Dashboard layout schemas
+export const insertDashboardLayoutSchema = createInsertSchema(dashboardLayouts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Dashboard layout types
+export type DashboardLayout = {
+  id: string;
+  userId: string;
+  layout: any;
+  widgets: any;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InsertDashboardLayout = z.infer<typeof insertDashboardLayoutSchema>;
+
+// Widget types for dashboard
+export interface WidgetConfig {
+  id: string;
+  type: 'stats' | 'chart' | 'recent-cases' | 'case-distribution' | 'activity-feed' | 'quick-actions';
+  title: string;
+  data?: any;
+  refreshInterval?: number;
+}
+
+export interface LayoutItem {
+  i: string; // widget id
+  x: number;
+  y: number; 
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+  maxW?: number;
+  maxH?: number;
+}

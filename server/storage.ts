@@ -10,6 +10,7 @@ import {
   type ActivityLog,
   type InsertActivityLog,
   type ActivityLogWithUser,
+  type DashboardLayout,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, desc, sql, and, or, ilike } from "drizzle-orm";
@@ -49,6 +50,10 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUser(id: string, data: any): Promise<User>;
   deleteUser(id: string): Promise<void>;
+  
+  // Dashboard layouts
+  saveDashboardLayout(userId: string, layout: any, widgets: any): Promise<DashboardLayout>;
+  getDashboardLayout(userId: string): Promise<DashboardLayout | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -399,6 +404,42 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  // Dashboard layouts
+  async saveDashboardLayout(userId: string, layout: any, widgets: any): Promise<DashboardLayout> {
+    const layoutData: DashboardLayout = {
+      id: `layout_${userId}`,
+      userId,
+      layout,
+      widgets,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    if (!DatabaseStorage.dashboardLayouts) {
+      DatabaseStorage.dashboardLayouts = new Map();
+    }
+    DatabaseStorage.dashboardLayouts.set(userId, layoutData);
+    
+    return layoutData;
+  }
+
+  async getDashboardLayout(userId: string): Promise<DashboardLayout | undefined> {
+    if (!DatabaseStorage.dashboardLayouts) {
+      return undefined;
+    }
+    return DatabaseStorage.dashboardLayouts.get(userId);
+  }
+}
+
+// Static cache for dashboard layouts
+DatabaseStorage.dashboardLayouts = new Map();
+
+// Add static property declaration
+declare global {
+  namespace DatabaseStorage {
+    var dashboardLayouts: Map<string, DashboardLayout>;
   }
 }
 

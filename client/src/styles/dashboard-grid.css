@@ -1,0 +1,246 @@
+/* Dashboard Grid Layout Styles */
+
+/* Grid Container */
+.react-grid-layout {
+  position: relative;
+  min-height: 400px;
+}
+
+/* Grid Items */
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, transform, opacity;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.react-grid-item:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dragging styles */
+.react-grid-item.react-grid-placeholder {
+  background: #3b82f6 !important;
+  opacity: 0.3 !important;
+  transition-duration: 100ms;
+  z-index: 2;
+  user-select: none;
+  border-radius: 8px;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, opacity;
+}
+
+.react-grid-item.resizing {
+  opacity: 0.8;
+  z-index: 3;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.react-grid-item.static {
+  background: #f3f4f6 !important;
+  color: #6b7280 !important;
+}
+
+/* Resize handles */
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZG90cyBmaWxsPSIjNmI3MjgwIiBmaWxsLW9wYWNpdHk9IjAuNCIvPgo8L3N2Zz4K') no-repeat;
+  background-size: contain;
+  background-origin: content-box;
+  box-sizing: border-box;
+  cursor: se-resize;
+  padding: 4px;
+}
+
+.react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-right: 2px solid rgba(107, 114, 128, 0.6);
+  border-bottom: 2px solid rgba(107, 114, 128, 0.6);
+}
+
+.react-grid-item:hover .react-resizable-handle::after {
+  border-color: rgba(59, 130, 246, 0.8);
+}
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+  .react-grid-item {
+    margin-bottom: 16px;
+  }
+  
+  .react-resizable-handle {
+    display: none;
+  }
+}
+
+/* Widget Content Styles */
+.widget-content {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.widget-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.widget-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.widget-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Loading states */
+.widget-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* Empty states */
+.widget-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+}
+
+.widget-empty-icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+/* Chart widget specific styles */
+.recharts-wrapper {
+  font-size: 12px;
+}
+
+.recharts-legend-wrapper {
+  font-size: 11px;
+}
+
+/* Activity feed widget styles */
+.activity-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+/* Quick actions widget styles */
+.quick-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  height: 100%;
+  align-items: stretch;
+}
+
+.quick-action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 200ms ease;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  min-height: 60px;
+}
+
+.quick-action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Dashboard customizer styles */
+.dashboard-customizer {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 640px) {
+  .react-grid-layout {
+    margin: 0 -8px;
+  }
+  
+  .react-grid-item {
+    margin: 0 8px 16px;
+    position: static !important;
+    transform: none !important;
+    width: calc(100% - 16px) !important;
+    height: auto !important;
+  }
+  
+  .widget-content {
+    padding: 12px;
+  }
+  
+  .quick-action-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  .quick-action-button {
+    min-height: 50px;
+    padding: 8px 6px;
+    font-size: 10px;
+  }
+}
+
+/* Animation for new widgets */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.widget-appear {
+  animation: fadeInUp 300ms ease-out;
+}
