@@ -325,28 +325,77 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCaseStatus(id: string, status: string, completedDate?: Date | null, dataEntrega?: Date | null): Promise<Case> {
-    await this.getCases(); // Garantir que cache está inicializado
-    const caseIndex = DatabaseStorage.casesCache.findIndex(c => c.id === id);
+    console.log('🔧 DEBUG: Atualizando status do caso:', id, 'para:', status);
     
-    if (caseIndex === -1) {
-      throw new Error("Case not found");
+    try {
+      // Primeiro verificar se o caso existe
+      const checkQuery = `SELECT id FROM cases WHERE id = $1`;
+      const checkResult = await pool.query(checkQuery, [id]);
+      console.log('🔍 DEBUG: Verificando existência do caso:', checkResult.rows.length > 0 ? 'EXISTE' : 'NÃO EXISTE');
+      
+      if (checkResult.rows.length === 0) {
+        console.log('❌ DEBUG: Caso não existe no banco de dados');
+        throw new Error("Case not found in database");
+      }
+      
+      // Atualizar diretamente no banco de dados usando SQL
+      const updateQuery = `
+        UPDATE cases 
+        SET 
+          status = $2,
+          completed_date = CASE 
+            WHEN $2 = 'concluido' THEN COALESCE($3, NOW())
+            ELSE completed_date
+          END,
+          data_entrega = CASE 
+            WHEN $2 = 'concluido' THEN COALESCE($4, NOW())
+            ELSE data_entrega
+          END,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+      
+      const result = await pool.query(updateQuery, [
+        id,
+        status,
+        completedDate || null,
+        dataEntrega || null
+      ]);
+      
+      if (result.rows.length === 0) {
+        console.log('❌ DEBUG: Caso não encontrado no banco para atualização');
+        throw new Error("Case not found");
+      }
+      
+      const updatedCase = result.rows[0];
+      console.log('✅ DEBUG: Status do caso atualizado no banco:', updatedCase.id, '->', updatedCase.status);
+      
+      // Converter para o formato correto
+      return {
+        id: updatedCase.id,
+        clientName: updatedCase.client_name,
+        processNumber: updatedCase.process_number,
+        description: updatedCase.description,
+        status: updatedCase.status,
+        startDate: updatedCase.start_date,
+        dueDate: updatedCase.due_date,
+        completedDate: updatedCase.completed_date,
+        dataEntrega: updatedCase.data_entrega,
+        tipoProcesso: updatedCase.tipo_processo,
+        documentosSolicitados: updatedCase.documentos_solicitados,
+        documentosAnexados: updatedCase.documentos_anexados,
+        observacoes: updatedCase.observacoes,
+        assignedToId: updatedCase.assigned_to_id,
+        createdById: updatedCase.created_by_id,
+        createdAt: new Date(updatedCase.created_at),
+        updatedAt: new Date(updatedCase.updated_at),
+        employeeId: updatedCase.employee_id
+      };
+    } catch (error) {
+      console.error('❌ DEBUG: Erro ao atualizar status do caso:', error);
+      throw error;
     }
-    
-    // Atualizar o caso diretamente no cache estático
-    DatabaseStorage.casesCache[caseIndex] = {
-      ...DatabaseStorage.casesCache[caseIndex],
-      status,
-      updatedAt: new Date(),
-      completedDate: status === 'concluido' ? (completedDate || new Date()) : 
-                     status !== 'concluido' ? null : DatabaseStorage.casesCache[caseIndex].completedDate,
-      dataEntrega: dataEntrega !== undefined ? dataEntrega : DatabaseStorage.casesCache[caseIndex].dataEntrega
-    };
-    
-    console.log(`📋 STATUS ATUALIZADO: Caso ${id} mudou para "${status}" no cache estático. Data entrega:`, dataEntrega);
-    const updatedCase = DatabaseStorage.casesCache[caseIndex];
-    
-    // Retornar o caso atualizado
-    return updatedCase as Case;
   }
 
   // Enhanced activity log operations
