@@ -427,11 +427,6 @@ export default function Employees() {
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">{employee.nome}</span>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant={employee.status === 'ativo' ? 'default' : 'secondary'} className="text-xs">
-                              {employee.status}
-                            </Badge>
-                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -458,7 +453,7 @@ export default function Employees() {
                         📅 {formatDate(employee.dataAdmissao)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-2 justify-center">
+                        <div className="flex gap-1 justify-center">
                           <Button
                             size="sm"
                             onClick={() => openEditModal(employee)}
