@@ -56,12 +56,10 @@ Preferred communication style: Simple, everyday language.
 - **Authorization**: Role-based access control (admin/editor roles)
 - **Security**: Secure HTTP-only cookies with CSRF protection
 
-### Data Import System (Added July 2025)
-- **Excel Processing**: XLSX file import with automatic data mapping
-- **Historical Data**: Successfully imported 208 cases from 2024 and 276 cases from 2025 (total: 484 cases)
-- **Employee Linking**: Automatic employee association based on name matching
-- **Data Validation**: Error handling and duplicate detection during import
-- **Audit Trail**: Full logging of import process with success/error reporting
+### Data Import System (Updated January 2025)
+- **System Reset**: All data cleared at user request (January 2025)
+- **Manual Entry**: User will populate data manually through interface
+- **Clean Database**: Fresh start with empty tables for cases and employees
 
 ### Case Management (Updated July 2025)
 - **Field Structure**: Matrícula, Nome, Processo, Prazo de entrega, Audiência, Status
@@ -71,9 +69,9 @@ Preferred communication style: Simple, everyday language.
 - **Professional UI**: Enhanced table with borders, professional styling, and responsive design
 - **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
 - **Automatic Date Tracking**: Data de entrega automatically set when status changes to "concluído"
-- **Historical Data**: 484 total cases imported (208 from 2024, 276 from 2025) with complete audit trail
-- **Direct Database Population**: All Excel data imported directly via database scripts, UI cleaned of import buttons
-- **Fixed Database Queries**: Corrected hardcoded cache in storage.ts to use real database queries
+- **Clean Slate**: All data removed at user request (January 2025)
+- **Manual Population**: User will add data through interface manually
+- **Reset System**: Database and files completely cleared for fresh start
 
 ### Process Analytics
 - **Tag Visualization**: Process fields split by commas into individual badges
