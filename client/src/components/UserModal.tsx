@@ -115,6 +115,9 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
   // Recarregar valores quando o usuário muda
   React.useEffect(() => {
     if (user) {
+      const userPermissions = (user as any)?.permissions;
+      console.log('🔄 CARREGANDO PERMISSÕES DO USUÁRIO:', user.username, userPermissions);
+      
       form.reset({
         username: user.username || "",
         email: user.email || "",
@@ -122,7 +125,18 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
         lastName: user.lastName || "",
         password: "",
         role: (user.role as "admin" | "editor" | "viewer") || "viewer",
-        permissions: (user as any)?.permissions || defaultPermissions,
+        permissions: userPermissions || defaultPermissions,
+      });
+    } else {
+      // Para novo usuário, usar permissões padrão
+      form.reset({
+        username: "",
+        email: "",
+        firstName: "",
+        lastName: "",
+        password: "",
+        role: "viewer",
+        permissions: defaultPermissions,
       });
     }
   }, [user, form]);

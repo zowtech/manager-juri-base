@@ -484,7 +484,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await this.getUsers();
+    try {
+      // Buscar diretamente do banco usando query SQL para garantir que as permissões sejam carregadas
+      const query = `
+        SELECT id, username, email, first_name, last_name, password, role, 
+               profile_image_url, permissions, created_at, updated_at 
+        FROM users
+        ORDER BY created_at DESC
+      `;
+      const result = await pool.query(query);
+      
+      const dbUsers = result.rows.map((row: any) => ({
+        id: row.id,
+        username: row.username,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        password: row.password,
+        role: row.role,
+        profileImageUrl: row.profile_image_url,
+        permissions: row.permissions || {},
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+      }));
+
+      // Se não há usuários no banco, retornar os usuários de teste
+      if (dbUsers.length === 0) {
+        return await this.getUsers();
+      }
+
+      console.log('👥 USUÁRIOS CARREGADOS DO BANCO:', dbUsers.map(u => `${u.username} (${Object.keys(u.permissions || {}).length} permissões)`));
+      return dbUsers;
+    } catch (error) {
+      console.error('Erro ao carregar todos os usuários:', error);
+      // Fallback para cache em caso de erro
+      return await this.getUsers();
+    }
   }
 
   async updateUser(id: string, data: any): Promise<User> {
