@@ -338,30 +338,25 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Case not found in database");
       }
       
-      // Atualizar diretamente no banco de dados usando SQL
-      const updateQuery = `
-        UPDATE cases 
-        SET 
-          status = $2,
-          completed_date = CASE 
-            WHEN $2 = 'concluido' THEN COALESCE($3, NOW())
-            ELSE completed_date
-          END,
-          data_entrega = CASE 
-            WHEN $2 = 'concluido' THEN COALESCE($4, NOW())
-            ELSE data_entrega
-          END,
-          updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-      `;
+      // Atualizar status primeiro
+      const updateStatusQuery = `UPDATE cases SET status = $2, updated_at = NOW() WHERE id = $1`;
+      await pool.query(updateStatusQuery, [id, status]);
       
-      const result = await pool.query(updateQuery, [
-        id,
-        status,
-        completedDate || null,
-        dataEntrega || null
-      ]);
+      // Se status for "concluído", atualizar datas
+      if (status === 'concluido') {
+        const updateDatesQuery = `
+          UPDATE cases 
+          SET 
+            completed_date = COALESCE($2, NOW()),
+            data_entrega = COALESCE($3, NOW())
+          WHERE id = $1
+        `;
+        await pool.query(updateDatesQuery, [id, completedDate, dataEntrega]);
+      }
+      
+      // Buscar o caso atualizado
+      const selectQuery = `SELECT * FROM cases WHERE id = $1`;
+      const result = await pool.query(selectQuery, [id]);
       
       if (result.rows.length === 0) {
         console.log('❌ DEBUG: Caso não encontrado no banco para atualização');
