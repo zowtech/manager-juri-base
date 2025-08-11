@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -107,9 +108,24 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
       lastName: user?.lastName || "",
       password: "",
       role: (user?.role as "admin" | "editor" | "viewer") || "viewer",
-      permissions: (user as any)?.permissions || defaultPermissions,
+      permissions: user ? (user as any)?.permissions : defaultPermissions,
     },
   });
+
+  // Recarregar valores quando o usuário muda
+  React.useEffect(() => {
+    if (user) {
+      form.reset({
+        username: user.username || "",
+        email: user.email || "",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        password: "",
+        role: (user.role as "admin" | "editor" | "viewer") || "viewer",
+        permissions: (user as any)?.permissions || defaultPermissions,
+      });
+    }
+  }, [user, form]);
 
   const handleSubmit = (values: UserForm) => {
     const submitData = {
@@ -481,80 +497,7 @@ export default function UserModal({ user, onSubmit, onClose, isSubmitting }: Use
                     />
                   </div>
 
-                  {/* Controle de Acesso às Páginas */}
-                  <div className="space-y-3 pt-4 border-t">
-                    <h4 className="font-medium text-sm">Acesso às Páginas</h4>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={(form.watch("permissions") as any)?.pages?.dashboard ?? true}
-                          onCheckedChange={(checked) => {
-                            const currentPermissions = form.getValues("permissions") as any;
-                            form.setValue("permissions", {
-                              ...currentPermissions,
-                              pages: {
-                                ...currentPermissions?.pages,
-                                dashboard: !!checked
-                              }
-                            });
-                          }}
-                        />
-                        <Label className="text-sm">Dashboard</Label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={(form.watch("permissions") as any)?.pages?.cases ?? true}
-                          onCheckedChange={(checked) => {
-                            const currentPermissions = form.getValues("permissions") as any;
-                            form.setValue("permissions", {
-                              ...currentPermissions,
-                              pages: {
-                                ...currentPermissions?.pages,
-                                cases: !!checked
-                              }
-                            });
-                          }}
-                        />
-                        <Label className="text-sm">Processos</Label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={(form.watch("permissions") as any)?.pages?.activityLog ?? false}
-                          onCheckedChange={(checked) => {
-                            const currentPermissions = form.getValues("permissions") as any;
-                            form.setValue("permissions", {
-                              ...currentPermissions,
-                              pages: {
-                                ...currentPermissions?.pages,
-                                activityLog: !!checked
-                              }
-                            });
-                          }}
-                        />
-                        <Label className="text-sm">Log de Atividades</Label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={(form.watch("permissions") as any)?.pages?.users ?? false}
-                          onCheckedChange={(checked) => {
-                            const currentPermissions = form.getValues("permissions") as any;
-                            form.setValue("permissions", {
-                              ...currentPermissions,
-                              pages: {
-                                ...currentPermissions?.pages,
-                                users: !!checked
-                              }
-                            });
-                          }}
-                        />
-                        <Label className="text-sm">Usuários</Label>
-                      </div>
-                    </div>
-                  </div>
+
                 </div>
               </CardContent>
             </Card>
