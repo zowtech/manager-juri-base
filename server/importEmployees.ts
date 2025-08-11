@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import * as fs from 'fs';
 import { db } from './db';
 import { employees, cases } from '@shared/schema';
 import { eq, sql, isNull } from 'drizzle-orm';
@@ -143,6 +144,96 @@ export async function linkCasesToEmployees() {
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+export async function importEmployeesFromCSV(filePath: string) {
+  try {
+    // Ler arquivo CSV
+    const csvData = fs.readFileSync(filePath, 'utf8');
+    const lines = csvData.split('\n').filter(line => line.trim());
+    
+    // Primeira linha são os cabeçalhos
+    const headers = lines[0].split(',').map(h => h.trim());
+    console.log('Cabeçalhos CSV encontrados:', headers);
+    console.log('Total de linhas CSV:', lines.length - 1);
+    
+    const importedEmployees = [];
+    let errors = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      try {
+        // Parse CSV line (handling commas in quotes)
+        const values = line.split(',').map(v => v.trim().replace(/^"/, '').replace(/"$/, ''));
+        
+        // Mapear dados da planilha Base Facilities CSV
+        // Empresa,Nome do Funcionário,Código do Funcionário,Número do RG,Número do PIS,Data Admissão,Data Demissão,Salário,Descrição do Cargo,Centro de Custo,Descrição do Custo
+        const employee = {
+          empresa: values[0] || 'BASE FACILITIES',
+          nome: values[1]?.trim() || '',
+          matricula: values[2]?.trim() || '',
+          rg: values[3]?.trim() || null,
+          pis: values[4]?.trim() || null,
+          dataAdmissao: values[5] ? values[5] : null,
+          dataDemissao: values[6]?.trim() || null,
+          salario: values[7] ? values[7].replace(/[^\d.,]/g, '') : null,
+          cargo: values[8]?.trim() || null,
+          centroCusto: values[9]?.trim() || null,
+          departamento: values[10]?.trim() || null,
+          status: values[6]?.trim() ? 'demitido' : 'ativo', // Se tem data demissão = demitido
+          email: null,
+          telefone: null,
+          endereco: null
+        };
+        
+        // Validar campos obrigatórios
+        if (!employee.matricula || !employee.nome) {
+          errors.push(`Linha ${i + 1}: Matrícula e nome são obrigatórios`);
+          continue;
+        }
+        
+        // Verificar se funcionário já existe
+        const existing = await db.select().from(employees).where(eq(employees.matricula, employee.matricula));
+        
+        if (existing.length > 0) {
+          // Atualizar funcionário existente
+          await db.update(employees)
+            .set({
+              ...employee,
+              updatedAt: new Date()
+            })
+            .where(eq(employees.matricula, employee.matricula));
+          console.log(`Funcionário atualizado: ${employee.nome} (${employee.matricula})`);
+        } else {
+          // Inserir novo funcionário
+          await db.insert(employees).values(employee);
+          console.log(`Funcionário criado: ${employee.nome} (${employee.matricula})`);
+        }
+        
+        importedEmployees.push(employee);
+        
+      } catch (error) {
+        errors.push(`Linha ${i + 1}: ${error.message}`);
+      }
+    }
+    
+    return {
+      success: true,
+      imported: importedEmployees.length,
+      errors: errors,
+      message: `Importados ${importedEmployees.length} funcionários com ${errors.length} erros`
+    };
+    
+  } catch (error) {
+    console.error('Erro ao importar funcionários CSV:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Erro ao processar arquivo CSV'
     };
   }
 }

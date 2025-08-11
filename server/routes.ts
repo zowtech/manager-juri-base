@@ -547,10 +547,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      const { importEmployeesFromExcel } = await import('./importEmployees');
-      const filePath = 'attached_assets/FUNCIONARIOS_1753976833587.xlsx';
+      const { importEmployeesFromCSV } = await import('./importEmployees');
+      const filePath = 'exemplo_funcionarios.csv';
       
-      const result = await importEmployeesFromExcel(filePath);
+      const result = await importEmployeesFromCSV(filePath);
       res.json(result);
     } catch (error) {
       console.error("Error importing employees:", error);

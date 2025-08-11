@@ -97,15 +97,7 @@ export default function Employees() {
 
   const importMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/employees/import', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      const response = await apiRequest('POST', '/api/employees/import');
       return response.json();
     },
     onSuccess: (result) => {
@@ -205,12 +197,20 @@ export default function Employees() {
   // Export employees
   const exportEmployees = async () => {
     try {
+      toast({ title: "Exportando...", description: "Preparando arquivo para download..." });
+      
+      // Usar fetch direto para download de blob
       const response = await fetch('/api/employees/export', {
         method: 'GET',
         credentials: 'include',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
       });
       
-      if (!response.ok) throw new Error('Falha na exportação');
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -224,6 +224,7 @@ export default function Employees() {
       
       toast({ title: "Exportação concluída", description: "Arquivo baixado com sucesso!" });
     } catch (error) {
+      console.error('Erro na exportação:', error);
       toast({ title: "Erro na exportação", description: "Falha ao exportar funcionários", variant: "destructive" });
     }
   };
