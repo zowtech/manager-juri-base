@@ -250,10 +250,10 @@ export type DashboardLayout = {
 
 export type InsertDashboardLayout = z.infer<typeof insertDashboardLayoutSchema>;
 
-// Widget types for dashboard
+// Widget types for dashboard - PROFISSIONAIS MELHORADOS
 export interface WidgetConfig {
   id: string;
-  type: 'stats' | 'chart' | 'recent-cases' | 'case-distribution' | 'activity-feed' | 'quick-actions';
+  type: 'stats' | 'chart' | 'recent-cases' | 'case-distribution' | 'activity-feed' | 'quick-actions' | 'performance-metrics' | 'deadline-alerts' | 'team-workload';
   title: string;
   data?: any;
   refreshInterval?: number;

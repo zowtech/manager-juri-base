@@ -310,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard routes
+  // Dashboard routes - MELHORADOS E PROFISSIONAIS
   app.get('/api/dashboard/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stats = await storage.getCaseStats();
@@ -318,6 +318,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Novos endpoints profissionais para widgets melhorados
+  app.get("/api/dashboard/performance-metrics", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const metrics = await storage.getPerformanceMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error('Performance metrics error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  app.get("/api/dashboard/deadline-alerts", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const alerts = await storage.getDeadlineAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error('Deadline alerts error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  app.get("/api/dashboard/chart-monthly", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const monthlyData = await storage.getCasesByMonth();
+      res.json(monthlyData);
+    } catch (error) {
+      console.error('Chart monthly error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  app.get("/api/dashboard/chart-process-types", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+    try {
+      const processData = await storage.getProcessTypeStats();
+      res.json(processData);
+    } catch (error) {
+      console.error('Chart process types error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // Gráfico de status melhorado
+  app.get('/api/dashboard/chart-status', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const statusData = await storage.getCasesByStatus();
+      const chartData = Object.entries(statusData).map(([status, count]) => ({
+        name: status.charAt(0).toUpperCase() + status.slice(1),
+        value: count,
+      }));
+      res.json(chartData);
+    } catch (error) {
+      console.error("Error fetching status chart data:", error);
+      res.status(500).json({ message: "Failed to fetch status chart data" });
+    }
+  });
+
+  // Gráfico de processos por mês corrigido
+  app.get('/api/dashboard/chart-monthly', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const monthlyData = await storage.getCasesByMonth();
+      res.json(monthlyData);
+    } catch (error) {
+      console.error("Error fetching monthly chart data:", error);
+      res.status(500).json({ message: "Failed to fetch monthly chart data" });
+    }
+  });
+
+  // Novo: Tipos de processo mais solicitados
+  app.get('/api/dashboard/chart-process-types', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const processTypes = await storage.getProcessTypeStats();
+      res.json(processTypes);
+    } catch (error) {
+      console.error("Error fetching process types data:", error);
+      res.status(500).json({ message: "Failed to fetch process types data" });
+    }
+  });
+
+  // Novo: Métricas de performance
+  app.get('/api/dashboard/performance-metrics', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const metrics = await storage.getPerformanceMetrics();
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching performance metrics:", error);
+      res.status(500).json({ message: "Failed to fetch performance metrics" });
+    }
+  });
+
+  // Novo: Alertas de prazo
+  app.get('/api/dashboard/deadline-alerts', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const alerts = await storage.getDeadlineAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching deadline alerts:", error);
+      res.status(500).json({ message: "Failed to fetch deadline alerts" });
     }
   });
 
