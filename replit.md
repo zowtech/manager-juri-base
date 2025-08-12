@@ -39,14 +39,17 @@ Preferred communication style: Simple, everyday language.
 - **Session Storage**: PostgreSQL-based sessions using connect-pg-simple
 - **Development**: Hot reload with Vite integration
 
-### Database Design
-- **Database**: PostgreSQL via Neon serverless
+### Database Design (Updated August 2025)
+- **Database**: PostgreSQL via Supabase (migrated from Neon for user independence)
+- **Migration**: Successfully completed August 2025 - user now has complete independence
 - **Schema Management**: Drizzle Kit for migrations
 - **Key Tables**:
-  - `users` - User profiles and roles (admin/editor)
+  - `users` - User profiles and roles (admin/editor) with permissions system
   - `cases` - Legal case data with status tracking
+  - `employees` - Employee database with 11-column Excel schema support
   - `activity_log` - Audit trail for all system actions
   - `sessions` - Authentication session storage
+  - `dashboard_layouts` - User dashboard customization
 
 ## Key Components
 
@@ -131,10 +134,12 @@ Preferred communication style: Simple, everyday language.
 - **Backend**: Bundled Node.js server in `dist/index.js`
 - **Startup**: Single production server serving static files and API
 
-### Environment Configuration
-- **Database**: PostgreSQL connection via DATABASE_URL
-- **Authentication**: Replit OAuth configuration
+### Environment Configuration (Updated August 2025)
+- **Database**: Supabase PostgreSQL (user's independent instance)
+- **Production URL**: postgresql://postgres:BaseF@cilities2025!@db.dnymyzhahgqnxvkrgmoq.supabase.co:5432/postgres
+- **Authentication**: Custom session-based with local strategy  
 - **Sessions**: Secure session management with TTL
-- **CORS**: Configured for Replit domain access
+- **Independence**: Complete user independence achieved - no external dependencies
+- **Deployment**: Successfully deployed on Render platform
 
 The system follows a monorepo structure with clear separation between client, server, and shared code, making it maintainable and scalable for legal case management workflows.
