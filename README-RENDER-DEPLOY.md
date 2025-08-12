@@ -25,17 +25,33 @@ production
 
 ### 2. Comandos de Build e Start
 
+## OPÇÃO 1 - Scripts Simples (RECOMENDADO)
+
 **Build Command:**
 ```
-node render-build.js
+node build-production.js
 ```
 
 **Start Command:**
 ```
-node render-simple-start.js
+node start-production.js
 ```
 
-**Alternativo (se script não funcionar):**
+## OPÇÃO 2 - Comandos Diretos
+
+**Build Command:**
+```
+npm install && npx vite build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+```
+
+**Start Command:**
+```
+NODE_ENV=production node dist/index.js
+```
+
+## OPÇÃO 3 - Com Variáveis Explícitas
+
+**Start Command:**
 ```
 NODE_ENV=production DATABASE_URL=postgresql://neondb_owner:npg_cENtFV63LasC@ep-proud-sun-adscjpcc.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require SESSION_SECRET=base-facilities-legal-2024-secret-key node dist/index.js
 ```
