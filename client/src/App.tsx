@@ -53,24 +53,7 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
-  // Redirecionamento para primeira página permitida se não for dashboard
-  if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
-    if (firstAllowedPage === 'cases') {
-      navigate('/cases');
-      return null;
-    } else if (firstAllowedPage === 'activityLog') {
-      navigate('/activity-log');
-      return null;
-    } else if (firstAllowedPage === 'users') {
-      navigate('/users');
-      return null;
-    }
-  }
-
-  // Se tem permissão para dashboard e está na página inicial, mostrar dashboard
-  if (location === '/' && hasPagePermission('dashboard')) {
-    // Deixar mostrar dashboard naturalmente
-  }
+  // Não fazer redirecionamentos automáticos - deixar as rotas funcionarem naturalmente
 
   // Se não tem permissão para nenhuma página, mostrar erro
   if (!firstAllowedPage) {
@@ -93,8 +76,18 @@ function Router() {
   return (
     <Layout>
       <Switch>
-        {/* SEMPRE exibir Dashboard na página principal */}
-        <Route path="/" component={CustomDashboard} />
+        {/* Dashboard na página principal se tiver permissão */}
+        {hasPagePermission('dashboard') ? (
+          <Route path="/" component={CustomDashboard} />
+        ) : firstAllowedPage === 'cases' ? (
+          <Route path="/" component={Cases} />
+        ) : firstAllowedPage === 'activityLog' ? (
+          <Route path="/" component={ActivityLog} />
+        ) : firstAllowedPage === 'users' ? (
+          <Route path="/" component={Users} />
+        ) : (
+          <Route path="/" component={NotFound} />
+        )}
         {hasPagePermission('cases') && <Route path="/cases" component={Cases} />}
         <Route path="/employees" component={Employees} />
         {hasPagePermission('users') && <Route path="/users" component={Users} />}
