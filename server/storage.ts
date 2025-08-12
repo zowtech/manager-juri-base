@@ -177,10 +177,32 @@ export class DatabaseStorage implements IStorage {
 
   // Case operations
   async createCase(caseData: InsertCase): Promise<Case> {
+    console.log('📝 DEBUG: Criando novo caso com campos atualizados:', caseData);
+    
+    // Buscar funcionário pela matrícula para obter employeeId
+    let employeeId = null;
+    if (caseData.matricula) {
+      const [employee] = await db
+        .select()
+        .from(employees)
+        .where(eq(employees.matricula, caseData.matricula))
+        .limit(1);
+      
+      if (employee) {
+        employeeId = employee.id;
+        console.log('✅ DEBUG: Funcionário encontrado:', employeeId);
+      }
+    }
+
     const [newCase] = await db
       .insert(cases)
-      .values(caseData)
+      .values({
+        ...caseData,
+        employeeId, // Conectar funcionário via matrícula
+      })
       .returning();
+    
+    console.log('✅ DEBUG: Caso criado com novos campos:', newCase.id);
     return newCase;
   }
 

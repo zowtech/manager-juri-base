@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import EmployeeSelector from "@/components/EmployeeSelector";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,24 +31,31 @@ interface NewCaseModalProps {
   caseData?: CaseWithRelations | null;
 }
 
+// NOVO SCHEMA CONFORME SOLICITAÇÃO DO USUÁRIO
 const formSchema = z.object({
-  clientName: z.string().min(1, "Nome do cliente é obrigatório"),
-  processNumber: z.string().min(1, "Número do processo é obrigatório"),
-  description: z.string().min(1, "Descrição é obrigatória"),
+  matricula: z.string().min(1, "Matrícula é obrigatória"),
+  clientName: z.string().min(1, "Nome do cliente/funcionário é obrigatório"),
+  description: z.string().min(1, "Descrição é obrigatória (separar diferentes processos por vírgula)"),
   dueDate: z.string().optional(),
+  audienceDate: z.string().optional(),
+  observacoes: z.string().optional(),
   status: z.enum(['novo', 'andamento', 'concluido', 'pendente']).default('novo'),
 });
 
 type FormSchema = z.infer<typeof formSchema>;
 
 export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, caseData }: NewCaseModalProps) {
+  const [selectedEmployee, setSelectedEmployee] = React.useState<{ matricula: string; nome: string } | null>(null);
+  
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      matricula: "",
       clientName: "",
-      processNumber: "",
       description: "",
       dueDate: "",
+      audienceDate: "",
+      observacoes: "",
       status: "novo",
     },
   });
@@ -56,34 +64,56 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
   React.useEffect(() => {
     if (caseData) {
       form.reset({
+        matricula: caseData.matricula || "",
         clientName: caseData.clientName || "",
-        processNumber: caseData.processNumber || "",
         description: caseData.description || "",
         dueDate: caseData.dueDate ? new Date(caseData.dueDate).toISOString().split('T')[0] : "",
+        audienceDate: caseData.audienceDate ? new Date(caseData.audienceDate).toISOString().split('T')[0] : "",
+        observacoes: caseData.observacoes || "",
         status: (caseData.status as FormSchema['status']) || "novo",
       });
+      
+      // Definir funcionário selecionado se existir
+      if (caseData.matricula && caseData.clientName) {
+        setSelectedEmployee({
+          matricula: caseData.matricula,
+          nome: caseData.clientName
+        });
+      }
     } else {
       form.reset({
+        matricula: "",
         clientName: "",
-        processNumber: "",
         description: "",
         dueDate: "",
+        audienceDate: "",
+        observacoes: "",
         status: "novo",
       });
+      setSelectedEmployee(null);
     }
   }, [caseData, form]);
 
-  const handleSubmit = (values: FormSchema) => {
+  // Sincronizar seleção de funcionário com o formulário
+  React.useEffect(() => {
+    if (selectedEmployee) {
+      form.setValue('matricula', selectedEmployee.matricula);
+      form.setValue('clientName', selectedEmployee.nome);
+    }
+  }, [selectedEmployee, form]);
+
+  const handleSubmit = (data: FormSchema) => {
     const submitData = {
-      ...values,
-      dueDate: values.dueDate ? new Date(values.dueDate) : null,
+      ...data,
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      audienceDate: data.audienceDate ? new Date(data.audienceDate) : null,
     };
     onSubmit(submitData);
-    form.reset();
   };
 
   const handleClose = () => {
     form.reset();
+    setSelectedEmployee(null);
     onClose();
   };
 
@@ -91,62 +121,27 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-gray-900">
+          <DialogTitle>
             {caseData ? "Editar Processo" : "Novo Processo"}
           </DialogTitle>
         </DialogHeader>
-        
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="clientName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Nome do Cliente/Funcionário</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ex: CÉLIA MARIA DE JESUS"
-                        {...field}
-                        className="border-gray-300"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="processNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Número do Processo</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ex: 5000123-45.2024.5.03.0001"
-                        {...field}
-                        className="border-gray-300"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {/* SELETOR DE FUNCIONÁRIO POR MATRÍCULA */}
             <FormField
               control={form.control}
-              name="description"
+              name="matricula"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-gray-700">Descrição do Processo</FormLabel>
+                  <FormLabel>Funcionário (Matrícula)</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Descreva o tipo de processo, valores envolvidos, situação atual..."
-                      className="border-gray-300 min-h-[100px]"
-                      {...field}
+                    <EmployeeSelector
+                      value={selectedEmployee}
+                      onSelect={(employee) => {
+                        setSelectedEmployee(employee);
+                      }}
+                      placeholder="Busque por matrícula ou nome do funcionário..."
                     />
                   </FormControl>
                   <FormMessage />
@@ -154,22 +149,117 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* NOME DO CLIENTE/FUNCIONÁRIO (preenchido automaticamente) */}
+            <FormField
+              control={form.control}
+              name="clientName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome do Cliente/Funcionário</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      placeholder="Nome será preenchido automaticamente ao selecionar funcionário"
+                      readOnly={!!selectedEmployee}
+                      className={selectedEmployee ? "bg-gray-50" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* DESCRIÇÃO DOS PROCESSOS (separados por vírgula) */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição dos Processos</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      {...field} 
+                      placeholder="Descreva os processos separando por vírgula. Ex: Horas Extras, Assédio Moral, Demissão sem Justa Causa"
+                      rows={4}
+                      className="resize-none"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-gray-500">
+                    💡 Separe diferentes tipos de processo por vírgula para analytics automático
+                  </p>
+                </FormItem>
+              )}
+            />
+
+            {/* DATAS - PRAZO E AUDIÊNCIA */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prazo de Entrega</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="audienceDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data da Audiência</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* OBSERVAÇÕES */}
+            <FormField
+              control={form.control}
+              name="observacoes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observações</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      {...field} 
+                      placeholder="Observações adicionais sobre o caso..."
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* STATUS (apenas para edição) */}
+            {caseData && (
               <FormField
                 control={form.control}
                 name="status"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Status</FormLabel>
+                    <FormLabel>Status</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className="border-gray-300">
+                        <SelectTrigger>
                           <SelectValue placeholder="Selecione o status" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="andamento">Em Andamento</SelectItem>
+                        <SelectItem value="andamento">Andamento</SelectItem>
                         <SelectItem value="concluido">Concluído</SelectItem>
                         <SelectItem value="pendente">Pendente</SelectItem>
                       </SelectContent>
@@ -178,48 +268,14 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
                   </FormItem>
                 )}
               />
+            )}
 
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Prazo de Entrega</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        className="border-gray-300"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={handleClose}
-                disabled={isSubmitting}
-              >
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleClose}>
                 Cancelar
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Salvando...
-                  </div>
-                ) : (
-                  caseData ? "Atualizar Processo" : "Criar Processo"
-                )}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Salvando..." : (caseData ? "Atualizar" : "Criar Processo")}
               </Button>
             </div>
           </form>

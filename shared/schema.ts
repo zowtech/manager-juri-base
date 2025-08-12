@@ -57,22 +57,28 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Legal cases table
+// Legal cases table - CAMPOS ATUALIZADOS CONFORME SOLICITAÇÃO
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientName: varchar("client_name").notNull(),
-  employeeId: varchar("employee_id").references(() => employees.id), // Link para funcionário
-  processNumber: varchar("process_number").notNull(),
-  description: text("description").notNull(),
+  // NOVOS CAMPOS OBRIGATÓRIOS
+  matricula: varchar("matricula").notNull(), // Matrícula do funcionário
+  clientName: varchar("client_name").notNull(), // Nome cliente/funcionário
+  description: text("description").notNull(), // Descrição (separada por vírgulas para analytics)
+  dueDate: timestamp("due_date"), // Prazo de entrega
+  audienceDate: timestamp("audience_date"), // Data audiência
+  observacoes: text("observacoes"), // Observação
+  
+  // CAMPOS MANTIDOS PARA FUNCIONAMENTO
+  employeeId: varchar("employee_id").references(() => employees.id), // Link para funcionário via matrícula
   status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
   startDate: timestamp("start_date"),
-  dueDate: timestamp("due_date"),
   completedDate: timestamp("completed_date"),
   dataEntrega: timestamp("data_entrega"), // Data automática quando status vira "concluido"
-  tipoProcesso: varchar("tipo_processo"), // trabalhista, rescisao_indireta, dano_moral, etc
-  documentosSolicitados: jsonb("documentos_solicitados"), // lista de documentos necessários 
-  documentosAnexados: jsonb("documentos_anexados"), // lista de documentos enviados com links
-  observacoes: text("observacoes"),
+  
+  // CAMPOS REMOVIDOS (não necessários)
+  // processNumber: varchar("process_number").notNull(), - REMOVIDO
+  // tipoProcesso, documentos, etc - simplificado
+  
   assignedToId: varchar("assigned_to_id").references(() => users.id),
   createdById: varchar("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -195,6 +201,8 @@ export const insertCaseSchema = createInsertSchema(cases).omit({
   createdAt: true,
   updatedAt: true,
   completedDate: true,
+  dataEntrega: true, // Auto-gerado quando status = "concluido"
+  employeeId: true, // Será preenchido automaticamente via matrícula
 });
 
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({
