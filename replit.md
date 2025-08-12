@@ -142,5 +142,6 @@ Preferred communication style: Simple, everyday language.
 - **Sessions**: Secure session management with TTL
 - **Independence**: Complete user independence achieved - no external dependencies
 - **Deployment**: Successfully deployed on Render platform
+- **Build Scripts**: render-build.cjs and render-start.cjs for ES module compatibility
 
 The system follows a monorepo structure with clear separation between client, server, and shared code, making it maintainable and scalable for legal case management workflows.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// Script de build otimizado para Render - ES Module
-import { execSync } from 'child_process';
+// Script de build otimizado para Render - CommonJS
+const { execSync } = require('child_process');
 
 console.log('🏗️  Iniciando build para Render...');
 

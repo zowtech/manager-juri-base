@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 
-// Script de inicialização para produção no Render - ES Module
-import { spawn } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Script de inicialização para produção no Render - CommonJS
+const { spawn } = require('child_process');
+const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 
