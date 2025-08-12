@@ -4,21 +4,22 @@ import * as fs from "fs";
 import multer from "multer";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { scrypt, randomBytes } from "crypto";
-import { promisify } from "util";
-
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
 import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { db, pool } from "./db";
 import { employees } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
+import { scrypt, randomBytes } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+// Password hashing function for user management
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 
 
 
