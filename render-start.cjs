@@ -20,6 +20,14 @@ try {
 // Configurar variáveis de ambiente para produção
 process.env.NODE_ENV = 'production';
 
+// Verificar DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL não encontrada');
+  process.exit(1);
+}
+
+console.log('🔗 DATABASE_URL configurada:', process.env.DATABASE_URL.substring(0, 30) + '...');
+
 // Iniciar o servidor
 console.log('🌐 Iniciando servidor...');
 const server = spawn('node', [distPath], {
