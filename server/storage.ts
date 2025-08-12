@@ -35,32 +35,13 @@ export interface IStorage {
   logActivity(activity: InsertActivityLog): Promise<ActivityLog>;
   getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number }): Promise<ActivityLogWithUser[]>;
   
-  // Dashboard statistics - MELHORADOS
+  // Dashboard statistics
   getCaseStats(): Promise<{
     total: number;
     completed: number;
     inProgress: number;
     averageResponseTime: number;
   }>;
-  
-  // Novos métodos para dashboard profissional
-  getCasesByStatus(): Promise<Record<string, number>>;
-  getCasesByMonth(): Promise<Array<{ name: string; value: number }>>;
-  getProcessTypeStats(): Promise<Array<{ name: string; value: number }>>;
-  getPerformanceMetrics(): Promise<{
-    averageCompletionTime: number;
-    casesSolvedThisMonth: number;
-    pendingCases: number;
-    overduePercentage: number;
-  }>;
-  getDeadlineAlerts(): Promise<Array<{
-    id: string;
-    processNumber: string;
-    clientName: string;
-    dueDate: string;
-    daysOverdue: number;
-    priority: 'high' | 'medium' | 'low';
-  }>>;
   
   // Get users for assignment
   getUsers(): Promise<User[]>;
@@ -177,32 +158,10 @@ export class DatabaseStorage implements IStorage {
 
   // Case operations
   async createCase(caseData: InsertCase): Promise<Case> {
-    console.log('📝 DEBUG: Criando novo caso com campos atualizados:', caseData);
-    
-    // Buscar funcionário pela matrícula para obter employeeId
-    let employeeId = null;
-    if (caseData.matricula) {
-      const [employee] = await db
-        .select()
-        .from(employees)
-        .where(eq(employees.matricula, caseData.matricula))
-        .limit(1);
-      
-      if (employee) {
-        employeeId = employee.id;
-        console.log('✅ DEBUG: Funcionário encontrado:', employeeId);
-      }
-    }
-
     const [newCase] = await db
       .insert(cases)
-      .values({
-        ...caseData,
-        employeeId, // Conectar funcionário via matrícula
-      })
+      .values(caseData)
       .returning();
-    
-    console.log('✅ DEBUG: Caso criado com novos campos:', newCase.id);
     return newCase;
   }
 
@@ -327,13 +286,10 @@ export class DatabaseStorage implements IStorage {
         UPDATE cases 
         SET 
           client_name = COALESCE($2, client_name),
-          // process_number removido conforme nova estrutura 
+          process_number = COALESCE($3, process_number), 
           description = COALESCE($4, description),
           status = COALESCE($5, status),
           due_date = COALESCE($6, due_date),
-          matricula = COALESCE($7, matricula),
-          audience_date = COALESCE($8, audience_date),
-          observacoes = COALESCE($9, observacoes),
           updated_at = NOW()
         WHERE id = $1
         RETURNING *
@@ -345,10 +301,7 @@ export class DatabaseStorage implements IStorage {
         updates.processNumber || null,
         updates.description || null,
         updates.status || null,
-        updates.dueDate || null,
-        updates.matricula || null,
-        updates.audienceDate || null,
-        updates.observacoes || null
+        updates.dueDate || null
       ]);
       
       if (result.rows.length === 0) {
@@ -663,170 +616,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
-  }
-
-  // Novos métodos para dashboard profissional
-  async getCasesByStatus(): Promise<Record<string, number>> {
-    try {
-      const query = `
-        SELECT status, COUNT(*) as count 
-        FROM cases 
-        GROUP BY status
-      `;
-      const result = await pool.query(query);
-      
-      const statusData: Record<string, number> = {};
-      result.rows.forEach(row => {
-        statusData[row.status] = parseInt(row.count);
-      });
-      
-      return statusData;
-    } catch (error) {
-      console.error('Erro ao buscar casos por status:', error);
-      return {};
-    }
-  }
-
-  async getCasesByMonth(): Promise<Array<{ name: string; value: number }>> {
-    try {
-      const query = `
-        SELECT 
-          TO_CHAR(created_at, 'Mon YYYY') as month,
-          COUNT(*) as count
-        FROM cases 
-        WHERE created_at >= NOW() - INTERVAL '12 months'
-        GROUP BY TO_CHAR(created_at, 'Mon YYYY'), DATE_TRUNC('month', created_at)
-        ORDER BY DATE_TRUNC('month', created_at)
-      `;
-      const result = await pool.query(query);
-      
-      return result.rows.map(row => ({
-        name: row.month,
-        value: parseInt(row.count)
-      }));
-    } catch (error) {
-      console.error('Erro ao buscar casos por mês:', error);
-      return [];
-    }
-  }
-
-  async getProcessTypeStats(): Promise<Array<{ name: string; value: number }>> {
-    // Fallback para dados trabalhistas comuns mais realistas
-    return [
-      { name: 'Horas Extras', value: 45 },
-      { name: 'Assédio Moral', value: 32 },
-      { name: 'Demissão sem Justa Causa', value: 28 },
-      { name: 'FGTS', value: 25 },
-      { name: 'Adicional Insalubridade', value: 18 },
-      { name: 'Acidente de Trabalho', value: 15 },
-      { name: 'Equiparação Salarial', value: 12 },
-      { name: 'Rescisão Indireta', value: 8 }
-    ];
-  }
-
-  async getPerformanceMetrics(): Promise<{
-    averageCompletionTime: number;
-    casesSolvedThisMonth: number;
-    pendingCases: number;
-    overduePercentage: number;
-  }> {
-    try {
-      const currentMonth = new Date();
-      currentMonth.setDate(1);
-      
-      const queries = await Promise.all([
-        pool.query(`
-          SELECT AVG(DATE_PART('day', completed_date - created_at)) as avg_time
-          FROM cases 
-          WHERE status = 'concluido' AND completed_date IS NOT NULL
-        `),
-        
-        pool.query(`
-          SELECT COUNT(*) as count
-          FROM cases 
-          WHERE status = 'concluido' 
-          AND completed_date >= $1
-        `, [currentMonth]),
-        
-        pool.query(`
-          SELECT COUNT(*) as count
-          FROM cases 
-          WHERE status IN ('novo', 'andamento', 'pendente')
-        `),
-        
-        pool.query(`
-          SELECT COUNT(*) as overdue, 
-                 (SELECT COUNT(*) FROM cases WHERE status != 'concluido') as total
-          FROM cases 
-          WHERE status != 'concluido' 
-          AND due_date < NOW()
-        `)
-      ]);
-
-      return {
-        averageCompletionTime: Math.round(parseFloat(queries[0].rows[0]?.avg_time || '0') || 7),
-        casesSolvedThisMonth: parseInt(queries[1].rows[0]?.count || '0'),
-        pendingCases: parseInt(queries[2].rows[0]?.count || '0'),
-        overduePercentage: queries[3].rows[0]?.total > 0 
-          ? Math.round((parseInt(queries[3].rows[0]?.overdue || '0') / parseInt(queries[3].rows[0]?.total)) * 100)
-          : 0
-      };
-    } catch (error) {
-      console.error('Erro ao buscar métricas de performance:', error);
-      return {
-        averageCompletionTime: 7,
-        casesSolvedThisMonth: 0,
-        pendingCases: 0,
-        overduePercentage: 0
-      };
-    }
-  }
-
-  async getDeadlineAlerts(): Promise<Array<{
-    id: string;
-    processNumber: string;
-    clientName: string;
-    dueDate: string;
-    daysOverdue: number;
-    priority: 'high' | 'medium' | 'low';
-  }>> {
-    try {
-      const query = `
-        SELECT 
-          id,
-          process_number,
-          client_name,
-          due_date,
-          DATE_PART('day', NOW() - due_date) as days_overdue
-        FROM cases 
-        WHERE status != 'concluido' 
-        AND due_date < NOW() + INTERVAL '7 days'
-        ORDER BY due_date ASC
-        LIMIT 10
-      `;
-      
-      const result = await pool.query(query);
-      
-      return result.rows.map(row => {
-        const daysOverdue = parseInt(row.days_overdue || '0');
-        let priority: 'high' | 'medium' | 'low' = 'low';
-        
-        if (daysOverdue > 7) priority = 'high';
-        else if (daysOverdue > 3) priority = 'medium';
-        
-        return {
-          id: row.id,
-          processNumber: row.process_number,
-          clientName: row.client_name,
-          dueDate: row.due_date,
-          daysOverdue: Math.max(0, daysOverdue),
-          priority
-        };
-      });
-    } catch (error) {
-      console.error('Erro ao buscar alertas de prazo:', error);
-      return [];
-    }
   }
 
   // Dashboard layouts

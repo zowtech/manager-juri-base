@@ -57,24 +57,26 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Legal cases table - CAMPOS ATUALIZADOS CONFORME SOLICITAÇÃO
+// Legal cases table
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  matricula: varchar("matricula").notNull(),
   clientName: varchar("client_name").notNull(),
+  employeeId: varchar("employee_id").references(() => employees.id), // Link para funcionário
+  processNumber: varchar("process_number").notNull(),
   description: text("description").notNull(),
-  status: varchar("status").notNull().default("novo"),
-  dueDate: timestamp("due_date", { withTimezone: true }),
-  audienceDate: timestamp("audience_date", { withTimezone: true }),
+  status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
+  startDate: timestamp("start_date"),
+  dueDate: timestamp("due_date"),
+  completedDate: timestamp("completed_date"),
+  dataEntrega: timestamp("data_entrega"), // Data automática quando status vira "concluido"
+  tipoProcesso: varchar("tipo_processo"), // trabalhista, rescisao_indireta, dano_moral, etc
+  documentosSolicitados: jsonb("documentos_solicitados"), // lista de documentos necessários 
+  documentosAnexados: jsonb("documentos_anexados"), // lista de documentos enviados com links
   observacoes: text("observacoes"),
-  startDate: timestamp("start_date", { withTimezone: true }).defaultNow(),
-  completedDate: timestamp("completed_date", { withTimezone: true }),
-  dataEntrega: timestamp("data_entrega", { withTimezone: true }),
   assignedToId: varchar("assigned_to_id").references(() => users.id),
-  createdById: varchar("created_by_id").references(() => users.id).notNull(),
-  employeeId: varchar("employee_id").references(() => employees.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  createdById: varchar("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Nova tabela para tipos de processos
@@ -193,8 +195,6 @@ export const insertCaseSchema = createInsertSchema(cases).omit({
   createdAt: true,
   updatedAt: true,
   completedDate: true,
-  dataEntrega: true, // Auto-gerado quando status = "concluido"
-  employeeId: true, // Será preenchido automaticamente via matrícula
 });
 
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({
@@ -250,10 +250,10 @@ export type DashboardLayout = {
 
 export type InsertDashboardLayout = z.infer<typeof insertDashboardLayoutSchema>;
 
-// Widget types for dashboard - PROFISSIONAIS MELHORADOS
+// Widget types for dashboard
 export interface WidgetConfig {
   id: string;
-  type: 'stats' | 'chart' | 'recent-cases' | 'case-distribution' | 'activity-feed' | 'quick-actions' | 'performance-metrics' | 'deadline-alerts' | 'team-workload';
+  type: 'stats' | 'chart' | 'recent-cases' | 'case-distribution' | 'activity-feed' | 'quick-actions';
   title: string;
   data?: any;
   refreshInterval?: number;

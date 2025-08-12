@@ -5,8 +5,6 @@ import RecentCasesWidget from "./widgets/RecentCasesWidget";
 import ChartWidget from "./widgets/ChartWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ActivityFeedWidget from "./widgets/ActivityFeedWidget";
-import PerformanceMetricsWidget from "./widgets/PerformanceMetricsWidget";
-import DeadlineAlertsWidget from "./widgets/DeadlineAlertsWidget";
 import type { WidgetConfig, LayoutItem } from "@shared/schema";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -24,11 +22,6 @@ interface DashboardGridProps {
     recentCases?: any[];
     chartData?: any[];
     activityLogs?: any[];
-    performanceMetrics?: any;
-    deadlineAlerts?: any[];
-    chartProcessTypes?: any[];
-    chartMonthly?: any[];
-    chartStatus?: any[];
   };
   onNewCase?: () => void;
   onSearchEmployees?: () => void;
@@ -51,16 +44,7 @@ export default function DashboardGrid({
       case 'recent-cases':
         return <RecentCasesWidget config={widget} data={dashboardData.recentCases} />;
       case 'chart':
-        // Determinar dados baseado no endpoint específico
-        let chartData = dashboardData.chartData;
-        if (widget.data?.endpoint === '/api/dashboard/chart-status') {
-          chartData = dashboardData.chartStatus;
-        } else if (widget.data?.endpoint === '/api/dashboard/chart-monthly') {
-          chartData = dashboardData.chartMonthly;
-        } else if (widget.data?.endpoint === '/api/dashboard/chart-process-types') {
-          chartData = dashboardData.chartProcessTypes;
-        }
-        return <ChartWidget config={widget} data={chartData} />;
+        return <ChartWidget config={widget} data={dashboardData.chartData} />;
       case 'activity-feed':
         return <ActivityFeedWidget config={widget} data={dashboardData.activityLogs} />;
       case 'quick-actions':
@@ -71,10 +55,6 @@ export default function DashboardGrid({
             onSearchEmployees={onSearchEmployees}
           />
         );
-      case 'performance-metrics':
-        return <PerformanceMetricsWidget config={widget} data={dashboardData.performanceMetrics} />;
-      case 'deadline-alerts':
-        return <DeadlineAlertsWidget config={widget} data={dashboardData.deadlineAlerts} />;
       default:
         return (
           <div className="h-full bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
