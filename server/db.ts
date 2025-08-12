@@ -8,16 +8,30 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Configuração específica para Supabase
+// Configuração específica para Supabase - forçar IPv4
 const connectionString = process.env.DATABASE_URL;
 console.log('🔗 Conectando ao banco:', connectionString.replace(/:[^:@]*@/, ':****@'));
 
+// Extrair componentes da URL para recriar sem IPv6
+const url = new URL(connectionString);
+const host = url.hostname;
+const port = url.port || '5432';
+const database = url.pathname.slice(1);
+const username = url.username;
+const password = url.password;
+
+console.log(`🔧 Conectando: ${username}@${host}:${port}/${database}`);
+
 export const pool = new Pool({ 
-  connectionString,
+  user: username,
+  password: password,
+  host: host,
+  port: parseInt(port),
+  database: database,
   ssl: { rejectUnauthorized: false },
-  max: 20,
+  max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000
 });
 
 // Teste de conexão
