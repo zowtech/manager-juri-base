@@ -1,49 +1,25 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+// Script de build otimizado para Render
+const { execSync } = require('child_process');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+console.log('🏗️  Iniciando build para Render...');
 
-console.log('🚀 Starting Render build process...');
+try {
+  console.log('1. Instalando dependências...');
+  execSync('npm ci', { stdio: 'inherit' });
 
-function runCommand(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    console.log(`📦 Running: ${command} ${args.join(' ')}`);
-    const child = spawn(command, args, {
-      stdio: 'inherit',
-      shell: true,
-      ...options
-    });
+  console.log('2. Building frontend...');
+  execSync('npx vite build', { stdio: 'inherit' });
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Command failed with exit code ${code}`));
-      }
-    });
-  });
+  console.log('3. Building backend com esbuild...');
+  execSync('npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --target=node18 --sourcemap', { stdio: 'inherit' });
+
+  console.log('4. Copiando assets necessários...');
+  execSync('cp -r dist/public/* dist/ 2>/dev/null || true', { stdio: 'inherit' });
+
+  console.log('✅ Build concluído com sucesso!');
+} catch (error) {
+  console.error('❌ Erro no build:', error.message);
+  process.exit(1);
 }
-
-async function build() {
-  try {
-    console.log('📥 Installing dependencies...');
-    await runCommand('npm', ['install']);
-
-    console.log('🏗️ Building frontend with Vite...');
-    await runCommand('npx', ['vite', 'build']);
-
-    console.log('⚡ Building backend with esbuild...');
-    await runCommand('npx', ['esbuild', 'server/index.ts', '--platform=node', '--packages=external', '--bundle', '--format=esm', '--outdir=dist']);
-
-    console.log('✅ Build completed successfully!');
-  } catch (error) {
-    console.error('❌ Build failed:', error.message);
-    process.exit(1);
-  }
-}
-
-build();

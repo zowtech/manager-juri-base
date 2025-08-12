@@ -66,17 +66,18 @@ Preferred communication style: Simple, everyday language.
 - **Navigation**: Default route corrected to open Dashboard on login
 - **Manual Entry**: Complete forms with all 11 Excel fields for data entry
 
-### Case Management (Updated July 2025)
-- **Field Structure**: Matrícula, Nome, Processo, Prazo de entrega, Audiência, Status
+### Case Management (Updated August 2025)
+- **Field Structure**: MATRÍCULA, NOME CLIENTE/FUNCIONÁRIO, DESCRIÇÃO, PRAZO DE ENTREGA, DATA AUDIÊNCIA, OBSERVAÇÃO
+- **New Table Layout**: Nome do cliente, Descrição, Prazo de entrega, Data da audiência, Observação, Ações
+- **Status Color System**: Azul=Novo, Amarelo=Alerta (próximo vencimento), Vermelho=Atrasado, Verde=Concluído
+- **Date Format**: Only dd/mm/yyyy format (time removed per user request)
 - **Process Tags**: Comma-separated processes display as individual badges for analytics
-- **Deadline Alerts**: Color-coded alerts (red=overdue, orange=approaching, green=safe)
 - **Advanced Filtering**: Multi-column filters including matrícula, nome, status, date, and process search
 - **Professional UI**: Enhanced table with borders, professional styling, and responsive design
-- **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
-- **Automatic Date Tracking**: Data de entrega automatically set when status changes to "concluído"
-- **Clean Slate**: All data removed at user request (January 2025)
-- **Manual Population**: User will add data through interface manually
-- **Reset System**: Database and files completely cleared for fresh start
+- **Status Tracking**: Smart status based on due dates and completion
+- **Employee Integration**: Matrícula field connects to employee database
+- **Automatic Alerts**: Color-coded status based on deadline proximity
+- **Clean Interface**: Removed process number field, focused on essential information
 
 ### Process Analytics
 - **Tag Visualization**: Process fields split by commas into individual badges

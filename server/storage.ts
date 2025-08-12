@@ -327,10 +327,13 @@ export class DatabaseStorage implements IStorage {
         UPDATE cases 
         SET 
           client_name = COALESCE($2, client_name),
-          process_number = COALESCE($3, process_number), 
+          // process_number removido conforme nova estrutura 
           description = COALESCE($4, description),
           status = COALESCE($5, status),
           due_date = COALESCE($6, due_date),
+          matricula = COALESCE($7, matricula),
+          audience_date = COALESCE($8, audience_date),
+          observacoes = COALESCE($9, observacoes),
           updated_at = NOW()
         WHERE id = $1
         RETURNING *
@@ -342,7 +345,10 @@ export class DatabaseStorage implements IStorage {
         updates.processNumber || null,
         updates.description || null,
         updates.status || null,
-        updates.dueDate || null
+        updates.dueDate || null,
+        updates.matricula || null,
+        updates.audienceDate || null,
+        updates.observacoes || null
       ]);
       
       if (result.rows.length === 0) {

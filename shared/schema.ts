@@ -60,29 +60,21 @@ export const users = pgTable("users", {
 // Legal cases table - CAMPOS ATUALIZADOS CONFORME SOLICITAÇÃO
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  // NOVOS CAMPOS OBRIGATÓRIOS
-  matricula: varchar("matricula").notNull(), // Matrícula do funcionário
-  clientName: varchar("client_name").notNull(), // Nome cliente/funcionário
-  description: text("description").notNull(), // Descrição (separada por vírgulas para analytics)
-  dueDate: timestamp("due_date"), // Prazo de entrega
-  audienceDate: timestamp("audience_date"), // Data audiência
-  observacoes: text("observacoes"), // Observação
-  
-  // CAMPOS MANTIDOS PARA FUNCIONAMENTO
-  employeeId: varchar("employee_id").references(() => employees.id), // Link para funcionário via matrícula
-  status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
-  startDate: timestamp("start_date"),
-  completedDate: timestamp("completed_date"),
-  dataEntrega: timestamp("data_entrega"), // Data automática quando status vira "concluido"
-  
-  // CAMPOS REMOVIDOS (não necessários)
-  // processNumber: varchar("process_number").notNull(), - REMOVIDO
-  // tipoProcesso, documentos, etc - simplificado
-  
+  matricula: varchar("matricula").notNull(),
+  clientName: varchar("client_name").notNull(),
+  description: text("description").notNull(),
+  status: varchar("status").notNull().default("novo"),
+  dueDate: timestamp("due_date", { withTimezone: true }),
+  audienceDate: timestamp("audience_date", { withTimezone: true }),
+  observacoes: text("observacoes"),
+  startDate: timestamp("start_date", { withTimezone: true }).defaultNow(),
+  completedDate: timestamp("completed_date", { withTimezone: true }),
+  dataEntrega: timestamp("data_entrega", { withTimezone: true }),
   assignedToId: varchar("assigned_to_id").references(() => users.id),
-  createdById: varchar("created_by_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdById: varchar("created_by_id").references(() => users.id).notNull(),
+  employeeId: varchar("employee_id").references(() => employees.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 // Nova tabela para tipos de processos

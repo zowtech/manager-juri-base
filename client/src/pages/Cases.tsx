@@ -249,30 +249,72 @@ export default function Cases() {
     updateCaseMutation.mutate({ ...data, id: selectedCase?.id });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, dueDate?: Date | null) => {
+    // Sistema de cores conforme solicitado: Azul=Novo, Amarelo=Alerta, Vermelho=Atrasado, Verde=OK
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let finalStatus = status;
+    
+    if (dueDate) {
+      const due = new Date(dueDate);
+      due.setHours(0, 0, 0, 0);
+      
+      const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        finalStatus = 'atrasado'; // VERMELHO
+      } else if (diffDays <= 3 && diffDays >= 0 && status !== 'concluido') {
+        finalStatus = 'alerta'; // AMARELO
+      }
+    }
+    
     const statusConfig = {
-      novo: { label: "Novo", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-      andamento: { label: "Em Andamento", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      novo: { label: "Novo", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      andamento: { label: "Andamento", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      alerta: { label: "Alerta", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+      atrasado: { label: "Atrasado", className: "bg-red-100 text-red-800 border-red-200" },
       concluido: { label: "Concluído", className: "bg-green-100 text-green-800 border-green-200" },
-      pendente: { label: "Pendente", className: "bg-red-100 text-red-800 border-red-200" },
+      pendente: { label: "Pendente", className: "bg-gray-100 text-gray-800 border-gray-200" },
     };
     
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.novo;
+    const config = statusConfig[finalStatus as keyof typeof statusConfig] || statusConfig.novo;
     return (
-      <Badge className={`${config.className} border font-medium`}>
+      <Badge className={`${config.className} border font-medium text-xs`}>
         {config.label}
       </Badge>
     );
   };
 
-  const getRowClassName = (status: string) => {
+  const getRowClassName = (status: string, dueDate?: Date | null) => {
+    // Atualizar cores das linhas conforme sistema novo: Azul=Novo, Amarelo=Alerta, Vermelho=Atrasado, Verde=OK
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let finalStatus = status;
+    
+    if (dueDate) {
+      const due = new Date(dueDate);
+      due.setHours(0, 0, 0, 0);
+      
+      const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        finalStatus = 'atrasado';
+      } else if (diffDays <= 3 && diffDays >= 0 && status !== 'concluido') {
+        finalStatus = 'alerta';
+      }
+    }
+    
     const statusClasses = {
-      novo: "bg-yellow-50/30 border-l-4 border-l-yellow-500",
+      novo: "bg-blue-50/30 border-l-4 border-l-blue-500",
       andamento: "bg-blue-50/30 border-l-4 border-l-blue-500",
+      alerta: "bg-yellow-50/30 border-l-4 border-l-yellow-500",
+      atrasado: "bg-red-50/30 border-l-4 border-l-red-500",
       concluido: "bg-green-50/30 border-l-4 border-l-green-500",
-      pendente: "bg-red-50/30 border-l-4 border-l-red-500",
+      pendente: "bg-gray-50/30 border-l-4 border-l-gray-500",
     };
-    return statusClasses[status as keyof typeof statusClasses] || "";
+    return statusClasses[finalStatus as keyof typeof statusClasses] || "";
   };
 
   // Aplicar filtros e categorizar casos
@@ -320,54 +362,66 @@ export default function Cases() {
       <Table className="cases-table">
         <TableHeader className="bg-gray-50/80 sticky top-0 z-10">
           <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Nome do Funcionário</TableHead>  
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Processo</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Descrição</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Nome do Cliente</TableHead>  
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Descrição</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Prazo de Entrega</TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data da Audiência</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Observação</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Prazo</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data Início</TableHead>
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Status</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data Entrega</TableHead>
             <TableHead className="font-semibold text-gray-700 bg-gray-50 text-xs md:text-sm">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
-            <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+            <TableRow key={caseData.id} className={`${getRowClassName(caseData.status, caseData.dueDate)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+              {/* Nome do Cliente */}
               <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">
                 <div className="flex flex-col">
                   <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">{caseData.clientName}</span>
                 </div>
               </TableCell>
-              <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">{caseData.processNumber}</TableCell>
-              <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs hide-mobile">
+              
+              {/* Descrição */}
+              <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs">
                 <ProcessTagRenderer processo={caseData.description} />
               </TableCell>
+              
+              {/* Prazo de Entrega - SEM HORÁRIO */}
+              <TableCell className="border-r border-gray-100 py-4">
+                <div className="text-sm">
+                  {caseData.dueDate ? (
+                    <span className="font-medium text-gray-900">
+                      {new Date(caseData.dueDate).toLocaleDateString('pt-BR')}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </div>
+              </TableCell>
+              
+              {/* Data da Audiência - SEM HORÁRIO */}
+              <TableCell className="border-r border-gray-100 py-4 hide-mobile">
+                <div className="text-sm">
+                  {caseData.audienceDate ? (
+                    <span className="font-medium text-gray-700">
+                      {new Date(caseData.audienceDate).toLocaleDateString('pt-BR')}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </div>
+              </TableCell>
+              
+              {/* Observação */}
               <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs hide-mobile">
                 <div className="text-xs md:text-sm text-gray-600 truncate" title={caseData.observacoes || ''}>
                   {caseData.observacoes || '-'}
                 </div>
               </TableCell>
+              
+              {/* Status com lógica de cores atualizada */}
               <TableCell className="border-r border-gray-100 py-4">
-                <DeadlineAlert prazoEntrega={caseData.dueDate ? caseData.dueDate.toString() : null} status={caseData.status} />
-              </TableCell>
-              <TableCell className="border-r border-gray-100 py-4">
-                {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
-              </TableCell>
-              <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
-              <TableCell className="border-r border-gray-100 py-4">
-                {caseData.dataEntrega ? (
-                  <div className="text-sm">
-                    <div className="font-medium text-green-600">
-                      {new Date(caseData.dataEntrega).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(caseData.dataEntrega).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-gray-400">-</span>
-                )}
+                {getStatusBadge(caseData.status, caseData.dueDate)}
               </TableCell>
               <TableCell className="py-4">
                 <div className="flex items-center space-x-2">
