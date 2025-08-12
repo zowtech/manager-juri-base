@@ -10,8 +10,8 @@ async function importData(newDatabaseUrl) {
     
     // Configurar conexão com novo banco
     process.env.DATABASE_URL = newDatabaseUrl;
-    const { db } = await import('./server/db.js');
-    const { users, cases, employees, activityLog } = await import('./shared/schema.js');
+    const { db } = await import('./server/db.ts');
+    const { users, cases, employees, activityLog } = await import('./shared/schema.ts');
     
     // Importar usuários
     if (backupData.users.length > 0) {
