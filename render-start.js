@@ -13,6 +13,18 @@ console.log('📍 Environment:', process.env.NODE_ENV || 'development');
 // Set production environment
 process.env.NODE_ENV = 'production';
 
+// Check and log all environment variables
+console.log('🔍 Environment variables check:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? '✅ Set' : '❌ Missing');
+console.log('SESSION_SECRET:', process.env.SESSION_SECRET ? '✅ Set' : '❌ Missing');
+
+// Set fallback SESSION_SECRET if not provided
+if (!process.env.SESSION_SECRET) {
+  console.log('⚠️  Setting fallback SESSION_SECRET');
+  process.env.SESSION_SECRET = 'base-facilities-legal-2024-secret-key';
+}
+
 // Check required environment variables
 const requiredEnvVars = ['DATABASE_URL'];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -20,8 +32,9 @@ const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingVars.length > 0) {
   console.error('❌ Missing required environment variables:');
   missingVars.forEach(varName => {
-    console.error(`   - ${varName}`);
+    console.error(`   - ${varName}: ${process.env[varName] || 'undefined'}`);
   });
+  console.error('🔧 Please set these variables in your Render dashboard');
   process.exit(1);
 }
 

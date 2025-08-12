@@ -32,7 +32,12 @@ node render-build.js
 
 **Start Command:**
 ```
-node render-start.js
+node render-simple-start.js
+```
+
+**Alternativo (se script não funcionar):**
+```
+NODE_ENV=production DATABASE_URL=postgresql://neondb_owner:npg_cENtFV63LasC@ep-proud-sun-adscjpcc.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require SESSION_SECRET=base-facilities-legal-2024-secret-key node dist/index.js
 ```
 
 ### 3. Configuração Alternativa (se scripts personalizados não funcionarem)
