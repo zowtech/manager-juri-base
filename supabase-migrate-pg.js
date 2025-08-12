@@ -4,7 +4,7 @@ import fs from 'fs';
 
 const { Pool } = pg;
 
-const SUPABASE_URL = "postgresql://postgres.kxqyldwhcfzhbnpfdcjl:BaseF@cilities2025!@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+const SUPABASE_URL = "postgresql://postgres:BaseF@cilities2025!@db.dnymyzhahgqnxvkrgmoq.supabase.co:5432/postgres";
 
 async function migrateToSupabase() {
   let pool;
