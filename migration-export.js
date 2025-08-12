@@ -1,6 +1,6 @@
 // Script para exportar todos os dados do banco atual
-import { db } from './server/db.js';
-import { users, cases, employees, activityLog } from './shared/schema.js';
+import { db } from './server/db.ts';
+import { users, cases, employees, activityLog } from './shared/schema.ts';
 import fs from 'fs';
 
 async function exportData() {
