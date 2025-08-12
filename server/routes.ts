@@ -345,12 +345,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity log routes
   app.get('/api/activity-logs', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const { action, date, search } = req.query;
+      const { action, date, search, limit } = req.query;
       
       const logs = await storage.getActivityLogs({
         action: action as string,
         date: date as string,
         search: search as string,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
       });
       
       res.json(logs);
@@ -475,17 +476,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const employee = existing[0];
-      await db.delete(employees).where(eq(employees.id, id));
+      
+      // Soft delete - marcar como deletado em vez de apagar
+      await db.update(employees).set({ 
+        status: 'deletado',
+        updatedAt: new Date()
+      }).where(eq(employees.id, id));
 
       await logActivity(
         req,
         'DELETE_EMPLOYEE',
         'EMPLOYEE',
         id,
-        `Excluiu funcionário ${employee.nome} (${employee.matricula})`
+        `Marcou funcionário como deletado: ${employee.nome} (${employee.matricula})`
       );
 
-      res.status(204).send();
+      res.json({ message: "Funcionário marcado como deletado", id });
     } catch (error) {
       console.error("Error deleting employee:", error);
       res.status(500).json({ message: "Failed to delete employee" });

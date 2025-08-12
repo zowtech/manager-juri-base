@@ -33,7 +33,7 @@ export interface IStorage {
   
   // Activity log operations
   logActivity(activity: InsertActivityLog): Promise<ActivityLog>;
-  getActivityLogs(filters?: { action?: string; date?: string }): Promise<ActivityLogWithUser[]>;
+  getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number }): Promise<ActivityLogWithUser[]>;
   
   // Dashboard statistics
   getCaseStats(): Promise<{
@@ -419,7 +419,7 @@ export class DatabaseStorage implements IStorage {
     return newLog;
   }
 
-  async getActivityLogs(filters?: { action?: string; date?: string; search?: string }): Promise<ActivityLogWithUser[]> {
+  async getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number }): Promise<ActivityLogWithUser[]> {
     const users = await this.getUsers();
     let filteredLogs = [...DatabaseStorage.activityLogs];
 
@@ -427,7 +427,6 @@ export class DatabaseStorage implements IStorage {
 
     if (filters?.action && filters.action !== 'all') {
       filteredLogs = filteredLogs.filter(log => log.action === filters.action);
-      // console.log(`📊 Após filtro de ação '${filters.action}': ${filteredLogs.length} logs`);
     }
 
     if (filters?.date) {
@@ -436,7 +435,6 @@ export class DatabaseStorage implements IStorage {
       filteredLogs = filteredLogs.filter(log => 
         log.createdAt >= date && log.createdAt < nextDay
       );
-      // console.log(`📅 Após filtro de data '${filters.date}': ${filteredLogs.length} logs`);
     }
 
     if (filters?.search) {
@@ -444,8 +442,11 @@ export class DatabaseStorage implements IStorage {
         log.description.toLowerCase().includes(filters.search!.toLowerCase()) ||
         log.action.toLowerCase().includes(filters.search!.toLowerCase())
       );
-      // console.log(`🔎 Após filtro de busca '${filters.search}': ${filteredLogs.length} logs`);
     }
+
+    // Apply limit if specified
+    const limit = filters?.limit || 100;
+    filteredLogs = filteredLogs.slice(0, limit);
 
     const result = filteredLogs.slice(0, 100).map(log => {
       const user = users.find(u => u.id === log.userId);

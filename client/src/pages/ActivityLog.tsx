@@ -47,6 +47,11 @@ export default function ActivityLog() {
       case 'VIEW_CASES': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'VIEW_DASHBOARD': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'VIEW_USERS': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case 'CREATE_EMPLOYEE': return 'bg-teal-100 text-teal-800 border-teal-200';
+      case 'UPDATE_EMPLOYEE': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'DELETE_EMPLOYEE': return 'bg-red-100 text-red-800 border-red-200';
+      case 'IMPORT_EMPLOYEES': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'EXPORT_EMPLOYEES': return 'bg-lime-100 text-lime-800 border-lime-200';
       case 'LOGIN': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'LOGOUT': return 'bg-gray-100 text-gray-800 border-gray-200';
       case 'DENIED_ACCESS': return 'bg-red-100 text-red-800 border-red-200';
@@ -63,6 +68,11 @@ export default function ActivityLog() {
       case 'VIEW_CASES': return 'Visualizou Processos';
       case 'VIEW_DASHBOARD': return 'Acessou Dashboard';
       case 'VIEW_USERS': return 'Acessou Usuários';
+      case 'CREATE_EMPLOYEE': return 'Funcionário Criado';
+      case 'UPDATE_EMPLOYEE': return 'Funcionário Editado';
+      case 'DELETE_EMPLOYEE': return 'Funcionário Deletado';
+      case 'IMPORT_EMPLOYEES': return 'Importação Excel';
+      case 'EXPORT_EMPLOYEES': return 'Exportação Excel';
       case 'LOGIN': return 'Login';
       case 'LOGOUT': return 'Logout';
       case 'DENIED_ACCESS': return 'Acesso Negado';

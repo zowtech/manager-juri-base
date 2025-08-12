@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Bell, BarChart3, FileText, History, UserCog, LogOut, Menu, X, Users } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Bell, BarChart3, FileText, History, UserCog, LogOut, Menu, X, Users, Check } from "lucide-react";
 import facilityLogo from "@assets/449265_6886_1753882292906.jpg";
 
 interface LayoutProps {
@@ -14,6 +16,21 @@ export default function Layout({ children }: LayoutProps) {
   const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificationsRead, setNotificationsRead] = useState(false);
+
+  // Buscar notificações recentes (últimos logs)
+  const { data: recentLogs } = useQuery({
+    queryKey: ["/api/activity-logs", { limit: 5 }],
+    queryFn: async () => {
+      const response = await fetch(`/api/activity-logs?limit=5`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    },
+    refetchInterval: 10000, // Atualizar a cada 10 segundos
+    enabled: !!user,
+  });
 
   // Update time every minute
   useEffect(() => {
@@ -181,12 +198,67 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="relative p-2 text-gray-400 hover:text-gray-600">
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                3
-              </span>
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="relative p-2 text-gray-400 hover:text-gray-600"
+                  onClick={() => setNotificationsRead(true)}
+                >
+                  <Bell size={20} />
+                  {!notificationsRead && recentLogs && recentLogs.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {recentLogs.length}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Atividades Recentes</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setNotificationsRead(true)}
+                      className="text-xs"
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Marcar como lida
+                    </Button>
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {recentLogs && recentLogs.length > 0 ? (
+                    recentLogs.map((log: any, index: number) => (
+                      <div key={index} className="p-3 border-b last:border-b-0 hover:bg-gray-50">
+                        <div className="text-sm font-medium text-gray-900 mb-1">
+                          {log.action?.replace(/_/g, ' ')}
+                        </div>
+                        <div className="text-xs text-gray-600 mb-1">
+                          {log.description}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {new Date(log.timestamp).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-gray-500 text-sm">
+                      Nenhuma atividade recente
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 border-t">
+                  <Link href="/activity-log">
+                    <Button variant="outline" size="sm" className="w-full">
+                      Ver todas as atividades
+                    </Button>
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
             <div className="hidden md:block text-sm text-gray-600">
               {currentTime.toLocaleString('pt-BR')}
             </div>

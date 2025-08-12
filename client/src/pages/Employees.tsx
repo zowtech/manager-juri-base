@@ -73,11 +73,14 @@ export default function Employees() {
     },
   });
 
-  // Filtros funcionais melhorados
+  // Filtros funcionais melhorados - excluir deletados
   const employees = useMemo(() => {
     if (!allEmployees) return [];
     
     return allEmployees.filter(emp => {
+      // Não mostrar funcionários deletados
+      if (emp.status === 'deletado') return false;
+      
       // Busca geral
       const matchesSearch = !searchTerm || 
         emp.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
