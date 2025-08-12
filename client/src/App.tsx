@@ -53,7 +53,7 @@ function Router() {
 
   const firstAllowedPage = getFirstAllowedPage();
 
-  // SEMPRE garantir que Dashboard seja exibido na página inicial
+  // Redirecionamento para primeira página permitida se não for dashboard
   if (location === '/' && !hasPagePermission('dashboard') && firstAllowedPage) {
     if (firstAllowedPage === 'cases') {
       navigate('/cases');
@@ -65,6 +65,11 @@ function Router() {
       navigate('/users');
       return null;
     }
+  }
+
+  // Se tem permissão para dashboard e está na página inicial, mostrar dashboard
+  if (location === '/' && hasPagePermission('dashboard')) {
+    // Deixar mostrar dashboard naturalmente
   }
 
   // Se não tem permissão para nenhuma página, mostrar erro
