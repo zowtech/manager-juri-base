@@ -620,22 +620,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/users", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      console.log('🔄 POST /api/users - Criando usuário:', req.body);
+      
       const currentUser = await storage.getUser(req.user?.id);
       
       // Only admins can create users
       if (currentUser?.role !== 'admin') {
+        console.log('❌ Acesso negado - usuário não é admin:', currentUser?.role);
         return res.status(403).json({ message: "Access denied" });
       }
       
       const userData = insertUserSchema.parse(req.body);
+      console.log('✅ Dados validados pelo schema:', userData);
+      
+      // Verificar duplicatas
+      const existingByUsername = await storage.getUserByUsername(userData.username);
+      if (existingByUsername) {
+        console.log('❌ Username já existe:', userData.username);
+        return res.status(400).json({ message: `Usuário "${userData.username}" já existe` });
+      }
+
+      if (userData.email) {
+        const existingByEmail = await storage.getUserByEmail(userData.email);
+        if (existingByEmail) {
+          console.log('❌ Email já existe:', userData.email);
+          return res.status(400).json({ message: `Email "${userData.email}" já está em uso` });
+        }
+      }
       
       // Se a senha estiver vazia ou undefined, gerar uma senha padrão temporária
       const password = userData.password && userData.password.trim() !== "" 
         ? userData.password 
         : "temp123"; // Senha temporária padrão
       
+      console.log('🔐 Hash da senha...');
       const hashedPassword = await hashPassword(password);
       
+      console.log('💾 Criando usuário no banco...');
       const newUser = await storage.createUser({
         ...userData,
         password: hashedPassword,
@@ -646,13 +667,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: userData.lastName || null,
       });
       
+      console.log('✅ Usuário criado com sucesso:', newUser.username);
+      
+      await logActivity(
+        req,
+        'CREATE_USER',
+        'USER',
+        newUser.id,
+        `Criou usuário ${newUser.username}`,
+        { username: newUser.username, email: newUser.email }
+      );
+      
       res.status(201).json(newUser);
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error("❌ ERRO COMPLETO AO CRIAR USUÁRIO:", error);
+      
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+        console.log('❌ Erro de validação Zod:', error.errors);
+        res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: error.errors,
+          details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+        });
+      } else if (error.message?.includes('já existe')) {
+        res.status(400).json({ message: error.message });
       } else {
-        res.status(500).json({ message: "Failed to create user" });
+        res.status(500).json({ 
+          message: "Falha ao criar usuário", 
+          error: error.message,
+          details: "Verifique a conexão com o banco de dados"
+        });
       }
     }
   });

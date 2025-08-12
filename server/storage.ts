@@ -114,11 +114,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(userData: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .returning();
-    return user;
+    try {
+      console.log('🔄 Tentando criar usuário:', userData.username);
+      
+      // Verificar se usuário já existe
+      const existingUser = await this.getUserByUsername(userData.username);
+      if (existingUser) {
+        console.log('❌ Usuário já existe:', userData.username);
+        throw new Error(`Usuário ${userData.username} já existe`);
+      }
+
+      const [user] = await db
+        .insert(users)
+        .values(userData)
+        .returning();
+        
+      console.log('✅ Usuário criado com sucesso:', user.username);
+      return user;
+    } catch (error) {
+      console.error('❌ ERRO AO CRIAR USUÁRIO:', error);
+      
+      // Se for erro de conexão, tentar novamente
+      if (error.message?.includes('connection') || error.message?.includes('timeout')) {
+        console.log('🔄 Tentando reconectar ao banco...');
+        try {
+          // Tentar reconectar
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const [user] = await db
+            .insert(users)
+            .values(userData)
+            .returning();
+          console.log('✅ Usuário criado após reconexão:', user.username);
+          return user;
+        } catch (retryError) {
+          console.error('❌ ERRO NA SEGUNDA TENTATIVA:', retryError);
+          throw new Error(`Falha ao criar usuário: ${retryError.message}`);
+        }
+      }
+      
+      throw new Error(`Falha ao criar usuário: ${error.message}`);
+    }
   }
 
   // Case operations
