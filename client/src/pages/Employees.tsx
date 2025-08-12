@@ -77,27 +77,45 @@ export default function Employees() {
   const employees = useMemo(() => {
     if (!allEmployees) return [];
     
-    return allEmployees.filter(emp => {
+    console.log('🔍 FILTROS DEBUG:', {
+      total: allEmployees.length,
+      searchTerm,
+      filters,
+      firstEmployee: allEmployees[0]
+    });
+    
+    const filtered = allEmployees.filter(emp => {
       // Não mostrar funcionários deletados
       if (emp.status === 'deletado') return false;
       
-      // Busca geral
+      // Busca geral (deve ser mais flexível e incluir mais campos)
       const matchesSearch = !searchTerm || 
         emp.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.matricula?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.rg?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.matricula?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.rg?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.pis?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.departamento?.toLowerCase().includes(searchTerm.toLowerCase());
+        emp.departamento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.centroCusto?.toString().toLowerCase().includes(searchTerm.toLowerCase());
         
       // Filtros específicos
       const matchesFilters = 
         (!filters.nome || emp.nome?.toLowerCase().includes(filters.nome.toLowerCase())) &&
-        (!filters.matricula || emp.matricula?.toLowerCase().includes(filters.matricula.toLowerCase())) &&
+        (!filters.matricula || emp.matricula?.toString().toLowerCase().includes(filters.matricula.toLowerCase())) &&
         (!filters.cargo || emp.cargo?.toLowerCase().includes(filters.cargo.toLowerCase())) &&
         (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase()));
         
-      return matchesSearch && matchesFilters;
+      const result = matchesSearch && matchesFilters;
+      
+      if (searchTerm && result) {
+        console.log('✅ MATCH:', emp.nome, emp.matricula);
+      }
+      
+      return result;
     });
+    
+    console.log('📊 FILTROS RESULTADO:', filtered.length, 'de', allEmployees.length);
+    return filtered;
   }, [allEmployees, searchTerm, filters]);
 
   // Importar planilha
