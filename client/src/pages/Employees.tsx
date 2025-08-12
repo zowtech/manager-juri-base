@@ -428,7 +428,6 @@ export default function Employees() {
                   <TableHead className="font-semibold">Cargo</TableHead>
                   <TableHead className="font-semibold">Centro Custo</TableHead>
                   <TableHead className="font-semibold">Departamento</TableHead>
-                  <TableHead className="w-[100px] font-semibold">Status</TableHead>
                   <TableHead className="w-[100px] font-semibold">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -465,11 +464,6 @@ export default function Employees() {
                     </TableCell>
                     <TableCell>
                       {employee.departamento || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={employee.status === 'ativo' ? 'default' : 'secondary'}>
-                        {employee.status === 'ativo' ? 'Ativo' : 'Demitido'}
-                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
