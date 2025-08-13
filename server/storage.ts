@@ -38,13 +38,11 @@ export interface IStorage {
   // Dashboard statistics
   getCaseStats(): Promise<{
     total: number;
-    completed: number;
-    inProgress: number;
+    novos: number;
+    pendentes: number;
+    concluidos: number;
+    atrasados: number;
     averageResponseTime: number;
-    novos?: number;
-    pendentes?: number;
-    concluidos?: number;
-    atrasados?: number;
   }>;
   
   // Get users for assignment
