@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CaseWithRelations } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Search } from "lucide-react";
 import * as React from "react";
 
 interface NewCaseModalProps {
@@ -31,52 +33,119 @@ interface NewCaseModalProps {
 }
 
 const formSchema = z.object({
+  matricula: z.string().min(1, "Matrícula é obrigatória"),
   clientName: z.string().min(1, "Nome do cliente é obrigatório"),
-  processNumber: z.string().min(1, "Número do processo é obrigatório"),
-  description: z.string().min(1, "Descrição é obrigatória"),
-  dueDate: z.string().optional(),
-  status: z.enum(['novo', 'andamento', 'concluido', 'pendente']).default('novo'),
+  processType: z.string().min(1, "Tipo de processo é obrigatório"),
+  dueDate: z.string().min(1, "Prazo de entrega é obrigatório"),
+  audienceDate: z.string().optional(),
+  observacoes: z.string().optional(),
 });
 
 type FormSchema = z.infer<typeof formSchema>;
 
 export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, caseData }: NewCaseModalProps) {
+  const { toast } = useToast();
+  const [isSearchingEmployee, setIsSearchingEmployee] = React.useState(false);
+  
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      matricula: "",
       clientName: "",
-      processNumber: "",
-      description: "",
+      processType: "",
       dueDate: "",
-      status: "novo",
+      audienceDate: "",
+      observacoes: "",
     },
   });
+
+  // Query para buscar funcionários
+  const { data: employees } = useQuery({
+    queryKey: ["/api/employees"],
+    queryFn: async () => {
+      const response = await fetch('/api/employees', {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch employees');
+      return response.json();
+    },
+  });
+
+  // Função para buscar funcionário por matrícula
+  const handleMatriculaSearch = React.useCallback(async (matricula: string) => {
+    if (!matricula || matricula.length < 3) return;
+    
+    setIsSearchingEmployee(true);
+    try {
+      const employee = employees?.find((emp: any) => 
+        emp.matricula && emp.matricula.toLowerCase().includes(matricula.toLowerCase())
+      );
+      
+      if (employee) {
+        form.setValue('clientName', employee.nome || '');
+        toast({
+          title: "Funcionário encontrado",
+          description: `${employee.nome} - Matrícula: ${employee.matricula}`,
+        });
+      } else {
+        toast({
+          title: "Funcionário não encontrado",
+          description: "Verifique a matrícula e tente novamente",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar funcionário:', error);
+    } finally {
+      setIsSearchingEmployee(false);
+    }
+  }, [employees, form, toast]);
+
+  // Watch matrícula field to trigger search
+  const matriculaValue = form.watch('matricula');
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (matriculaValue && matriculaValue.length >= 3) {
+        handleMatriculaSearch(matriculaValue);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [matriculaValue, handleMatriculaSearch]);
 
   // Resetar formulário quando caseData muda (para edição)
   React.useEffect(() => {
     if (caseData) {
       form.reset({
+        matricula: (caseData as any).matricula || "",
         clientName: caseData.clientName || "",
-        processNumber: caseData.processNumber || "",
-        description: caseData.description || "",
+        processType: caseData.processNumber || "",
         dueDate: caseData.dueDate ? new Date(caseData.dueDate).toISOString().split('T')[0] : "",
-        status: (caseData.status as FormSchema['status']) || "novo",
+        audienceDate: (caseData as any).audienceDate ? new Date((caseData as any).audienceDate).toISOString().split('T')[0] : "",
+        observacoes: caseData.observacoes || "",
       });
     } else {
       form.reset({
+        matricula: "",
         clientName: "",
-        processNumber: "",
-        description: "",
+        processType: "",
         dueDate: "",
-        status: "novo",
+        audienceDate: "",
+        observacoes: "",
       });
     }
   }, [caseData, form]);
 
   const handleSubmit = (values: FormSchema) => {
     const submitData = {
-      ...values,
+      clientName: values.clientName,
+      processNumber: values.processType, // Using processType as processNumber for backend compatibility
+      description: values.observacoes || `Processo: ${values.processType}`,
       dueDate: values.dueDate ? new Date(values.dueDate) : null,
+      audienceDate: values.audienceDate ? new Date(values.audienceDate) : null,
+      observacoes: values.observacoes,
+      matricula: values.matricula,
+      status: 'novo', // Default status
     };
     onSubmit(submitData);
     form.reset();
@@ -101,16 +170,23 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="clientName"
+                name="matricula"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Nome do Cliente/Funcionário</FormLabel>
+                    <FormLabel className="text-sm font-medium text-gray-700">Matrícula</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Ex: CÉLIA MARIA DE JESUS"
-                        {...field}
-                        className="border-gray-300"
-                      />
+                      <div className="relative">
+                        <Input
+                          placeholder="Digite a matrícula do funcionário"
+                          {...field}
+                          className="border-gray-300 pr-10"
+                        />
+                        {isSearchingEmployee && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -119,15 +195,16 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
 
               <FormField
                 control={form.control}
-                name="processNumber"
+                name="clientName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Número do Processo</FormLabel>
+                    <FormLabel className="text-sm font-medium text-gray-700">Nome do Cliente</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex: 5000123-45.2024.5.03.0001"
+                        placeholder="Nome será preenchido automaticamente"
                         {...field}
-                        className="border-gray-300"
+                        className="border-gray-300 bg-gray-50"
+                        readOnly
                       />
                     </FormControl>
                     <FormMessage />
@@ -138,15 +215,15 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
 
             <FormField
               control={form.control}
-              name="description"
+              name="processType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-gray-700">Descrição do Processo</FormLabel>
+                  <FormLabel className="text-sm font-medium text-gray-700">Tipo de Processo</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Descreva o tipo de processo, valores envolvidos, situação atual..."
-                      className="border-gray-300 min-h-[100px]"
+                    <Input
+                      placeholder="Ex: Processo Trabalhista, Rescisão Contratual, Acordo Coletivo..."
                       {...field}
+                      className="border-gray-300"
                     />
                   </FormControl>
                   <FormMessage />
@@ -157,23 +234,17 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="status"
+                name="dueDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="border-gray-300">
-                          <SelectValue placeholder="Selecione o status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="andamento">Em Andamento</SelectItem>
-                        <SelectItem value="concluido">Concluído</SelectItem>
-                        <SelectItem value="pendente">Pendente</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel className="text-sm font-medium text-gray-700">Prazo de Entrega *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        className="border-gray-300"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -181,10 +252,10 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
 
               <FormField
                 control={form.control}
-                name="dueDate"
+                name="audienceDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-gray-700">Prazo de Entrega</FormLabel>
+                    <FormLabel className="text-sm font-medium text-gray-700">Data Audiência</FormLabel>
                     <FormControl>
                       <Input
                         type="date"
@@ -197,6 +268,24 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="observacoes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-gray-700">Observações</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Observações adicionais sobre o processo, valores envolvidos, situação atual..."
+                      className="border-gray-300 min-h-[100px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end space-x-3 pt-6 border-t">
               <Button 
