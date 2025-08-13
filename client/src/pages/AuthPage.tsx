@@ -70,23 +70,29 @@ export default function AuthPage() {
               <div className="space-y-4">
                 <h1 className="text-4xl font-bold text-white">BASE FACILITIES</h1>
                 <p className="text-xl text-blue-100 leading-relaxed">
-                  Sistema Profissional de Gerenciamento Jurídico Corporativo
+                  Sistema de Gerenciamento de Processos Jurídicos
                 </p>
               </div>
             </div>
 
-            <div className="space-y-4 pt-8">
-              <div className="flex items-center space-x-3 text-blue-200">
-                <Building2 className="w-5 h-5" />
-                <span>Gestão Corporativa Integrada</span>
+            <div className="space-y-6 pt-8">
+              <div className="flex items-center space-x-4 text-blue-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-medium">Gestão Corporativa Integrada</span>
               </div>
-              <div className="flex items-center space-x-3 text-blue-200">
-                <Scale className="w-5 h-5" />
-                <span>Controle Jurídico Completo</span>
+              <div className="flex items-center space-x-4 text-blue-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Scale className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-medium">Controle de Processos Jurídicos</span>
               </div>
-              <div className="flex items-center space-x-3 text-blue-200">
-                <Lock className="w-5 h-5" />
-                <span>Segurança e Conformidade</span>
+              <div className="flex items-center space-x-4 text-blue-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-medium">Segurança e Conformidade</span>
               </div>
             </div>
           </div>
