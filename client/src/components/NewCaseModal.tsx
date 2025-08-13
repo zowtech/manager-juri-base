@@ -140,7 +140,7 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
     const submitData = {
       clientName: values.clientName,
       processNumber: values.processType, // Using processType as processNumber for backend compatibility
-      description: values.observacoes || `Processo: ${values.processType}`,
+      description: values.observacoes || values.processType, // Just use the process type directly
       dueDate: values.dueDate ? new Date(values.dueDate) : null,
       audienceDate: values.audienceDate ? new Date(values.audienceDate) : null,
       observacoes: values.observacoes,
@@ -221,7 +221,7 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
                   <FormLabel className="text-sm font-medium text-gray-700">Tipo de Processo</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Ex: Processo Trabalhista, Rescisão Contratual, Acordo Coletivo..."
+                      placeholder="Ex: Trabalhista, Rescisão Contratual, Acordo Coletivo..."
                       {...field}
                       className="border-gray-300"
                     />
@@ -277,8 +277,8 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
                   <FormLabel className="text-sm font-medium text-gray-700">Observações</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Observações adicionais sobre o processo, valores envolvidos, situação atual..."
-                      className="border-gray-300 min-h-[100px]"
+                      placeholder="Detalhes adicionais: valores envolvidos, situação atual, documentos necessários..."
+                      className="border-gray-300 min-h-[80px] resize-none"
                       {...field}
                     />
                   </FormControl>
