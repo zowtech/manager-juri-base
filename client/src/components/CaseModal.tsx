@@ -32,9 +32,10 @@ interface CaseModalProps {
 const formSchema = z.object({
   matricula: z.string().min(1, "Matrícula é obrigatória"),
   nome: z.string().min(1, "Nome é obrigatório"),
-  processo: z.string().min(1, "Processo é obrigatório"),
+  processo: z.string().min(1, "Descrição do processo é obrigatória"),
   prazoEntrega: z.string().optional(),
   audiencia: z.string().optional(),
+  observacao: z.string().optional(),
   status: z.string().default("novo"),
 });
 
@@ -49,6 +50,7 @@ export default function CaseModal({ trigger, caseData, onSubmit, isSubmitting }:
       processo: caseData?.processo || "",
       prazoEntrega: caseData?.prazoEntrega ? new Date(caseData.prazoEntrega).toISOString().split('T')[0] : "",
       audiencia: caseData?.audiencia ? new Date(caseData.audiencia).toISOString().split('T')[0] : "",
+      observacao: caseData?.observacao || "",
       status: caseData?.status || "novo",
     },
   });
@@ -58,6 +60,7 @@ export default function CaseModal({ trigger, caseData, onSubmit, isSubmitting }:
       ...values,
       prazoEntrega: values.prazoEntrega ? new Date(values.prazoEntrega) : null,
       audiencia: values.audiencia ? new Date(values.audiencia) : null,
+      observacao: values.observacao || null,
     };
     onSubmit(submitData);
     setOpen(false);
@@ -111,7 +114,7 @@ export default function CaseModal({ trigger, caseData, onSubmit, isSubmitting }:
               name="processo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Processo</FormLabel>
+                  <FormLabel>Descrição do Processo</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Descreva os processos separados por vírgula (ex: TRABALHISTA, Rescisão indireta, Dano Moral)"
@@ -144,7 +147,7 @@ export default function CaseModal({ trigger, caseData, onSubmit, isSubmitting }:
                 name="audiencia"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Audiência</FormLabel>
+                    <FormLabel>Data Audiência</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -153,6 +156,24 @@ export default function CaseModal({ trigger, caseData, onSubmit, isSubmitting }:
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="observacao"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observação</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Observações adicionais sobre o processo (opcional)"
+                      className="min-h-[60px]"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button

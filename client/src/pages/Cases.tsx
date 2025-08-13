@@ -340,28 +340,22 @@ export default function Cases() {
         <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
           <TableRow className="border-b-2 border-gray-300">
             <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              👤 Nome do Funcionário
+              📊 Matrícula
             </TableHead>  
             <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              📋 Processo
+              👤 Nome
             </TableHead>
             <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
-              📝 Descrição
+              📝 Descrição do Processo
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
+              ⏰ Prazo de Entrega
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
+              📅 Data Audiência
             </TableHead>
             <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
               💬 Observação
-            </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              ⏰ Prazo
-            </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
-              📅 Data Início
-            </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              🔄 Status
-            </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
-              ✅ Data Entrega
             </TableHead>
             <TableHead className="font-bold text-gray-800 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
               ⚙️ Ações
@@ -371,31 +365,47 @@ export default function Cases() {
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
             <TableRow key={caseData.id} className={`${getRowClassName(caseData)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+              {/* Matrícula */}
               <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
                 <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-gray-900 leading-tight break-words max-w-[180px] md:max-w-[250px]">
-                    {caseData.clientName}
-                  </span>
-                  <span className="text-xs text-blue-600 font-medium">
-                    ID: {caseData.matricula || 'N/A'}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-gray-900 leading-tight break-words max-w-[150px] md:max-w-[200px]">
-                    {caseData.processNumber}
+                  <span className="font-bold text-blue-600 text-lg">
+                    {caseData.matricula || 'N/A'}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {new Date(caseData.createdAt).toLocaleDateString('pt-BR')}
+                    ID: {caseData.processNumber}
                   </span>
                 </div>
               </TableCell>
+              
+              {/* Nome */}
+              <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
+                <span className="font-semibold text-gray-900 leading-tight break-words max-w-[180px] md:max-w-[250px]">
+                  {caseData.clientName}
+                </span>
+              </TableCell>
+              
+              {/* Descrição do Processo */}
               <TableCell className="border-r border-gray-100 py-3 md:py-4 max-w-xs hide-mobile">
                 <div className="space-y-1">
                   <ProcessTagRenderer processo={caseData.description} />
                 </div>
               </TableCell>
+              
+              {/* Prazo de Entrega */}
+              <TableCell className="border-r border-gray-100 py-3 md:py-4">
+                <DeadlineAlert prazoEntrega={caseData.dueDate ? caseData.dueDate.toString() : null} status={caseData.status} />
+              </TableCell>
+              
+              {/* Data Audiência */}
+              <TableCell className="border-r border-gray-100 py-3 md:py-4 hide-mobile">
+                <span className="text-sm text-gray-600">
+                  {caseData.dataAudiencia ? new Date(caseData.dataAudiencia).toLocaleDateString('pt-BR') : (
+                    <span className="text-gray-400 italic">Não definida</span>
+                  )}
+                </span>
+              </TableCell>
+              
+              {/* Observação */}
               <TableCell className="border-r border-gray-100 py-3 md:py-4 max-w-xs hide-mobile">
                 <div className="text-sm text-gray-600 leading-relaxed break-words max-w-[200px]" title={caseData.observacoes || ''}>
                   {caseData.observacoes || (
@@ -403,29 +413,8 @@ export default function Cases() {
                   )}
                 </div>
               </TableCell>
-              <TableCell className="border-r border-gray-100 py-3 md:py-4">
-                <DeadlineAlert prazoEntrega={caseData.dueDate ? caseData.dueDate.toString() : null} status={caseData.status} />
-              </TableCell>
-              <TableCell className="border-r border-gray-100 py-3 md:py-4 hide-mobile">
-                <span className="text-sm text-gray-600">
-                  {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
-                </span>
-              </TableCell>
-              <TableCell className="border-r border-gray-100 py-3 md:py-4">{getStatusBadge(caseData)}</TableCell>
-              <TableCell className="border-r border-gray-100 py-3 md:py-4 hide-mobile">
-                {caseData.dataEntrega ? (
-                  <div className="text-sm space-y-1">
-                    <div className="font-semibold text-green-600">
-                      {new Date(caseData.dataEntrega).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(caseData.dataEntrega).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-gray-400 italic">Pendente</span>
-                )}
-              </TableCell>
+              
+              {/* Ações */}
               <TableCell className="py-3 md:py-4">
                 <div className="flex items-center space-x-1 md:space-x-2">
                   {getUserPermissions(user).canEditAllCases && (

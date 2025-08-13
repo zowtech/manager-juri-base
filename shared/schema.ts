@@ -67,8 +67,10 @@ export const cases = pgTable("cases", {
   status: varchar("status").notNull().default("novo"), // novo, pendente, concluido, atrasado
   startDate: timestamp("start_date"),
   dueDate: timestamp("due_date"),
+  dataAudiencia: timestamp("data_audiencia"), // Data da audiência
   completedDate: timestamp("completed_date"),
   dataEntrega: timestamp("data_entrega"), // Data automática quando status vira "concluido"
+  matricula: varchar("matricula"), // Matrícula do funcionário relacionado
   tipoProcesso: varchar("tipo_processo"), // trabalhista, rescisao_indireta, dano_moral, etc
   documentosSolicitados: jsonb("documentos_solicitados"), // lista de documentos necessários 
   documentosAnexados: jsonb("documentos_anexados"), // lista de documentos enviados com links
