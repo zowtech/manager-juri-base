@@ -158,8 +158,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdById: req.user.id // Override with actual authenticated user ID
       };
       
-      console.log('🔍 Data to validate:', requestData);
-      const validatedData = insertCaseSchema.parse(requestData);
+      // Convert date strings to Date objects before validation
+      const dataWithDates = {
+        ...requestData,
+        dueDate: requestData.dueDate ? new Date(requestData.dueDate) : undefined,
+        dataAudiencia: requestData.dataAudiencia ? new Date(requestData.dataAudiencia) : undefined,
+        startDate: requestData.startDate ? new Date(requestData.startDate) : undefined
+      };
+      
+      console.log('🔍 Data to validate:', dataWithDates);
+      const validatedData = insertCaseSchema.parse(dataWithDates);
       console.log('✅ Validation passed:', validatedData);
       
       const newCase = await storage.createCase(validatedData);
