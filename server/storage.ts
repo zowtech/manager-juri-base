@@ -235,50 +235,79 @@ export class DatabaseStorage implements IStorage {
         queryParams.push(searchParam, searchParam, searchParam, searchParam, searchParam);
       }
 
-      query += ` ORDER BY c.created_at DESC`;
+      // Ordenar por prazo de entrega (mais urgente primeiro), depois por data de criação
+      query += ` ORDER BY 
+        CASE 
+          WHEN c.due_date IS NULL THEN 1 
+          ELSE 0 
+        END,
+        c.due_date ASC, 
+        c.created_at DESC`;
 
       const result = await pool.query(query, queryParams);
 
-      const cases = result.rows.map((row: any) => ({
-        id: row.id,
-        clientName: row.client_name,
-        processNumber: row.process_number,
-        description: row.description || '',
-        status: row.status,
-        startDate: row.start_date,
-        dueDate: row.due_date,
-        completedDate: row.completed_date,
-        dataEntrega: row.data_entrega,
-        tipoProcesso: row.tipo_processo,
-        documentosSolicitados: row.documentos_solicitados,
-        documentosAnexados: row.documentos_anexados,
-        observacoes: row.observacoes,
-        assignedToId: row.assigned_to_id,
-        createdById: row.created_by_id,
-        createdAt: new Date(row.created_at),
-        updatedAt: new Date(row.updated_at),
-        assignedTo: null,
-        createdBy: {
-          id: row.created_by_id,
-          email: null,
-          username: null, 
-          password: null,
-          firstName: null,
-          lastName: null,
-          profileImageUrl: null,
-          role: 'admin',
-          permissions: {},
-          createdAt: null,
-          updatedAt: null
-        },
-        // Campos específicos do sistema brasileiro
-        matricula: row.matricula,
-        nome: row.employee_name || row.client_name,
-        processo: row.description || '',
-        prazoEntrega: row.due_date,
-        audiencia: null,
-        employeeId: row.employee_id
-      }));
+      const today = new Date();
+      const cases = result.rows.map((row: any) => {
+        const dueDate = row.due_date ? new Date(row.due_date) : null;
+        const isOverdue = dueDate && dueDate < today && row.status !== 'concluido';
+        const isNearDue = dueDate && !isOverdue && row.status !== 'concluido' ? 
+          (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= 3 : false; // 3 dias ou menos
+        
+        // Calcular cor de alerta
+        let alertColor = '';
+        if (isOverdue) {
+          alertColor = 'red'; // Atrasado
+        } else if (isNearDue) {
+          alertColor = 'yellow'; // Próximo do prazo
+        } else {
+          alertColor = 'green'; // Normal
+        }
+        
+        return {
+          id: row.id,
+          clientName: row.client_name,
+          processNumber: row.process_number,
+          description: row.description || '',
+          status: isOverdue ? 'atrasado' : row.status, // Atualizar status automaticamente
+          startDate: row.start_date,
+          dueDate: row.due_date,
+          completedDate: row.completed_date,
+          dataEntrega: row.data_entrega,
+          tipoProcesso: row.tipo_processo,
+          documentosSolicitados: row.documentos_solicitados,
+          documentosAnexados: row.documentos_anexados,
+          observacoes: row.observacoes,
+          assignedToId: row.assigned_to_id,
+          createdById: row.created_by_id,
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at),
+          assignedTo: null,
+          createdBy: {
+            id: row.created_by_id,
+            email: null,
+            username: null, 
+            password: null,
+            firstName: null,
+            lastName: null,
+            profileImageUrl: null,
+            role: 'admin',
+            permissions: {},
+            createdAt: null,
+            updatedAt: null
+          },
+          // Campos específicos do sistema brasileiro
+          matricula: row.matricula,
+          nome: row.employee_name || row.client_name,
+          processo: row.description || '',
+          prazoEntrega: row.due_date,
+          audiencia: null,
+          employeeId: row.employee_id,
+          // Campos para alertas visuais
+          alertColor,
+          isOverdue,
+          isNearDue
+        };
+      });
 
       return cases;
     } catch (error) {
@@ -528,19 +557,38 @@ export class DatabaseStorage implements IStorage {
   // Dashboard statistics
   async getCaseStats(): Promise<{
     total: number;
-    completed: number;
-    inProgress: number;
+    novos: number;
+    pendentes: number;
+    concluidos: number;
+    atrasados: number;
     averageResponseTime: number;
   }> {
     const allCases = await this.getCases();
-    const total = allCases.length;
-    const completed = allCases.filter(c => c.status === 'concluido').length;
-    const inProgress = allCases.filter(c => c.status === 'andamento').length;
+    const today = new Date();
+    
+    // Calcular casos atrasados automaticamente
+    const casesWithStatus = allCases.map(c => {
+      const dueDate = c.dueDate ? new Date(c.dueDate) : null;
+      const isOverdue = dueDate && dueDate < today && c.status !== 'concluido';
+      
+      return {
+        ...c,
+        calculatedStatus: isOverdue ? 'atrasado' : c.status
+      };
+    });
+    
+    const total = casesWithStatus.length;
+    const novos = casesWithStatus.filter(c => c.calculatedStatus === 'novo').length;
+    const pendentes = casesWithStatus.filter(c => c.calculatedStatus === 'pendente').length;
+    const concluidos = casesWithStatus.filter(c => c.calculatedStatus === 'concluido').length;
+    const atrasados = casesWithStatus.filter(c => c.calculatedStatus === 'atrasado').length;
     
     return {
       total,
-      completed,
-      inProgress,
+      novos,
+      pendentes,
+      concluidos,
+      atrasados,
       averageResponseTime: 5, // dias em média
     };
   }

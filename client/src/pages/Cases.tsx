@@ -174,9 +174,9 @@ export default function Cases() {
       
       const statusLabels = {
         'novo': 'Novo',
-        'andamento': 'Em Andamento',
+        'pendente': 'Pendente',
         'concluido': 'Concluído',
-        'pendente': 'Pendente'
+        'atrasado': 'Atrasado'
       };
       
       toast({
@@ -249,30 +249,52 @@ export default function Cases() {
     updateCaseMutation.mutate({ ...data, id: selectedCase?.id });
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      novo: { label: "Novo", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-      andamento: { label: "Em Andamento", className: "bg-blue-100 text-blue-800 border-blue-200" },
+  const getStatusBadge = (caseData: CaseWithRelations) => {
+    // Aplicar lógica de cores de alerta se o caso tiver os campos de alerta
+    const alertColor = (caseData as any).alertColor;
+    
+    let statusConfig = {
+      novo: { label: "Novo", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      pendente: { label: "Pendente", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
       concluido: { label: "Concluído", className: "bg-green-100 text-green-800 border-green-200" },
-      pendente: { label: "Pendente", className: "bg-red-100 text-red-800 border-red-200" },
+      atrasado: { label: "Atrasado", className: "bg-red-100 text-red-800 border-red-200" },
     };
     
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.novo;
+    // Aplicar cores de alerta baseadas na data
+    let finalClassName = statusConfig[caseData.status as keyof typeof statusConfig]?.className || statusConfig.novo.className;
+    
+    if (alertColor === 'red') {
+      finalClassName = "bg-red-100 text-red-800 border-red-200";
+    } else if (alertColor === 'yellow') {
+      finalClassName = "bg-yellow-100 text-yellow-800 border-yellow-200";
+    }
+    
+    const config = statusConfig[caseData.status as keyof typeof statusConfig] || statusConfig.novo;
     return (
-      <Badge className={`${config.className} border font-medium`}>
+      <Badge className={`${finalClassName} border font-medium`}>
         {config.label}
       </Badge>
     );
   };
 
-  const getRowClassName = (status: string) => {
+  const getRowClassName = (caseData: CaseWithRelations) => {
+    const alertColor = (caseData as any).alertColor;
+    
+    // Priorizar cor de alerta sobre status
+    if (alertColor === 'red') {
+      return "bg-red-50/40 border-l-4 border-l-red-500";
+    } else if (alertColor === 'yellow') {
+      return "bg-yellow-50/40 border-l-4 border-l-yellow-500";
+    }
+    
+    // Usar cores padrão baseadas no status
     const statusClasses = {
-      novo: "bg-yellow-50/30 border-l-4 border-l-yellow-500",
-      andamento: "bg-blue-50/30 border-l-4 border-l-blue-500",
+      novo: "bg-blue-50/30 border-l-4 border-l-blue-500",
+      pendente: "bg-yellow-50/30 border-l-4 border-l-yellow-500",
       concluido: "bg-green-50/30 border-l-4 border-l-green-500",
-      pendente: "bg-red-50/30 border-l-4 border-l-red-500",
+      atrasado: "bg-red-50/30 border-l-4 border-l-red-500",
     };
-    return statusClasses[status as keyof typeof statusClasses] || "";
+    return statusClasses[caseData.status as keyof typeof statusClasses] || "";
   };
 
   // Aplicar filtros e categorizar casos
@@ -306,12 +328,9 @@ export default function Cases() {
     return matchesMatricula && matchesNome && matchesProcesso && matchesSearch && matchesDate;
   }) || [];
 
-  const pendingCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'novo' || c.status === 'andamento' || c.status === 'pendente');
+  const pendingCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'novo' || c.status === 'pendente' || c.status === 'atrasado');
   const completedCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'concluido');
-  const overdueCases = filteredCases.filter((c: CaseWithRelations) => {
-    if (!c.dueDate || c.status === 'concluido') return false;
-    return new Date(c.dueDate) < new Date();
-  });
+  const overdueCases = filteredCases.filter((c: CaseWithRelations) => c.status === 'atrasado');
 
 
 
@@ -333,7 +352,7 @@ export default function Cases() {
         </TableHeader>
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
-            <TableRow key={caseData.id} className={`${getRowClassName(caseData.status)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+            <TableRow key={caseData.id} className={`${getRowClassName(caseData)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
               <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">
                 <div className="flex flex-col">
                   <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">{caseData.clientName}</span>
@@ -354,7 +373,7 @@ export default function Cases() {
               <TableCell className="border-r border-gray-100 py-4">
                 {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
               </TableCell>
-              <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData.status)}</TableCell>
+              <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData)}</TableCell>
               <TableCell className="border-r border-gray-100 py-4">
                 {caseData.dataEntrega ? (
                   <div className="text-sm">

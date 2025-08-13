@@ -20,8 +20,10 @@ import ProcessTypeChart from "@/components/ProcessTypeChart";
 
 interface DashboardStats {
   total: number;
-  completed: number;
-  inProgress: number;
+  novos: number;
+  pendentes: number;
+  concluidos: number;
+  atrasados: number;
   averageResponseTime: number;
 }
 
@@ -46,7 +48,7 @@ export default function Dashboard() {
           setTimeout(() => {
             window.location.href = "/api/login";
           }, 500);
-          return { total: 0, completed: 0, inProgress: 0, averageResponseTime: 0 };
+          return { total: 0, novos: 0, pendentes: 0, concluidos: 0, atrasados: 0, averageResponseTime: 0 };
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -73,17 +75,26 @@ export default function Dashboard() {
     },
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, alertColor?: string) => {
     const statusConfig = {
-      novo: { label: "Novo", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-      andamento: { label: "Em Andamento", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      novo: { label: "Novo", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      pendente: { label: "Pendente", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
       concluido: { label: "Concluído", className: "bg-green-100 text-green-800 border-green-200" },
-      pendente: { label: "Pendente", className: "bg-red-100 text-red-800 border-red-200" },
+      atrasado: { label: "Atrasado", className: "bg-red-100 text-red-800 border-red-200" },
     };
+    
+    // Aplicar cores de alerta se fornecidas
+    let finalClassName = statusConfig[status as keyof typeof statusConfig]?.className || statusConfig.novo.className;
+    
+    if (alertColor === 'red') {
+      finalClassName = "bg-red-100 text-red-800 border-red-200";
+    } else if (alertColor === 'yellow') {
+      finalClassName = "bg-yellow-100 text-yellow-800 border-yellow-200";
+    }
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.novo;
     return (
-      <Badge className={`${config.className} border font-medium px-2 py-1`}>
+      <Badge className={`${finalClassName} border font-medium px-2 py-1`}>
         {config.label}
       </Badge>
     );
@@ -102,8 +113,6 @@ export default function Dashboard() {
   };
 
   const urgentCases = getUrgentCases();
-  const completionRate = stats ? Math.round((stats.completed / stats.total) * 100) : 0;
-  const pendingCases = stats ? stats.total - stats.completed : 0;
 
   if (statsLoading) {
     return (
@@ -143,19 +152,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Sistema de Status: Novos, Pendentes, Concluídos, Atrasados */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-blue-700">Total de Processos</CardTitle>
+            <CardTitle className="text-sm font-semibold text-blue-700">Novos</CardTitle>
             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
               <FileText className="h-5 w-5 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-900">{stats?.total || 0}</div>
+            <div className="text-3xl font-bold text-blue-900">{stats?.novos || 0}</div>
             <p className="text-xs text-blue-600 mt-1">
-              Processos cadastrados no sistema
+              Resultados
             </p>
           </CardContent>
         </Card>
@@ -168,30 +177,42 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-900">{stats?.completed || 0}</div>
+            <div className="text-3xl font-bold text-green-900">{stats?.concluidos || 0}</div>
             <p className="text-xs text-green-600 mt-1">
-              Taxa de conclusão: {completionRate}%
+              Concluídos
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-orange-700">Em Andamento</CardTitle>
-            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+            <CardTitle className="text-sm font-semibold text-yellow-700">Pendentes</CardTitle>
+            <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
               <Clock className="h-5 w-5 text-white" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-900">{pendingCases}</div>
-            <p className="text-xs text-orange-600 mt-1">
-              Processos ativos
+            <div className="text-3xl font-bold text-yellow-900">{stats?.pendentes || 0}</div>
+            <p className="text-xs text-yellow-600 mt-1">
+              Pendentes
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-semibold text-red-700">Atrasados</CardTitle>
+            <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+              <AlertTriangle className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-900">{stats?.atrasados || 0}</div>
+            <p className="text-xs text-red-600 mt-1">
+              Atrasados
+            </p>
+          </CardContent>
+        </Card>
             <CardTitle className="text-sm font-semibold text-red-700">Urgentes</CardTitle>
             <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
               <AlertTriangle className="h-5 w-5 text-white" />

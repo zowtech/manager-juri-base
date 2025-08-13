@@ -64,7 +64,7 @@ export const cases = pgTable("cases", {
   employeeId: varchar("employee_id").references(() => employees.id), // Link para funcionário
   processNumber: varchar("process_number").notNull(),
   description: text("description").notNull(),
-  status: varchar("status").notNull().default("novo"), // novo, andamento, concluido, pendente
+  status: varchar("status").notNull().default("novo"), // novo, pendente, concluido, atrasado
   startDate: timestamp("start_date"),
   dueDate: timestamp("due_date"),
   completedDate: timestamp("completed_date"),
