@@ -502,7 +502,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [updatedEmployee] = await db.update(employees)
         .set({
           ...employeeData,
-          dataAdmissao: employeeData.dataAdmissao ? new Date(employeeData.dataAdmissao) : null,
+          dataAdmissao: employeeData.dataAdmissao && employeeData.dataAdmissao !== '' ? new Date(employeeData.dataAdmissao) : null,
+          dataDemissao: employeeData.dataDemissao && employeeData.dataDemissao !== '' ? new Date(employeeData.dataDemissao) : null,
           updatedAt: new Date(),
         })
         .where(eq(employees.id, id))

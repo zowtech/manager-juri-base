@@ -845,18 +845,7 @@ export default function Employees() {
               />
             </div>
             
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="demitido">Demitido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
           </div>
           
           <DialogFooter>
