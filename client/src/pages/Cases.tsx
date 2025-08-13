@@ -609,7 +609,7 @@ export default function Cases() {
                 <label className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2 block">Nome do Funcionário</label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Ex: CÉLIA MARIA, CRISTINA..."
+                    placeholder="Ex: Lucas Silva, Maria Santos..."
                     value={nomeFilter}
                     onChange={(e) => setNomeFilter(e.target.value)}
                     className="border-gray-300 flex-1 text-sm h-8"
