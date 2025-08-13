@@ -293,7 +293,14 @@ export default function Dashboard() {
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
               {allCases && allCases.length > 0 ? (
-                allCases.slice(0, 5).map((caseData: CaseWithRelations) => (
+                [...allCases]
+                  .sort((a, b) => {
+                    const dateA = new Date(a.updatedAt || a.createdAt || 0);
+                    const dateB = new Date(b.updatedAt || b.createdAt || 0);
+                    return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+                  })
+                  .slice(0, 5)
+                  .map((caseData: CaseWithRelations) => (
                   <div key={caseData.id} className="p-4 hover:bg-green-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
