@@ -162,12 +162,8 @@ export default function AuthPage() {
                               <Input 
                                 {...field} 
                                 type={showPassword ? "text" : "password"}
-                                className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm font-mono tracking-widest" 
-                                placeholder="Digite sua senha"
-                                style={{ 
-                                  letterSpacing: showPassword ? 'normal' : '0.25em',
-                                  fontFamily: showPassword ? 'inherit' : 'monospace'
-                                }}
+                                className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm password-field" 
+                                placeholder="••••••••"
                               />
                               <button
                                 type="button"

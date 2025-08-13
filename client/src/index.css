@@ -118,25 +118,14 @@
 }
 
 /* Password field styling */
-input[type="password"] {
-  font-family: 'Courier New', monospace !important;
-  letter-spacing: 0.1em;
+.password-field[type="password"] {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 14px;
+  letter-spacing: 0.05em;
 }
 
-input[type="password"]::-webkit-textfield-decoration-container {
-  visibility: hidden;
-}
-
-input[type="password"]::-webkit-inner-spin-button,
-input[type="password"]::-webkit-outer-spin-button {
-  appearance: none;
-  margin: 0;
-}
-
-/* Improve password dots visibility */
-input[type="password"]:not(:placeholder-shown) {
-  font-size: 18px;
-  line-height: 1;
+.password-field[type="password"]:not(:placeholder-shown) {
+  letter-spacing: 0.2em;
 }
 
 /* Base styles loaded */
