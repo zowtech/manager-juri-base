@@ -73,7 +73,7 @@ Preferred communication style: Simple, everyday language.
 - **Smart Ordering**: Always sorted by deadline (most urgent first), not alphabetical
 - **Visual Alerts**: Red (overdue), Yellow (approaching deadline within 3 days), Green (safe)
 - **Automatic Status**: Cases past deadline auto-marked as "atrasado" regardless of current status
-- **Dashboard Integration**: Live counters show Novos, Pendentes, Concluídos, Atrasados
+- **Dashboard Integration**: Live counters show Resultados, Concluídos, Pendentes, Atrasados (ordem específica conforme design)
 - **Advanced Filtering**: Multi-column filters including matrícula, nome, status, date, and process search
 - **Professional UI**: Enhanced table with borders, professional styling, and responsive design
 - **Automatic Date Tracking**: Data de entrega automatically set when status changes to "concluído"
