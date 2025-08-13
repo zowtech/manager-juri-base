@@ -576,6 +576,7 @@ export class DatabaseStorage implements IStorage {
     total: number;
     novos: number;
     pendentes: number;
+    emAndamento: number;
     concluidos: number;
     atrasados: number;
     averageResponseTime: number;
@@ -597,16 +598,32 @@ export class DatabaseStorage implements IStorage {
     const total = casesWithStatus.length;
     const novos = casesWithStatus.filter(c => c.calculatedStatus === 'novo').length;
     const pendentes = casesWithStatus.filter(c => c.calculatedStatus === 'pendente').length;
+    const emAndamento = casesWithStatus.filter(c => c.calculatedStatus === 'andamento').length;
     const concluidos = casesWithStatus.filter(c => c.calculatedStatus === 'concluido').length;
     const atrasados = casesWithStatus.filter(c => c.calculatedStatus === 'atrasado').length;
+    
+    // Calcular tempo médio de resposta baseado em casos concluídos
+    const completedCases = casesWithStatus.filter(c => c.status === 'concluido' && c.createdAt && c.updatedAt);
+    let averageResponseTime = 0;
+    
+    if (completedCases.length > 0) {
+      const totalDays = completedCases.reduce((sum, c) => {
+        const created = new Date(c.createdAt!);
+        const completed = new Date(c.updatedAt!);
+        const days = Math.ceil((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+        return sum + days;
+      }, 0);
+      averageResponseTime = Math.round(totalDays / completedCases.length);
+    }
     
     return {
       total,
       novos,
       pendentes,
+      emAndamento,
       concluidos,
       atrasados,
-      averageResponseTime: 5, // dias em média
+      averageResponseTime,
     };
   }
 

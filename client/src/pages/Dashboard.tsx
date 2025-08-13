@@ -22,6 +22,7 @@ interface DashboardStats {
   total: number;
   novos: number;
   pendentes: number;
+  emAndamento: number;
   concluidos: number;
   atrasados: number;
   averageResponseTime: number;
@@ -48,7 +49,7 @@ export default function Dashboard() {
           setTimeout(() => {
             window.location.href = "/api/login";
           }, 500);
-          return { total: 0, novos: 0, pendentes: 0, concluidos: 0, atrasados: 0, averageResponseTime: 0 };
+          return { total: 0, novos: 0, pendentes: 0, emAndamento: 0, concluidos: 0, atrasados: 0, averageResponseTime: 0 };
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -58,9 +59,9 @@ export default function Dashboard() {
   });
 
   const { data: recentCases } = useQuery({
-    queryKey: ["/api/cases", { limit: 5 }],
+    queryKey: ["/api/cases", { limit: 5, orderBy: 'recent' }],
     queryFn: async () => {
-      const response = await fetch("/api/cases?limit=5", {
+      const response = await fetch("/api/cases?limit=5&orderBy=recent", {
         credentials: 'include',
       });
       
@@ -75,10 +76,29 @@ export default function Dashboard() {
     },
   });
 
+  const { data: recentActivity } = useQuery({
+    queryKey: ["/api/activity-logs", { limit: 5 }],
+    queryFn: async () => {
+      const response = await fetch("/api/activity-logs?limit=5", {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          return [];
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return response.json();
+    },
+  });
+
   const getStatusBadge = (status: string, alertColor?: string) => {
     const statusConfig = {
       novo: { label: "Novo", className: "bg-blue-100 text-blue-800 border-blue-200" },
       pendente: { label: "Pendente", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+      andamento: { label: "Em Andamento", className: "bg-purple-100 text-purple-800 border-purple-200" },
       concluido: { label: "Concluído", className: "bg-green-100 text-green-800 border-green-200" },
       atrasado: { label: "Atrasado", className: "bg-red-100 text-red-800 border-red-200" },
     };
@@ -152,8 +172,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards - Ordem: NOVOS, PENDENTES, ATRASADOS, CONCLUÍDOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Cards - Ordem: NOVOS, PENDENTES, EM ANDAMENTO, ATRASADOS, CONCLUÍDOS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-semibold text-blue-700">Novos</CardTitle>
@@ -180,6 +200,21 @@ export default function Dashboard() {
             <div className="text-3xl font-bold text-yellow-900">{stats?.pendentes || 0}</div>
             <p className="text-xs text-yellow-600 mt-1">
               Pendentes
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 shadow-lg hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-semibold text-purple-700">Em Andamento</CardTitle>
+            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-purple-900">{stats?.emAndamento || 0}</div>
+            <p className="text-xs text-purple-600 mt-1">
+              Em Andamento
             </p>
           </CardContent>
         </Card>
@@ -215,30 +250,77 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Activity & Urgent Cases */}
+      {/* Activity Log & Recent Updates */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Cases */}
+        {/* Recent Activity */}
         <Card className="shadow-lg">
-          <CardHeader className="bg-gray-50 rounded-t-lg">
-            <CardTitle className="flex items-center text-gray-800">
+          <CardHeader className="bg-blue-50 rounded-t-lg">
+            <CardTitle className="flex items-center text-blue-800">
               <Activity className="mr-2 h-5 w-5 text-blue-600" />
-              Processos Recentes
+              Atividades Recentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-gray-100">
+              {recentActivity && recentActivity.length > 0 ? (
+                recentActivity.slice(0, 5).map((activity: any) => (
+                  <div key={activity.id} className="p-4 hover:bg-blue-50 transition-colors">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Activity className="w-4 h-4 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900">
+                          <span className="font-medium">{activity.user?.firstName || 'Usuário'}</span>
+                          {' '}{activity.action.toLowerCase().includes('create') ? 'criou' : 
+                               activity.action.toLowerCase().includes('update') ? 'atualizou' :
+                               activity.action.toLowerCase().includes('delete') ? 'excluiu' : 'modificou'}
+                          {' '}um processo
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(activity.timestamp).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 text-center text-gray-500">
+                  <Activity className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                  <p>Nenhuma atividade recente</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Process Updates */}
+        <Card className="shadow-lg">
+          <CardHeader className="bg-green-50 rounded-t-lg">
+            <CardTitle className="flex items-center text-green-800">
+              <FileText className="mr-2 h-5 w-5 text-green-600" />
+              Últimas Atualizações
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
               {recentCases && recentCases.length > 0 ? (
                 recentCases.slice(0, 5).map((caseData) => (
-                  <div key={caseData.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div key={caseData.id} className="p-4 hover:bg-green-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-3">
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-900 truncate">
-                              {caseData.nome}
+                              {caseData.clientName}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                              Matrícula: {caseData.matricula}
+                              Matrícula: {caseData.matricula} • Processo: {caseData.processNumber}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Atualizado: {new Date(caseData.updatedAt || caseData.createdAt).toLocaleDateString('pt-BR')}
                             </p>
                           </div>
                           <div className="flex-shrink-0">
@@ -252,7 +334,7 @@ export default function Dashboard() {
               ) : (
                 <div className="p-8 text-center text-gray-500">
                   <FileText className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-                  <p>Nenhum processo encontrado</p>
+                  <p>Nenhuma atualização recente</p>
                 </div>
               )}
             </div>

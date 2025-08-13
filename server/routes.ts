@@ -73,12 +73,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced activity logging middleware
   const logActivity = async (req: any, action: string, resourceType: string, resourceId: string, description: string, metadata?: any) => {
     try {
+      if (!req.user || !req.user.id) {
+        console.log('⚠️ LOG ATIVIDADE: Usuário não encontrado, pulando log');
+        return;
+      }
+      
       const timestamp = new Date().toISOString();
       const userInfo = `${req.user.firstName} ${req.user.lastName} (${req.user.username})`;
-      const ipAddress = req.ip || req.socket.remoteAddress || 'Unknown';
+      const ipAddress = req.ip || req.socket.remoteAddress || req.connection?.remoteAddress || 'Unknown';
       const userAgent = req.get('User-Agent') || 'Unknown';
       
-      const detailedDescription = `[${timestamp}] ${userInfo} executou: ${description}`;
+      const detailedDescription = `${userInfo}: ${description}`;
       
       await storage.logActivity({
         userId: req.user.id,
@@ -100,13 +105,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Case routes
   app.get('/api/cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const { status, search } = req.query;
+      const { status, search, limit, orderBy } = req.query;
       const cases = await storage.getCases({
         status: status as string,
         search: search as string,
       });
       
-      res.json(cases);
+      let sortedCases = cases;
+      if (orderBy === 'recent') {
+        sortedCases = cases.sort((a, b) => {
+          const dateA = new Date(a.updatedAt || a.createdAt || 0);
+          const dateB = new Date(b.updatedAt || b.createdAt || 0);
+          return dateB.getTime() - dateA.getTime();
+        });
+      }
+      
+      const result = limit ? sortedCases.slice(0, parseInt(limit as string)) : sortedCases;
+      res.json(result);
     } catch (error) {
       console.error("Error fetching cases:", error);
       res.status(500).json({ message: "Failed to fetch cases" });
@@ -332,6 +347,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/dashboard/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stats = await storage.getCaseStats();
+      
+      // Log dashboard access for activity tracking  
+      await logActivity(
+        req,
+        'VIEW_DASHBOARD',
+        'DASHBOARD',
+        'stats',
+        'Visualizou estatísticas do dashboard'
+      );
+      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
