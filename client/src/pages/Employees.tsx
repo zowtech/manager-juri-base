@@ -462,9 +462,9 @@ export default function Employees() {
                 </div>
                 
                 <div>
-                  <Label className="text-sm font-medium">Departamento</Label>
+                  <Label className="text-sm font-medium">Centro de Custo</Label>
                   <Input
-                    placeholder="Filtrar por depto"
+                    placeholder="Filtrar por centro de custo"
                     value={filters.departamento}
                     onChange={(e) => {
                       setFilters({...filters, departamento: e.target.value});
@@ -608,7 +608,7 @@ export default function Employees() {
                   <TableHead className="font-semibold">Admissão</TableHead>
                   <TableHead className="font-semibold">Salário</TableHead>
                   <TableHead className="font-semibold">Cargo</TableHead>
-                  <TableHead className="font-semibold">Departamento</TableHead>
+                  <TableHead className="font-semibold">Centro de Custo</TableHead>
                   <TableHead className="w-[100px] font-semibold">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -643,7 +643,7 @@ export default function Employees() {
                       {employee.cargo || "-"}
                     </TableCell>
                     <TableCell>
-                      {employee.departamento || "-"}
+                      {employee.centroCusto || "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -830,6 +830,7 @@ export default function Employees() {
                 value={formData.centroCusto}
                 onChange={(e) => setFormData({...formData, centroCusto: e.target.value})}
                 className="mt-1"
+                placeholder="Ex: 001, 002, 003, etc."
               />
             </div>
             
@@ -840,6 +841,7 @@ export default function Employees() {
                 value={formData.departamento}
                 onChange={(e) => setFormData({...formData, departamento: e.target.value})}
                 className="mt-1"
+                placeholder="Ex: Financeiro, Operações, etc."
               />
             </div>
             
