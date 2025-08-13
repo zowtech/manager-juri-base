@@ -201,6 +201,7 @@ export class DatabaseStorage implements IStorage {
           c.due_date, 
           c.completed_date,
           c.data_entrega,
+          c.data_audiencia,
           c.tipo_processo,
           c.documentos_solicitados,
           c.documentos_anexados, 
@@ -210,8 +211,9 @@ export class DatabaseStorage implements IStorage {
           c.created_at,
           c.updated_at,
           c.employee_id,
+          c.matricula as case_matricula,
           e.nome as employee_name,
-          e.matricula
+          e.matricula as employee_matricula
         FROM cases c
         LEFT JOIN employees e ON c.employee_id = e.id
         WHERE 1=1
@@ -232,9 +234,10 @@ export class DatabaseStorage implements IStorage {
           LOWER(c.process_number) LIKE $${queryParams.length + 2} OR
           LOWER(c.description) LIKE $${queryParams.length + 3} OR
           LOWER(COALESCE(e.nome, '')) LIKE $${queryParams.length + 4} OR
-          LOWER(COALESCE(e.matricula::text, '')) LIKE $${queryParams.length + 5}
+          LOWER(COALESCE(e.matricula::text, '')) LIKE $${queryParams.length + 5} OR
+          LOWER(COALESCE(c.matricula::text, '')) LIKE $${queryParams.length + 6}
         )`;
-        queryParams.push(searchParam, searchParam, searchParam, searchParam, searchParam);
+        queryParams.push(searchParam, searchParam, searchParam, searchParam, searchParam, searchParam);
       }
 
       // Ordenar por prazo de entrega (mais urgente primeiro), depois por data de atualização/criação
@@ -324,7 +327,7 @@ export class DatabaseStorage implements IStorage {
             updatedAt: null
           },
           // Campos específicos do sistema brasileiro
-          matricula: row.matricula,
+          matricula: row.case_matricula || row.employee_matricula,
           nome: row.employee_name || row.client_name,
           processo: row.description || '',
           prazoEntrega: row.due_date,
