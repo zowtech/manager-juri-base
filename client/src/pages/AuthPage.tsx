@@ -60,17 +60,17 @@ export default function AuthPage() {
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:flex-1 relative overflow-hidden bg-gradient-to-br from-blue-900 via-slate-800 to-blue-950">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-slate-800/40"></div>
-        <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white">
-          <div className="text-center space-y-8 max-w-md">
+        <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white text-center">
+          <div className="space-y-8 max-w-md mx-auto">
             <div className="space-y-6">
               <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl">
                 <Scale className="w-10 h-10 text-white" />
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-4 text-center">
                 <h1 className="text-4xl font-bold text-white">BASE FACILITIES</h1>
                 <p className="text-xl text-blue-100 leading-relaxed">
-                  Sistema de Gerenciamento de Processos Jurídicos
+                  LegalCore Pro - Gestão Jurídica Integrada
                 </p>
               </div>
             </div>
