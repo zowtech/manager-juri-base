@@ -140,13 +140,16 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
     const submitData = {
       clientName: values.clientName,
       processNumber: values.processType, // Using processType as processNumber for backend compatibility
-      description: values.observacoes || values.processType, // Just use the process type directly
-      dueDate: values.dueDate ? new Date(values.dueDate) : null,
-      audienceDate: values.audienceDate ? new Date(values.audienceDate) : null,
-      observacoes: values.observacoes,
+      description: values.processType || 'Processo Jurídico', // Required field
+      dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
+      dataAudiencia: values.audienceDate ? new Date(values.audienceDate).toISOString() : null,
+      observacoes: values.observacoes || '',
       matricula: values.matricula,
       status: 'novo', // Default status
+      createdById: 'admin-id' // This will be overridden by the server based on authenticated user
     };
+    
+    console.log('🚀 Sending data to API:', submitData);
     onSubmit(submitData);
     form.reset();
   };

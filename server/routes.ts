@@ -145,12 +145,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
+      console.log('🔍 Received case creation request:', req.body);
+      console.log('🔍 User info:', req.user);
+      
       if (req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      const validatedData = insertCaseSchema.parse(req.body);
+      // Add the authenticated user's ID to the request data
+      const requestData = {
+        ...req.body,
+        createdById: req.user.id // Override with actual authenticated user ID
+      };
+      
+      console.log('🔍 Data to validate:', requestData);
+      const validatedData = insertCaseSchema.parse(requestData);
+      console.log('✅ Validation passed:', validatedData);
+      
       const newCase = await storage.createCase(validatedData);
+      console.log('✅ Case created:', newCase);
       
       await logActivity(
         req,
@@ -169,9 +182,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(newCase);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('❌ Validation error:', error.errors);
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
-      console.error("Error creating case:", error);
+      console.error("❌ Error creating case:", error);
       res.status(500).json({ message: "Failed to create case" });
     }
   });
