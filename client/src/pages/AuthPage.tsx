@@ -94,12 +94,12 @@ export default function AuthPage() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 xl:px-24 bg-white">
-        <div className="mx-auto w-full max-w-sm lg:w-96">
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-white">
+        <div className="w-full max-w-md px-6 py-8">
           <div className="space-y-8">
             {/* Mobile Header */}
             <div className="text-center lg:hidden">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
                 <Scale className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900">BASE FACILITIES</h2>
@@ -107,34 +107,39 @@ export default function AuthPage() {
             </div>
 
             {/* Login Form */}
-            <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="space-y-4 pb-8">
-                <div className="text-center">
+            <Card className="shadow-2xl border border-gray-100 bg-white">
+              <CardHeader className="space-y-4 pb-6 text-center">
+                <div className="hidden lg:block mb-4">
+                  <div className="w-12 h-12 mx-auto bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                    <Scale className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div>
                   <h2 className="text-2xl font-bold text-gray-900">Acesso ao Sistema</h2>
                   <p className="text-gray-600 mt-2">Entre com suas credenciais corporativas</p>
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 px-8 pb-8">
                 <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-6">
+                  <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-5">
                     <FormField
                       control={loginForm.control}
                       name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Usuário</FormLabel>
+                          <FormLabel className="text-gray-700 font-medium text-sm">Usuário</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                               <Input 
                                 {...field} 
-                                className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500" 
-                                placeholder="Digite seu usuário"
+                                className="pl-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm" 
+                                placeholder="admin"
                               />
                             </div>
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-xs" />
                         </FormItem>
                       )}
                     />
@@ -144,48 +149,50 @@ export default function AuthPage() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700 font-medium">Senha</FormLabel>
+                          <FormLabel className="text-gray-700 font-medium text-sm">Senha</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                               <Input 
                                 {...field} 
                                 type={showPassword ? "text" : "password"}
-                                className="pl-10 pr-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500" 
-                                placeholder="Digite sua senha"
+                                className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm" 
+                                placeholder="••••••••"
                               />
                               <button
                                 type="button"
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                                 onClick={() => setShowPassword(!showPassword)}
                               >
-                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                             </div>
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-xs" />
                         </FormItem>
                       )}
                     />
 
-                    <Button 
-                      type="submit" 
-                      className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium shadow-lg transition-all duration-200"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Entrando...</span>
-                        </div>
-                      ) : (
-                        "Entrar no Sistema"
-                      )}
-                    </Button>
+                    <div className="pt-2">
+                      <Button 
+                        type="submit" 
+                        className="w-full h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium shadow-lg transition-all duration-200 rounded-lg"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center justify-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Entrando...</span>
+                          </div>
+                        ) : (
+                          "Entrar no Sistema"
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
 
-                <div className="text-center text-sm text-gray-500 pt-4 border-t">
+                <div className="text-center text-xs text-gray-500 pt-6 border-t border-gray-100">
                   Sistema corporativo - Acesso restrito
                 </div>
               </CardContent>
