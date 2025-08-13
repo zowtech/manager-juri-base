@@ -95,6 +95,28 @@ export default function AuthPage() {
                 <span className="font-medium">Segurança e Conformidade</span>
               </div>
             </div>
+
+            {/* Security Information */}
+            <div className="mt-12 pt-8 border-t border-white/20">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-white">BASE FACILITIES® - Sistema Proprietário</p>
+                  <p className="text-xs text-blue-200 mt-1">Criptografia SHA-256 • Conforme LGPD</p>
+                  <p className="text-xs text-blue-200">Acesso restrito e monitorado</p>
+                </div>
+                
+                <div className="flex justify-center space-x-4 pt-4">
+                  <div className="flex items-center space-x-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                    <Lock className="w-3 h-3 text-white" />
+                    <span className="text-xs font-medium text-white">Certificado Digital</span>
+                  </div>
+                  <div className="flex items-center space-x-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <span className="text-xs font-medium text-white">SSL/TLS</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -198,22 +220,8 @@ export default function AuthPage() {
                   </form>
                 </Form>
 
-                <div className="text-center text-xs text-gray-500 pt-6 border-t border-gray-100 space-y-2">
-                  <div className="space-y-1">
-                    <p className="font-medium text-gray-600">BASE FACILITIES® - Sistema Proprietário</p>
-                    <p>Criptografia SHA-256 • Conforme LGPD</p>
-                    <p>Acesso restrito e monitorado</p>
-                  </div>
-                  <div className="flex items-center justify-center space-x-3 pt-3">
-                    <div className="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded-full border border-green-200">
-                      <Lock className="w-3 h-3 text-green-600" />
-                      <span className="text-xs font-medium text-green-700">Certificado Digital</span>
-                    </div>
-                    <div className="flex items-center space-x-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-200">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-blue-700">SSL/TLS</span>
-                    </div>
-                  </div>
+                <div className="text-center text-xs text-gray-400 pt-6 border-t border-gray-100">
+                  <p>© 2024 BASE FACILITIES. Todos os direitos reservados.</p>
                 </div>
               </CardContent>
             </Card>
