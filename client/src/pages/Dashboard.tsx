@@ -213,18 +213,6 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-            <CardTitle className="text-sm font-semibold text-red-700">Urgentes</CardTitle>
-            <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-900">{urgentCases.length}</div>
-            <p className="text-xs text-red-600 mt-1">
-              Prazo ≤ 3 dias
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Recent Activity & Urgent Cases */}
