@@ -374,14 +374,9 @@ export default function Cases() {
               
               {/* Nome */}
               <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
-                <div className="flex flex-col">
-                  <span className="font-semibold text-gray-900 text-base leading-tight">
-                    {caseData.clientName}
-                  </span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    Processo: {caseData.processNumber}
-                  </span>
-                </div>
+                <span className="font-semibold text-gray-900 text-base leading-tight">
+                  {caseData.clientName}
+                </span>
               </TableCell>
               
               {/* Descrição do Processo */}
