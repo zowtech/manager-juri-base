@@ -698,20 +698,20 @@ export default function Cases() {
             {/* Terceira linha - Estatísticas dos filtros */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
               <div className="bg-blue-50 p-3 rounded-lg text-center">
-                <div className="text-lg font-bold text-blue-600">{filteredCases.length}</div>
-                <div className="text-xs text-blue-600">Resultados</div>
+                <div className="text-lg font-bold text-blue-600">{filteredCases.filter(c => c.status === 'novo').length}</div>
+                <div className="text-xs text-blue-600">Novos</div>
               </div>
               <div className="bg-orange-50 p-3 rounded-lg text-center">
-                <div className="text-lg font-bold text-orange-600">{pendingCases.length}</div>
+                <div className="text-lg font-bold text-orange-600">{filteredCases.filter(c => c.status === 'pendente').length}</div>
                 <div className="text-xs text-orange-600">Pendentes</div>
-              </div>
-              <div className="bg-green-50 p-3 rounded-lg text-center">
-                <div className="text-lg font-bold text-green-600">{completedCases.length}</div>
-                <div className="text-xs text-green-600">Concluídos</div>
               </div>
               <div className="bg-red-50 p-3 rounded-lg text-center">
                 <div className="text-lg font-bold text-red-600">{overdueCases.length}</div>
                 <div className="text-xs text-red-600">Atrasados</div>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="text-lg font-bold text-green-600">{completedCases.length}</div>
+                <div className="text-xs text-green-600">Concluídos</div>
               </div>
             </div>
           </div>
