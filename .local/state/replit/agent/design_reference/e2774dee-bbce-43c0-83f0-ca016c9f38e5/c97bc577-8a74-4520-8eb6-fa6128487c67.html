@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BASE FACILITIES - Sistema Jurídico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    'base-navy': '#1e3a8a',
+                    'base-red': '#dc2626',
+                    'base-light': '#f8fafc'
+                },
+                fontFamily: {
+                    'inter': ['Inter', 'sans-serif']
+                }
+            }
+        }
+    };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #dc2626 0%, #7c2d12 50%, #1e3a8a 100%);
+        }
+        .status-novo { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
+        .status-andamento { background-color: #dbeafe; border-left: 4px solid #3b82f6; }
+        .status-concluido { background-color: #d1fae5; border-left: 4px solid #10b981; }
+        .status-pendente { background-color: #fee2e2; border-left: 4px solid #ef4444; }
+        .hover-row:hover { background-color: #f1f5f9; transform: translateY(-1px); transition: all 0.2s; }
+    </style>
+</head>
+<body class="bg-base-light">
+
+<!-- @COMPONENT: LoginPage -->
+<div id="loginPage" class="min-h-screen gradient-bg flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <!-- BASE FACILITIES Logo Recreation -->
+            <div class="mx-auto w-24 h-24 mb-4 relative">
+                <div class="absolute inset-0 bg-gradient-to-br from-base-red to-base-navy rounded-full"></div>
+                <div class="absolute inset-2 bg-white rounded-full flex items-center justify-center">
+                    <div class="text-base-navy font-bold text-lg">BASE</div>
+                </div>
+            </div>
+            <h1 class="text-2xl font-bold text-base-navy mb-2">BASE FACILITIES</h1>
+            <p class="text-gray-600">Sistema Jurídico</p>
+        </div>
+        
+        <form data-implementation="Should validate credentials and redirect to dashboard">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-semibold mb-2">
+                    <i class="fas fa-user mr-2"></i>Usuário
+                </label>
+                <input type="text" data-bind="username" placeholder="Digite seu usuário" 
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent transition-all">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-semibold mb-2">
+                    <i class="fas fa-lock mr-2"></i>Senha
+                </label>
+                <input type="password" data-bind="password" placeholder="Digite sua senha"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent transition-all">
+            </div>
+            <button type="submit" data-event="click:handleLogin" 
+                    class="w-full bg-base-navy text-white py-3 px-4 rounded-lg hover:bg-blue-800 transition-colors font-semibold">
+                <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <a href="#" class="text-base-red hover:underline text-sm">Esqueceu sua senha?</a>
+        </div>
+    </div>
+</div>
+<!-- @END_COMPONENT: LoginPage -->
+
+<!-- @COMPONENT: MainDashboard -->
+<div id="mainDashboard" class="hidden min-h-screen bg-gray-50">
+    <!-- Navigation Sidebar -->
+    <div class="fixed inset-y-0 left-0 z-50 w-64 bg-base-navy shadow-lg">
+        <div class="flex items-center justify-center h-16 bg-base-red">
+            <div class="text-white font-bold text-lg">BASE FACILITIES</div>
+        </div>
+        
+        <nav class="mt-8">
+            <div class="px-4 space-y-2">
+                <a href="#" data-page="dashboard" class="nav-link flex items-center px-4 py-3 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                    <i class="fas fa-chart-line mr-3"></i>Dashboard
+                </a>
+                <a href="#" data-page="cases" class="nav-link flex items-center px-4 py-3 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                    <i class="fas fa-folder-open mr-3"></i>Processos
+                </a>
+                <a href="#" data-page="clients" class="nav-link flex items-center px-4 py-3 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                    <i class="fas fa-users mr-3"></i>Clientes
+                </a>
+                <a href="#" data-page="logs" class="nav-link flex items-center px-4 py-3 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                    <i class="fas fa-history mr-3"></i>Log de Atividades
+                </a>
+                <div data-role="admin" class="admin-only">
+                    <a href="#" data-page="users" class="nav-link flex items-center px-4 py-3 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                        <i class="fas fa-user-cog mr-3"></i>Usuários
+                    </a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="absolute bottom-4 left-4 right-4">
+            <div class="bg-blue-800 rounded-lg p-3">
+                <div class="text-white text-sm">
+                    <div class="font-semibold" data-bind="currentUser.name">João Silva</div>
+                    <div class="text-blue-200" data-bind="currentUser.role">Administrador</div>
+                </div>
+            </div>
+            <button data-event="click:handleLogout" class="w-full mt-2 bg-base-red text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
+                <i class="fas fa-sign-out-alt mr-2"></i>Sair
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 flex-1">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6">
+            <h1 class="text-xl font-semibold text-gray-900" data-bind="pageTitle">Dashboard</h1>
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <button class="p-2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute -top-1 -right-1 bg-base-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                    </button>
+                </div>
+                <div class="text-sm text-gray-600" data-bind="currentDateTime">15/01/2024 14:30</div>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <main class="p-6">
+            <!-- Dashboard Stats -->
+            <div id="dashboardContent" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-medium">Total de Processos</p>
+                                <p class="text-3xl font-bold text-gray-900" data-bind="stats.totalCases">1,247</p>
+                            </div>
+                            <div class="p-3 bg-blue-100 rounded-full">
+                                <i class="fas fa-folder-open text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-sm text-green-600">
+                            <i class="fas fa-arrow-up mr-1"></i>+12% este mês
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-medium">Concluídos</p>
+                                <p class="text-3xl font-bold text-gray-900" data-bind="stats.completedCases">892</p>
+                            </div>
+                            <div class="p-3 bg-green-100 rounded-full">
+                                <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-sm text-green-600">
+                            <i class="fas fa-arrow-up mr-1"></i>+8% este mês
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-medium">Em Andamento</p>
+                                <p class="text-3xl font-bold text-gray-900" data-bind="stats.inProgressCases">285</p>
+                            </div>
+                            <div class="p-3 bg-yellow-100 rounded-full">
+                                <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-sm text-yellow-600">
+                            <i class="fas fa-minus mr-1"></i>+3% este mês
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-medium">Tempo Médio</p>
+                                <p class="text-3xl font-bold text-gray-900" data-bind="stats.averageTime">24</p>
+                                <p class="text-sm text-gray-500">dias</p>
+                            </div>
+                            <div class="p-3 bg-red-100 rounded-full">
+                                <i class="fas fa-stopwatch text-red-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-sm text-red-600">
+                            <i class="fas fa-arrow-down mr-1"></i>-5% este mês
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold mb-4">Processos por Status</h3>
+                        <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                            <!-- @FUNCTIONALITY: Implement Chart.js or similar for pie chart showing case status distribution -->
+                            <div class="text-gray-500">
+                                <i class="fas fa-chart-pie text-4xl mb-2"></i>
+                                <p>Gráfico de Status</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold mb-4">Tempo de Resposta Mensal</h3>
+                        <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                            <!-- @FUNCTIONALITY: Implement Chart.js line chart for response time trends -->
+                            <div class="text-gray-500">
+                                <i class="fas fa-chart-line text-4xl mb-2"></i>
+                                <p>Gráfico de Tempo</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h3 class="text-lg font-semibold mb-4">Atividades Recentes</h3>
+                    <div class="space-y-4">
+                        <!-- @MAP: recentActivities.map(activity => ( -->
+                        <div class="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+                            <div class="p-2 bg-blue-100 rounded-full">
+                                <i class="fas fa-plus text-blue-600"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium" data-mock="true">João Silva adicionou novo processo</p>
+                                <p class="text-sm text-gray-600" data-mock="true">Processo #2024-001 - Há 2 horas</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+                            <div class="p-2 bg-green-100 rounded-full">
+                                <i class="fas fa-check text-green-600"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-medium" data-mock="true">Maria Santos concluiu processo</p>
+                                <p class="text-sm text-gray-600" data-mock="true">Processo #2023-895 - Há 4 horas</p>
+                            </div>
+                        </div>
+                        <!-- @END_MAP -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cases Management Content -->
+            <div id="casesContent" class="hidden space-y-6">
+                <!-- Controls -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+                        <div class="flex items-center space-x-4">
+                            <button data-role="admin" data-event="click:openAddCaseModal" 
+                                    class="bg-base-navy text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Novo Processo
+                            </button>
+                            <button data-event="click:exportCases" 
+                                    class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-file-excel mr-2"></i>Exportar
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <select class="border border-gray-300 rounded-lg px-3 py-2" data-filter="status">
+                                <option value="">Todos os Status</option>
+                                <option value="novo">Novo</option>
+                                <option value="andamento">Em Andamento</option>
+                                <option value="concluido">Concluído</option>
+                                <option value="pendente">Pendente</option>
+                            </select>
+                            <input type="text" placeholder="Buscar processos..." 
+                                   class="border border-gray-300 rounded-lg px-3 py-2 w-64" data-search="cases">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completed Cases Section -->
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-green-600">
+                            <i class="fas fa-check-circle mr-2"></i>Processos Concluídos
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-green-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Processo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Início</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Conclusão</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <!-- @MAP: completedCases.map(case => ( -->
+                                <tr class="status-concluido hover-row" data-mock="true">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="font-medium text-gray-900">CELIA MARIA DE JESUS</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-900">Indenização, Rescisão indireta, Dano Moral</div>
+                                        <div class="text-xs text-gray-500">#220022</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">15/10/2024</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">21/10/2024</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">João Silva</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800" data-event="click:viewCase">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button data-role="admin" class="text-green-600 hover:text-green-800" data-event="click:editCase">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Pending Cases Section -->
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-blue-600">
+                            <i class="fas fa-clock mr-2"></i>Processos Pendentes
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-blue-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Processo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Início</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prazo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <!-- @MAP: pendingCases.map(case => ( -->
+                                <tr class="status-andamento hover-row" data-mock="true">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="font-medium text-gray-900">CLAUDIA ADRIANA FERREIRA MACHADO GUEDES</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-900">Acidente de trabalho, Indenização</div>
+                                        <div class="text-xs text-gray-500">#220021</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">24/02/2024</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Defesa até 24/02</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                            Em Andamento
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Maria Santos</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800" data-event="click:viewCase">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="text-green-600 hover:text-green-800" data-event="click:editCase">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-yellow-600 hover:text-yellow-800" data-event="click:markComplete">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button data-role="admin" class="text-red-600 hover:text-red-800" data-event="click:deleteCase">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="status-novo hover-row" data-mock="true">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="font-medium text-gray-900">CRISTINA DE MOURA SILVEIRA</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-900">Adc de insalubridade, Res. Reajuste de adicional acordo, Segundo desemprego</div>
+                                        <div class="text-xs text-gray-500">#217365</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">09/12/2024</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">24/10/2025</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                                            Novo
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800" data-event="click:viewCase">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="text-green-600 hover:text-green-800" data-event="click:editCase">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="text-yellow-600 hover:text-yellow-800" data-event="click:assignCase">
+                                            <i class="fas fa-user-plus"></i>
+                                        </button>
+                                        <button data-role="admin" class="text-red-600 hover:text-red-800" data-event="click:deleteCase">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Log Content -->
+            <div id="logsContent" class="hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold">Log de Atividades</h3>
+                        <div class="flex items-center space-x-4">
+                            <select class="border border-gray-300 rounded-lg px-3 py-2" data-filter="action">
+                                <option value="">Todas as Ações</option>
+                                <option value="create">Criação</option>
+                                <option value="edit">Edição</option>
+                                <option value="delete">Exclusão</option>
+                                <option value="status">Mudança de Status</option>
+                            </select>
+                            <input type="date" class="border border-gray-300 rounded-lg px-3 py-2" data-filter="date">
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data/Hora</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuário</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ação</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <!-- @MAP: activityLogs.map(log => ( -->
+                                <tr class="hover-row" data-mock="true">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">15/01/2024 14:25</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">João Silva</div>
+                                        <div class="text-xs text-gray-500">Administrador</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                            Criação
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">Criou novo processo #2024-001 para CLAUDIA ADRIANA</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">192.168.1.100</td>
+                                </tr>
+                                <tr class="hover-row" data-mock="true">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">15/01/2024 13:15</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">Maria Santos</div>
+                                        <div class="text-xs text-gray-500">Editor</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                            Edição
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">Atualizou status do processo #2023-895 para Concluído</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">192.168.1.105</td>
+                                </tr>
+                                <!-- @END_MAP -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+<!-- @END_COMPONENT: MainDashboard -->
+
+<!-- @COMPONENT: CaseModal -->
+<div id="caseModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold" data-bind="modalTitle">Novo Processo</h3>
+                <button data-event="click:closeCaseModal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <form class="p-6 space-y-6" data-implementation="Should validate and save case data">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
+                    <input type="text" data-bind="case.clientName" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Número do Processo</label>
+                    <input type="text" data-bind="case.processNumber" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Data de Início *</label>
+                    <input type="date" data-bind="case.startDate" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Prazo de Entrega</label>
+                    <input type="date" data-bind="case.dueDate" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                    <select data-bind="case.status" required 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent">
+                        <option value="novo">Novo</option>
+                        <option value="andamento">Em Andamento</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="pendente">Pendente</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Responsável</label>
+                    <select data-bind="case.assignedTo" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent">
+                        <option value="">Selecionar Responsável</option>
+                        <option value="joao.silva">João Silva</option>
+                        <option value="maria.santos">Maria Santos</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Descrição do Processo *</label>
+                <textarea data-bind="case.description" rows="4" required 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-base-navy focus:border-transparent"
+                          placeholder="Descreva o processo, tipo de ação, observações..."></textarea>
+            </div>
+            
+            <div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+                <button type="button" data-event="click:closeCaseModal" 
+                        class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" data-event="click:saveCase" 
+                        class="px-4 py-2 bg-base-navy text-white rounded-lg hover:bg-blue-800 transition-colors">
+                    <i class="fas fa-save mr-2"></i>Salvar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- @END_COMPONENT: CaseModal -->
+
+<script>
+(function() {
+    // @STATE: currentPage = 'login', currentUser = null, isLoggedIn = false
+    
+    // Navigation functionality
+    function initNavigation() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const contentSections = {
+            'dashboard': document.getElementById('dashboardContent'),
+            'cases': document.getElementById('casesContent'),
+            'logs': document.getElementById('logsContent')
+        };
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.dataset.page;
+                
+                // Hide all content sections
+                Object.values(contentSections).forEach(section => {
+                    if (section) section.classList.add('hidden');
+                });
+                
+                // Show selected content
+                if (contentSections[page]) {
+                    contentSections[page].classList.remove('hidden');
+                }
+                
+                // Update page title
+                const pageTitle = document.querySelector('[data-bind="pageTitle"]');
+                if (pageTitle) {
+                    const titles = {
+                        'dashboard': 'Dashboard',
+                        'cases': 'Gerenciamento de Processos',
+                        'logs': 'Log de Atividades'
+                    };
+                    pageTitle.textContent = titles[page] || 'Dashboard';
+                }
+                
+                // Update active nav state
+                navLinks.forEach(nav => nav.classList.remove('bg-blue-700'));
+                link.classList.add('bg-blue-700');
+            });
+        });
+    }
+
+    // Modal functionality
+    function initModals() {
+        const modal = document.getElementById('caseModal');
+        const openButtons = document.querySelectorAll('[data-event*="openAddCaseModal"]');
+        const closeButtons = document.querySelectorAll('[data-event*="closeCaseModal"]');
+
+        openButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                modal.classList.remove('hidden');
+            });
+        });
+
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+        });
+
+        // Close modal on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    }
+
+    // Login functionality
+    function initLogin() {
+        const loginForm = document.querySelector('#loginPage form');
+        const loginPage = document.getElementById('loginPage');
+        const dashboard = document.getElementById('mainDashboard');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                // TODO: Implement actual authentication logic
+                
+                // Simulate login
+                loginPage.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+                
+                // Initialize dashboard after login
+                initNavigation();
+                initModals();
+                updateDateTime();
+            });
+        }
+    }
+
+    // Update current date/time
+    function updateDateTime() {
+        const element = document.querySelector('[data-bind="currentDateTime"]');
+        if (element) {
+            const now = new Date();
+            element.textContent = now.toLocaleString('pt-BR');
+        }
+    }
+
+    // Role-based UI visibility
+    function updateRoleBasedUI() {
+        const userRole = 'admin'; // TODO: Get from actual user session
+        const adminElements = document.querySelectorAll('[data-role="admin"]');
+        
+        if (userRole !== 'admin') {
+            adminElements.forEach(element => {
+                element.style.display = 'none';
+            });
+        }
+    }
+
+    // Initialize everything when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        initLogin();
+        updateRoleBasedUI();
+        
+        // Update time every minute
+        setInterval(updateDateTime, 60000);
+        
+        // Add click handlers for common actions
+        document.addEventListener('click', function(e) {
+            const element = e.target.closest('[data-event]');
+            if (!element) return;
+            
+            const event = element.dataset.event;
+            
+            // Handle common events
+            if (event.includes('logout')) {
+                // TODO: Implement logout logic
+                location.reload();
+            } else if (event.includes('viewCase')) {
+                // TODO: Implement case view modal
+                console.log('View case clicked');
+            } else if (event.includes('editCase')) {
+                // TODO: Implement case edit functionality
+                document.getElementById('caseModal').classList.remove('hidden');
+            } else if (event.includes('deleteCase')) {
+                // TODO: Implement delete confirmation
+                if (confirm('Tem certeza que deseja excluir este processo?')) {
+                    console.log('Delete case confirmed');
+                }
+            } else if (event.includes('markComplete')) {
+                // TODO: Implement status update to completed
+                console.log('Mark complete clicked');
+            }
+        });
+    });
+})();
+</script>
+
+</body>
+</html>
