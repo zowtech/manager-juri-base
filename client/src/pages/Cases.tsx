@@ -748,18 +748,18 @@ export default function Cases() {
                   <span>Pendentes ({pendingCases.length})</span>
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="completed"
-                  className="flex items-center space-x-2 data-[state=active]:bg-green-100 data-[state=active]:text-green-800"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Concluídos ({completedCases.length})</span>
-                </TabsTrigger>
-                <TabsTrigger 
                   value="overdue"
                   className="flex items-center space-x-2 data-[state=active]:bg-red-100 data-[state=active]:text-red-800"
                 >
                   <AlertTriangle className="w-4 h-4" />
                   <span>Atrasados ({overdueCases.length})</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="completed"
+                  className="flex items-center space-x-2 data-[state=active]:bg-green-100 data-[state=active]:text-green-800"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Concluídos ({completedCases.length})</span>
                 </TabsTrigger>
               </TabsList>
             </div>
