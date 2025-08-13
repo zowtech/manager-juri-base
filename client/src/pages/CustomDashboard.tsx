@@ -9,7 +9,7 @@ import type { WidgetConfig, LayoutItem, CaseWithRelations, ActivityLogWithUser }
 import { Loader2 } from "lucide-react";
 import "@/styles/dashboard-layout-fix.css";
 
-// Default widgets available - MELHORADOS E PROFISSIONAIS
+// Default widgets available
 const AVAILABLE_WIDGETS: WidgetConfig[] = [
   {
     id: 'stats-1',
@@ -27,7 +27,7 @@ const AVAILABLE_WIDGETS: WidgetConfig[] = [
     id: 'chart-status-1',
     type: 'chart',
     title: 'Distribuição por Status',
-    data: { chartType: 'pie', endpoint: '/api/dashboard/chart-status' },
+    data: { chartType: 'pie' },
     refreshInterval: 300000, // 5 minutes
   },
   {
@@ -45,46 +45,19 @@ const AVAILABLE_WIDGETS: WidgetConfig[] = [
     id: 'chart-monthly-1',
     type: 'chart',
     title: 'Processos por Mês',
-    data: { chartType: 'bar', endpoint: '/api/dashboard/chart-monthly' },
+    data: { chartType: 'bar' },
     refreshInterval: 3600000, // 1 hour
-  },
-  {
-    id: 'chart-process-types-1',
-    type: 'chart',
-    title: 'Tipos de Processo Mais Solicitados',
-    data: { chartType: 'bar', endpoint: '/api/dashboard/chart-process-types' },
-    refreshInterval: 600000, // 10 minutes
-  },
-  {
-    id: 'performance-metrics-1',
-    type: 'performance-metrics',
-    title: 'Métricas de Performance',
-    refreshInterval: 300000, // 5 minutes
-  },
-  {
-    id: 'deadline-alerts-1',
-    type: 'deadline-alerts',
-    title: 'Alertas de Prazo',
-    refreshInterval: 120000, // 2 minutes
-  },
-  {
-    id: 'team-workload-1',
-    type: 'team-workload',
-    title: 'Carga de Trabalho da Equipe',
-    refreshInterval: 600000, // 10 minutes
   },
 ];
 
-// Default layout for new users - LAYOUT PROFISSIONAL
+// Default layout for new users - LAYOUT CORRIGIDO
 const DEFAULT_LAYOUTS = {
   lg: [
-    { i: 'stats-1', x: 0, y: 0, w: 4, h: 3 },
-    { i: 'quick-actions-1', x: 4, y: 0, w: 4, h: 3 },
-    { i: 'performance-metrics-1', x: 8, y: 0, w: 4, h: 3 },
-    { i: 'chart-status-1', x: 0, y: 3, w: 6, h: 5 },
-    { i: 'chart-process-types-1', x: 6, y: 3, w: 6, h: 5 },
-    { i: 'deadline-alerts-1', x: 0, y: 8, w: 8, h: 4 },
-    { i: 'recent-cases-1', x: 8, y: 8, w: 4, h: 4 },
+    { i: 'stats-1', x: 0, y: 0, w: 6, h: 3 },
+    { i: 'quick-actions-1', x: 6, y: 0, w: 6, h: 3 },
+    { i: 'chart-status-1', x: 0, y: 3, w: 8, h: 5 },
+    { i: 'recent-cases-1', x: 8, y: 3, w: 4, h: 5 },
+    { i: 'activity-feed-1', x: 0, y: 8, w: 12, h: 4 },
   ],
   md: [
     { i: 'stats-1', x: 0, y: 0, w: 5, h: 3 },
@@ -116,15 +89,7 @@ const DEFAULT_LAYOUTS = {
   ],
 };
 
-const DEFAULT_ACTIVE_WIDGETS = [
-  'stats-1', 
-  'quick-actions-1', 
-  'chart-status-1', 
-  'chart-process-types-1',
-  'performance-metrics-1',
-  'deadline-alerts-1',
-  'recent-cases-1'
-];
+const DEFAULT_ACTIVE_WIDGETS = ['stats-1', 'quick-actions-1', 'chart-status-1', 'recent-cases-1', 'activity-feed-1'];
 
 export default function CustomDashboard() {
   const { user } = useAuth();
@@ -243,62 +208,6 @@ export default function CustomDashboard() {
     refetchInterval: 60000, // 1 minute
   });
 
-  // Novos dados para widgets profissionais
-  const { data: performanceMetrics } = useQuery({
-    queryKey: ["/api/dashboard/performance-metrics"],
-    queryFn: async () => {
-      const response = await fetch("/api/dashboard/performance-metrics", { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch performance metrics');
-      return response.json();
-    },
-    refetchInterval: 300000, // 5 minutes
-    enabled: activeWidgets.some(w => w.type === 'performance-metrics'),
-  });
-
-  const { data: deadlineAlerts } = useQuery({
-    queryKey: ["/api/dashboard/deadline-alerts"],
-    queryFn: async () => {
-      const response = await fetch("/api/dashboard/deadline-alerts", { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch deadline alerts');
-      return response.json();
-    },
-    refetchInterval: 120000, // 2 minutes
-    enabled: activeWidgets.some(w => w.type === 'deadline-alerts'),
-  });
-
-  const { data: chartStatus } = useQuery({
-    queryKey: ["/api/dashboard/chart-status"],
-    queryFn: async () => {
-      const response = await fetch("/api/dashboard/chart-status", { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch chart status');
-      return response.json();
-    },
-    refetchInterval: 300000, // 5 minutes
-    enabled: activeWidgets.some(w => w.data?.endpoint === '/api/dashboard/chart-status'),
-  });
-
-  const { data: chartMonthly } = useQuery({
-    queryKey: ["/api/dashboard/chart-monthly"],
-    queryFn: async () => {
-      const response = await fetch("/api/dashboard/chart-monthly", { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch chart monthly');
-      return response.json();
-    },
-    refetchInterval: 3600000, // 1 hour
-    enabled: activeWidgets.some(w => w.data?.endpoint === '/api/dashboard/chart-monthly'),
-  });
-
-  const { data: chartProcessTypes } = useQuery({
-    queryKey: ["/api/dashboard/chart-process-types"],
-    queryFn: async () => {
-      const response = await fetch("/api/dashboard/chart-process-types", { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch chart process types');
-      return response.json();
-    },
-    refetchInterval: 600000, // 10 minutes
-    enabled: activeWidgets.some(w => w.data?.endpoint === '/api/dashboard/chart-process-types'),
-  });
-
   // Generate chart data from cases
   const chartData = recentCases ? [
     { name: 'Novo', value: recentCases.filter(c => c.status === 'novo').length },
@@ -312,11 +221,6 @@ export default function CustomDashboard() {
     recentCases,
     chartData,
     activityLogs,
-    performanceMetrics,
-    deadlineAlerts,
-    chartStatus,
-    chartMonthly,
-    chartProcessTypes,
   };
 
   if (!user) {
