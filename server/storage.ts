@@ -576,7 +576,6 @@ export class DatabaseStorage implements IStorage {
     total: number;
     novos: number;
     pendentes: number;
-    emAndamento: number;
     concluidos: number;
     atrasados: number;
     averageResponseTime: number;
@@ -598,7 +597,6 @@ export class DatabaseStorage implements IStorage {
     const total = casesWithStatus.length;
     const novos = casesWithStatus.filter(c => c.calculatedStatus === 'novo').length;
     const pendentes = casesWithStatus.filter(c => c.calculatedStatus === 'pendente').length;
-    const emAndamento = casesWithStatus.filter(c => c.calculatedStatus === 'andamento').length;
     const concluidos = casesWithStatus.filter(c => c.calculatedStatus === 'concluido').length;
     const atrasados = casesWithStatus.filter(c => c.calculatedStatus === 'atrasado').length;
     
@@ -620,7 +618,6 @@ export class DatabaseStorage implements IStorage {
       total,
       novos,
       pendentes,
-      emAndamento,
       concluidos,
       atrasados,
       averageResponseTime,

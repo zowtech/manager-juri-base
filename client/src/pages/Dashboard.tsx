@@ -22,7 +22,6 @@ interface DashboardStats {
   total: number;
   novos: number;
   pendentes: number;
-  emAndamento: number;
   concluidos: number;
   atrasados: number;
   averageResponseTime: number;
@@ -49,7 +48,7 @@ export default function Dashboard() {
           setTimeout(() => {
             window.location.href = "/api/login";
           }, 500);
-          return { total: 0, novos: 0, pendentes: 0, emAndamento: 0, concluidos: 0, atrasados: 0, averageResponseTime: 0 };
+          return { total: 0, novos: 0, pendentes: 0, concluidos: 0, atrasados: 0, averageResponseTime: 0 };
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -98,7 +97,6 @@ export default function Dashboard() {
     const statusConfig = {
       novo: { label: "Novo", className: "bg-blue-100 text-blue-800 border-blue-200" },
       pendente: { label: "Pendente", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-      andamento: { label: "Em Andamento", className: "bg-purple-100 text-purple-800 border-purple-200" },
       concluido: { label: "Concluído", className: "bg-green-100 text-green-800 border-green-200" },
       atrasado: { label: "Atrasado", className: "bg-red-100 text-red-800 border-red-200" },
     };
@@ -172,8 +170,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards - Ordem: NOVOS, PENDENTES, EM ANDAMENTO, ATRASADOS, CONCLUÍDOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Stats Cards - Ordem: NOVOS, PENDENTES, ATRASADOS, CONCLUÍDOS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-semibold text-blue-700">Novos</CardTitle>
@@ -204,20 +202,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 shadow-lg hover:shadow-xl transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-purple-700">Em Andamento</CardTitle>
-            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-900">{stats?.emAndamento || 0}</div>
-            <p className="text-xs text-purple-600 mt-1">
-              Em Andamento
-            </p>
-          </CardContent>
-        </Card>
+
 
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
