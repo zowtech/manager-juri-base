@@ -198,8 +198,16 @@ export default function AuthPage() {
                   </form>
                 </Form>
 
-                <div className="text-center text-xs text-gray-500 pt-6 border-t border-gray-100">
-                  Sistema corporativo - Acesso restrito
+                <div className="text-center text-xs text-gray-500 pt-6 border-t border-gray-100 space-y-2">
+                  <div className="space-y-1">
+                    <p className="font-medium text-gray-600">BASE FACILITIES® - Sistema Proprietário</p>
+                    <p>Criptografia SHA-256 • Conforme LGPD</p>
+                    <p>Acesso restrito e monitorado</p>
+                  </div>
+                  <div className="flex items-center justify-center space-x-2 pt-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs">Sistema seguro</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
