@@ -337,47 +337,85 @@ export default function Cases() {
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
     <div className="overflow-x-auto max-h-[400px] md:max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg cases-table-wrapper">
       <Table className="cases-table">
-        <TableHeader className="bg-gray-50/80 sticky top-0 z-10">
-          <TableRow className="border-b-2 border-gray-200">
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Nome do Funcionário</TableHead>  
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Processo</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Descrição</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Observação</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Prazo</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data Início</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm">Status</TableHead>
-            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-gray-50 text-xs md:text-sm hide-mobile">Data Entrega</TableHead>
-            <TableHead className="font-semibold text-gray-700 bg-gray-50 text-xs md:text-sm">Ações</TableHead>
+        <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
+          <TableRow className="border-b-2 border-gray-300">
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
+              👤 Nome do Funcionário
+            </TableHead>  
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
+              📋 Processo
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
+              📝 Descrição
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
+              💬 Observação
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
+              ⏰ Prazo
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
+              📅 Data Início
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
+              🔄 Status
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
+              ✅ Data Entrega
+            </TableHead>
+            <TableHead className="font-bold text-gray-800 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
+              ⚙️ Ações
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
             <TableRow key={caseData.id} className={`${getRowClassName(caseData)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
-              <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">
-                <div className="flex flex-col">
-                  <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">{caseData.clientName}</span>
+              <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
+                <div className="flex flex-col space-y-1">
+                  <span className="font-semibold text-gray-900 leading-tight break-words max-w-[180px] md:max-w-[250px]">
+                    {caseData.clientName}
+                  </span>
+                  <span className="text-xs text-blue-600 font-medium">
+                    ID: {caseData.matricula || 'N/A'}
+                  </span>
                 </div>
               </TableCell>
-              <TableCell className="font-medium border-r border-gray-100 py-2 md:py-4 text-xs md:text-sm">{caseData.processNumber}</TableCell>
-              <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs hide-mobile">
-                <ProcessTagRenderer processo={caseData.description} />
-              </TableCell>
-              <TableCell className="border-r border-gray-100 py-2 md:py-4 max-w-xs hide-mobile">
-                <div className="text-xs md:text-sm text-gray-600 truncate" title={caseData.observacoes || ''}>
-                  {caseData.observacoes || '-'}
+              <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
+                <div className="flex flex-col space-y-1">
+                  <span className="font-semibold text-gray-900 leading-tight break-words max-w-[150px] md:max-w-[200px]">
+                    {caseData.processNumber}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {new Date(caseData.createdAt).toLocaleDateString('pt-BR')}
+                  </span>
                 </div>
               </TableCell>
-              <TableCell className="border-r border-gray-100 py-4">
+              <TableCell className="border-r border-gray-100 py-3 md:py-4 max-w-xs hide-mobile">
+                <div className="space-y-1">
+                  <ProcessTagRenderer processo={caseData.description} />
+                </div>
+              </TableCell>
+              <TableCell className="border-r border-gray-100 py-3 md:py-4 max-w-xs hide-mobile">
+                <div className="text-sm text-gray-600 leading-relaxed break-words max-w-[200px]" title={caseData.observacoes || ''}>
+                  {caseData.observacoes || (
+                    <span className="text-gray-400 italic">Sem observações</span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="border-r border-gray-100 py-3 md:py-4">
                 <DeadlineAlert prazoEntrega={caseData.dueDate ? caseData.dueDate.toString() : null} status={caseData.status} />
               </TableCell>
-              <TableCell className="border-r border-gray-100 py-4">
-                {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
+              <TableCell className="border-r border-gray-100 py-3 md:py-4 hide-mobile">
+                <span className="text-sm text-gray-600">
+                  {caseData.startDate ? new Date(caseData.startDate).toLocaleDateString('pt-BR') : '-'}
+                </span>
               </TableCell>
-              <TableCell className="border-r border-gray-100 py-4">{getStatusBadge(caseData)}</TableCell>
-              <TableCell className="border-r border-gray-100 py-4">
+              <TableCell className="border-r border-gray-100 py-3 md:py-4">{getStatusBadge(caseData)}</TableCell>
+              <TableCell className="border-r border-gray-100 py-3 md:py-4 hide-mobile">
                 {caseData.dataEntrega ? (
-                  <div className="text-sm">
-                    <div className="font-medium text-green-600">
+                  <div className="text-sm space-y-1">
+                    <div className="font-semibold text-green-600">
                       {new Date(caseData.dataEntrega).toLocaleDateString('pt-BR')}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -385,11 +423,11 @@ export default function Cases() {
                     </div>
                   </div>
                 ) : (
-                  <span className="text-gray-400">-</span>
+                  <span className="text-gray-400 italic">Pendente</span>
                 )}
               </TableCell>
-              <TableCell className="py-4">
-                <div className="flex items-center space-x-2">
+              <TableCell className="py-3 md:py-4">
+                <div className="flex items-center space-x-1 md:space-x-2">
                   {getUserPermissions(user).canEditAllCases && (
                     <Button
                       variant="ghost"
