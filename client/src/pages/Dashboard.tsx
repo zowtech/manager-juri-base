@@ -63,9 +63,9 @@ export default function Dashboard() {
   });
 
   const { data: recentActivity } = useQuery({
-    queryKey: ["/api/activity-logs", { limit: 5 }],
+    queryKey: ["/api/activity-logs", { limit: 5, processOnly: true }],
     queryFn: async () => {
-      const response = await fetch("/api/activity-logs?limit=5", { credentials: 'include' });
+      const response = await fetch("/api/activity-logs?limit=5&processOnly=true", { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch activity logs');
       return response.json();
     },
@@ -249,7 +249,7 @@ export default function Dashboard() {
                           {' '}um processo
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(activity.timestamp).toLocaleString('pt-BR')}
+                          {new Date(activity.createdAt).toLocaleString('pt-BR')}
                         </p>
                       </div>
                     </div>
