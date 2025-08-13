@@ -204,9 +204,15 @@ export default function AuthPage() {
                     <p>Criptografia SHA-256 • Conforme LGPD</p>
                     <p>Acesso restrito e monitorado</p>
                   </div>
-                  <div className="flex items-center justify-center space-x-2 pt-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs">Sistema seguro</span>
+                  <div className="flex items-center justify-center space-x-3 pt-3">
+                    <div className="flex items-center space-x-2 px-3 py-1 bg-green-50 rounded-full border border-green-200">
+                      <Lock className="w-3 h-3 text-green-600" />
+                      <span className="text-xs font-medium text-green-700">Certificado Digital</span>
+                    </div>
+                    <div className="flex items-center space-x-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-200">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-xs font-medium text-blue-700">SSL/TLS</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
