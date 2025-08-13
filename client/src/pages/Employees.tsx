@@ -64,18 +64,18 @@ export default function Employees() {
 
   // Company options
   const companyOptions = [
-    { value: "2", label: "Empresa 2" },
-    { value: "33", label: "Empresa 33" },
-    { value: "55", label: "Empresa 55" },
-    { value: "79", label: "Empresa 79" },
-    { value: "104", label: "Empresa 104" },
-    { value: "107", label: "Empresa 107" },
-    { value: "123", label: "Empresa 123" },
-    { value: "125", label: "Empresa 125" },
-    { value: "126", label: "Empresa 126" },
-    { value: "127", label: "Empresa 127" },
-    { value: "128", label: "Empresa 128" },
-    { value: "150", label: "Empresa 150" }
+    { value: "2", label: "2" },
+    { value: "33", label: "33" },
+    { value: "55", label: "55" },
+    { value: "79", label: "79" },
+    { value: "104", label: "104" },
+    { value: "107", label: "107" },
+    { value: "123", label: "123" },
+    { value: "125", label: "125" },
+    { value: "126", label: "126" },
+    { value: "127", label: "127" },
+    { value: "128", label: "128" },
+    { value: "150", label: "150" }
   ];
 
 
@@ -370,7 +370,10 @@ export default function Employees() {
               <Input
                 placeholder="Buscar por nome, matrícula, RG, cargo ou departamento..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  resetPagination();
+                }}
                 className="pl-10 h-11 text-sm"
               />
             </div>
@@ -424,7 +427,10 @@ export default function Employees() {
                   <Input
                     placeholder="Filtrar por nome"
                     value={filters.nome}
-                    onChange={(e) => setFilters({...filters, nome: e.target.value})}
+                    onChange={(e) => {
+                      setFilters({...filters, nome: e.target.value});
+                      resetPagination();
+                    }}
                     className="mt-1"
                   />
                 </div>
@@ -434,7 +440,10 @@ export default function Employees() {
                   <Input
                     placeholder="Filtrar por matrícula"
                     value={filters.matricula}
-                    onChange={(e) => setFilters({...filters, matricula: e.target.value})}
+                    onChange={(e) => {
+                      setFilters({...filters, matricula: e.target.value});
+                      resetPagination();
+                    }}
                     className="mt-1"
                   />
                 </div>
@@ -444,7 +453,10 @@ export default function Employees() {
                   <Input
                     placeholder="Filtrar por cargo"
                     value={filters.cargo}
-                    onChange={(e) => setFilters({...filters, cargo: e.target.value})}
+                    onChange={(e) => {
+                      setFilters({...filters, cargo: e.target.value});
+                      resetPagination();
+                    }}
                     className="mt-1"
                   />
                 </div>
@@ -454,7 +466,10 @@ export default function Employees() {
                   <Input
                     placeholder="Filtrar por depto"
                     value={filters.departamento}
-                    onChange={(e) => setFilters({...filters, departamento: e.target.value})}
+                    onChange={(e) => {
+                      setFilters({...filters, departamento: e.target.value});
+                      resetPagination();
+                    }}
                     className="mt-1"
                   />
                 </div>
