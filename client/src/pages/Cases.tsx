@@ -706,13 +706,13 @@ export default function Cases() {
                 <div className="text-lg font-bold text-blue-600">{filteredCases.length}</div>
                 <div className="text-xs text-blue-600">Resultados</div>
               </div>
-              <div className="bg-green-50 p-3 rounded-lg text-center">
-                <div className="text-lg font-bold text-green-600">{completedCases.length}</div>
-                <div className="text-xs text-green-600">Concluídos</div>
-              </div>
               <div className="bg-orange-50 p-3 rounded-lg text-center">
                 <div className="text-lg font-bold text-orange-600">{pendingCases.length}</div>
                 <div className="text-xs text-orange-600">Pendentes</div>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="text-lg font-bold text-green-600">{completedCases.length}</div>
+                <div className="text-xs text-green-600">Concluídos</div>
               </div>
               <div className="bg-red-50 p-3 rounded-lg text-center">
                 <div className="text-lg font-bold text-red-600">{overdueCases.length}</div>
