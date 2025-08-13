@@ -66,16 +66,15 @@ export default function AuthPage() {
           <div className="max-w-sm w-full text-center space-y-8">
             
             {/* Logo and Brand */}
-            <div className="space-y-6">
-              <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl">
-                <Scale className="w-10 h-10 text-white" />
-              </div>
-              
-              <div className="space-y-3">
-                <h1 className="text-3xl font-bold text-white tracking-tight">BASE FACILITIES</h1>
-                <p className="text-lg text-blue-100 font-medium">
-                  LegalCore Pro - Gestão Jurídica Integrada
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h1 className="text-4xl font-bold text-white tracking-tight leading-tight">
+                  LegalCore Pro
+                </h1>
+                <p className="text-xl text-blue-100 font-medium leading-relaxed">
+                  Sistema Avançado de Gestão Jurídica
                 </p>
+                <div className="w-16 h-1 bg-gradient-to-r from-blue-400 to-blue-300 rounded-full mx-auto"></div>
               </div>
             </div>
 
@@ -107,7 +106,7 @@ export default function AuthPage() {
             <div className="pt-6 border-t border-white/20">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-white">BASE FACILITIES® - Sistema Proprietário</p>
+                  <p className="text-sm font-semibold text-white">LegalCore Pro® - Sistema Proprietário</p>
                   <div className="text-xs text-blue-200 space-y-1">
                     <p>Criptografia SHA-256 • Conforme LGPD</p>
                     <p>Acesso restrito e monitorado</p>
@@ -231,7 +230,7 @@ export default function AuthPage() {
                 </Form>
 
                 <div className="text-center text-xs text-gray-400 pt-6 border-t border-gray-100">
-                  <p>© 2024 BASE FACILITIES. Todos os direitos reservados.</p>
+                  <p>© 2024 LegalCore Pro. Todos os direitos reservados.</p>
                 </div>
               </CardContent>
             </Card>
