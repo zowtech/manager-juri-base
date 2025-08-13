@@ -152,11 +152,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards - Ordem: RESULTADOS, CONCLUÍDOS, PENDENTES, ATRASADOS */}
+      {/* Stats Cards - Ordem: NOVOS, CONCLUÍDOS, PENDENTES, ATRASADOS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold text-blue-700">Resultados</CardTitle>
+            <CardTitle className="text-sm font-semibold text-blue-700">Novos</CardTitle>
             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
               <FileText className="h-5 w-5 text-white" />
             </div>
@@ -164,7 +164,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-3xl font-bold text-blue-900">{stats?.novos || 0}</div>
             <p className="text-xs text-blue-600 mt-1">
-              Resultados
+              Novos
             </p>
           </CardContent>
         </Card>
