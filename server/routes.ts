@@ -399,13 +399,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity log routes
   app.get('/api/activity-logs', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const { action, date, search, limit } = req.query;
+      const { action, date, search, limit, processOnly } = req.query;
       
       const logs = await storage.getActivityLogs({
         action: action as string,
         date: date as string,
         search: search as string,
         limit: limit ? parseInt(limit as string, 10) : undefined,
+        processOnly: processOnly === 'true',
       });
       
       res.json(logs);

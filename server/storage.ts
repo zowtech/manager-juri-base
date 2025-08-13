@@ -33,7 +33,7 @@ export interface IStorage {
   
   // Activity log operations
   logActivity(activity: InsertActivityLog): Promise<ActivityLog>;
-  getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number }): Promise<ActivityLogWithUser[]>;
+  getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number; processOnly?: boolean }): Promise<ActivityLogWithUser[]>;
   
   // Dashboard statistics
   getCaseStats(): Promise<{
@@ -520,11 +520,17 @@ export class DatabaseStorage implements IStorage {
     return newLog;
   }
 
-  async getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number }): Promise<ActivityLogWithUser[]> {
+  async getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number; processOnly?: boolean }): Promise<ActivityLogWithUser[]> {
     const users = await this.getUsers();
     let filteredLogs = [...DatabaseStorage.activityLogs];
 
     console.log(`🔍 DEBUG: Filtros aplicados: ${JSON.stringify(filters)} - Total logs: ${filteredLogs.length}`);
+
+    // Filter for process-only activities if requested
+    if (filters?.processOnly) {
+      const processActions = ['CREATE_CASE', 'UPDATE_CASE', 'DELETE_CASE', 'UPDATE_CASE_STATUS'];
+      filteredLogs = filteredLogs.filter(log => processActions.includes(log.action));
+    }
 
     if (filters?.action && filters.action !== 'all') {
       filteredLogs = filteredLogs.filter(log => log.action === filters.action);
