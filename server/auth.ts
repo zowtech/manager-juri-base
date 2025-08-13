@@ -10,7 +10,12 @@ import createMemoryStore from "memorystore";
 
 declare global {
   namespace Express {
-    interface User extends User {}
+    interface User {
+      id: string;
+      username: string | null;
+      email: string | null;
+      role: string;
+    }
   }
 }
 
@@ -70,8 +75,13 @@ export function setupAuth(app: Express) {
           return done(null, false);
         }
         
-        // Temporary simple password check for debugging
-        const passwordMatch = (password === user.password) || (await comparePasswords(password, user.password));
+        // Check password
+        if (!user.password) {
+          console.log(`❌ NO PASSWORD SET FOR USER: ${username}`);
+          return done(null, false);
+        }
+        
+        const passwordMatch = await comparePasswords(password, user.password);
         console.log(`🔑 PASSWORD CHECK: supplied="${password}" stored="${user.password.substring(0, 10)}..." match=${passwordMatch}`);
         
         if (!passwordMatch) {
@@ -80,7 +90,12 @@ export function setupAuth(app: Express) {
         }
         
         console.log(`✅ LOGIN SUCCESS: ${username}`);
-        return done(null, user);
+        return done(null, {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        });
       } catch (error) {
         console.error(`🚨 LOGIN ERROR:`, error);
         return done(error);
@@ -115,7 +130,7 @@ export function setupAuth(app: Express) {
         password: await hashPassword(req.body.password),
       });
 
-      req.login(user, (err) => {
+      req.login(user, (err: any) => {
         if (err) return next(err);
         res.status(201).json(user);
       });
@@ -127,7 +142,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/login", (req, res, next) => {
     console.log('🔐 LOGIN REQUEST BODY:', req.body);
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       console.log('🔐 PASSPORT RESULT:', { err, user: user ? user.username : null, info });
       if (err) {
         console.error('🚨 PASSPORT ERROR:', err);
@@ -137,7 +152,7 @@ export function setupAuth(app: Express) {
         console.log('❌ AUTHENTICATION FAILED');
         return res.status(401).json({ message: "Credenciais inválidas" });
       }
-      req.logIn(user, (err) => {
+      req.logIn(user, (err: any) => {
         if (err) {
           console.error('🚨 LOGIN ERROR:', err);
           return next(err);
@@ -149,9 +164,9 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/logout", async (req: any, res, next) => {
-    req.logout((err) => {
+    req.logout((err: any) => {
       if (err) return next(err);
-      req.session.destroy((destroyErr) => {
+      req.session.destroy((destroyErr: any) => {
         if (destroyErr) {
           console.error("Session destruction error:", destroyErr);
         }
@@ -162,9 +177,9 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res, next) => {
-    req.logout((err) => {
+    req.logout((err: any) => {
       if (err) return next(err);
-      req.session.destroy((destroyErr) => {
+      req.session.destroy((destroyErr: any) => {
         if (destroyErr) {
           console.error("Session destruction error:", destroyErr);
         }

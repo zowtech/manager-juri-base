@@ -57,103 +57,123 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  private userCache?: User[];
+  private static userCache: User[] = [
+    {
+      id: 'admin-id',
+      email: 'admin@example.com',
+      username: 'admin',
+      password: 'abf4dcbb4d3321558df18aa60b7fc90dd0e17634949da3a47cfd2202938b5f4b4164d323772842d56d18a8ffa3f4955df0d5b31e32c3a349be930b58e91ceb3b.054755060135b94caaeea4f9ae9a1b0b', // admin123
+      firstName: 'Admin',
+      lastName: 'User',
+      profileImageUrl: null,
+      role: 'admin',
+      permissions: {
+        matricula: { view: true, edit: true },
+        nome: { view: true, edit: true },
+        processo: { view: true, edit: true },
+        prazoEntrega: { view: true, edit: true },
+        audiencia: { view: true, edit: true },
+        status: { view: true, edit: true },
+        observacao: { view: true, edit: true },
+        canCreateCases: true,
+        canDeleteCases: true,
+        pages: {
+          dashboard: true,
+          cases: true,
+          activityLog: true,
+          users: true
+        }
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 'lucas-id',
+      email: 'lucas.silva@example.com',
+      username: 'lucas.silva',
+      password: 'b26c557fb2496df8b5d770d4a009d086b4b1e6c8a72faa5cac4173363f0aa0c508f013d163991b56a1cf845a14cd73edc85a79a2da4694112e85235cae889408.e7c922b279c802dac9d8e7f51209b9af', // barone13
+      firstName: 'Lucas',
+      lastName: 'Silva',
+      profileImageUrl: null,
+      role: 'viewer',
+      permissions: {
+        matricula: { view: true, edit: false },
+        nome: { view: true, edit: false },
+        processo: { view: true, edit: false },
+        prazoEntrega: { view: true, edit: false },
+        audiencia: { view: true, edit: false },
+        status: { view: true, edit: false },
+        observacao: { view: true, edit: false },
+        canCreateCases: false,
+        canDeleteCases: false,
+        pages: {
+          dashboard: false,
+          cases: true,
+          activityLog: false,
+          users: false
+        }
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ];
+  
   private static activityLogs: ActivityLog[] = []; // Static para persistir entre reinicializações
   private static casesCache: CaseWithRelations[] = []; // Static para persistir mudanças de status
+  private static dashboardLayouts: DashboardLayout[] = [];
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     console.log(`🔍 BUSCANDO USUÁRIO: ${id}`);
     
-    // Always get fresh data from database for permissions
-    try {
-      const [user] = await db.select().from(users).where(eq(users.id, id));
-      
-      if (user) {
-        console.log(`✅ USUÁRIO ENCONTRADO: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
-        return user;
-      }
-      
-      // Fallback to cache for test users
-      const cachedUsers = await this.getUsers();
-      const cachedUser = cachedUsers.find(user => user.id === id);
-      if (cachedUser) {
-        console.log(`📝 ENCONTRADO NO CACHE: ${cachedUser.username}`);
-        return cachedUser;
-      }
-      
-      console.log(`❌ USUÁRIO NÃO ENCONTRADO: ${id}`);
-      return undefined;
-    } catch (error) {
-      console.error('❌ ERRO AO BUSCAR USUÁRIO:', error);
-      return undefined;
+    const user = DatabaseStorage.userCache.find(user => user.id === id);
+    if (user) {
+      console.log(`✅ USUÁRIO ENCONTRADO: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
+      return user;
     }
+    
+    console.log(`❌ USUÁRIO NÃO ENCONTRADO: ${id}`);
+    return undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     console.log(`🔍 SEARCHING USER: ${username}`);
     
-    // First try to get from memory cache (for test users)
-    const cachedUsers = await this.getUsers();
-    console.log(`📝 CACHED USERS:`, cachedUsers.map(u => `${u.username} (${u.id})`));
-    
-    const cachedUser = cachedUsers.find(user => user.username === username);
-    if (cachedUser) {
-      console.log(`✅ FOUND IN CACHE: ${cachedUser.username}`);
-      return cachedUser;
-    }
-
-    // Then try database
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    console.log(`🗃️ DATABASE RESULT:`, user ? `${user.username} (${user.id})` : 'null');
-    return user || undefined;
+    const user = DatabaseStorage.userCache.find(user => user.username === username);
+    console.log(`✅ FOUND USER:`, user ? `${user.username} (${user.id})` : 'null');
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const users = await this.getUsers();
-    return users.find(user => user.email === email);
+    return DatabaseStorage.userCache.find(user => user.email === email);
   }
 
   async createUser(userData: InsertUser): Promise<User> {
-    try {
-      console.log('🔄 Tentando criar usuário:', userData.username);
-      
-      // Verificar se usuário já existe
-      const existingUser = await this.getUserByUsername(userData.username);
-      if (existingUser) {
-        console.log('❌ Usuário já existe:', userData.username);
-        throw new Error(`Usuário ${userData.username} já existe`);
-      }
-
-      const [user] = await db
-        .insert(users)
-        .values(userData)
-        .returning();
-        
-      console.log('✅ Usuário criado com sucesso:', user.username);
-      return user;
-    } catch (error) {
-      console.error('❌ ERRO AO CRIAR USUÁRIO:', error);
-      
-      // Se for erro de conexão, tentar novamente
-      if (error.message?.includes('connection') || error.message?.includes('timeout')) {
-        console.log('🔄 Tentando reconectar ao banco...');
-        try {
-          // Tentar reconectar
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const [user] = await db
-            .insert(users)
-            .values(userData)
-            .returning();
-          console.log('✅ Usuário criado após reconexão:', user.username);
-          return user;
-        } catch (retryError) {
-          console.error('❌ ERRO NA SEGUNDA TENTATIVA:', retryError);
-          throw new Error(`Falha ao criar usuário: ${retryError.message}`);
-        }
-      }
-      
-      throw new Error(`Falha ao criar usuário: ${error.message}`);
+    console.log('🔄 Tentando criar usuário:', userData.username);
+    
+    // Verificar se usuário já existe
+    const existingUser = await this.getUserByUsername(userData.username || '');
+    if (existingUser) {
+      console.log('❌ Usuário já existe:', userData.username);
+      throw new Error(`Usuário ${userData.username} já existe`);
     }
+
+    const newUser: User = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      email: userData.email || null,
+      username: userData.username || null,
+      password: userData.password || null,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
+      role: userData.role || 'viewer',
+      permissions: userData.permissions || {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    DatabaseStorage.userCache.push(newUser);
+    console.log('✅ Usuário criado com sucesso:', newUser.username);
+    return newUser;
   }
 
   // Case operations
@@ -468,7 +488,7 @@ export class DatabaseStorage implements IStorage {
       const date = new Date(filters.date);
       const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
       filteredLogs = filteredLogs.filter(log => 
-        log.createdAt >= date && log.createdAt < nextDay
+        log.createdAt && log.createdAt >= date && log.createdAt < nextDay
       );
     }
 
@@ -527,95 +547,31 @@ export class DatabaseStorage implements IStorage {
 
   // Get users for assignment
   async getUsers(): Promise<User[]> {
-    if (!this.userCache) {
-      // Use fixed hashes to avoid regenerating on each call
-      this.userCache = [
-        {
-          id: "af91cd6a-269d-405f-bf3d-53e813dcb999",
-          username: "admin",
-          email: "admin@basefacilities.com",
-          firstName: "Administrador",
-          lastName: "Sistema",
-          role: "admin",
-          // Simple password for testing - will fix properly
-          password: "admin123",
-          profileImageUrl: null,
-          permissions: {},
-          createdAt: new Date("2024-01-15"),
-          updatedAt: new Date("2024-01-15"),
-        },
-        {
-          id: "f08fed3f-fcb4-419d-852f-720c1fa13201",
-          username: "lucas.silva",
-          email: "lucas.silva@basefacilities.com",
-          firstName: "Lucas",
-          lastName: "Silva",
-          role: "editor",
-          // Simple password hash for testing - will fix properly  
-          password: "barone13",
-          profileImageUrl: null,
-          permissions: {},
-          createdAt: new Date("2024-01-20"),
-          updatedAt: new Date("2024-01-20"),
-        }
-      ];
-    }
-    return this.userCache;
+    return DatabaseStorage.userCache;
   }
 
   async getAllUsers(): Promise<User[]> {
-    try {
-      // Buscar diretamente do banco usando query SQL para garantir que as permissões sejam carregadas
-      const query = `
-        SELECT id, username, email, first_name, last_name, password, role, 
-               profile_image_url, permissions, created_at, updated_at 
-        FROM users
-        ORDER BY created_at DESC
-      `;
-      const result = await pool.query(query);
-      
-      const dbUsers = result.rows.map((row: any) => ({
-        id: row.id,
-        username: row.username,
-        email: row.email,
-        firstName: row.first_name,
-        lastName: row.last_name,
-        password: row.password,
-        role: row.role,
-        profileImageUrl: row.profile_image_url,
-        permissions: row.permissions || {},
-        createdAt: new Date(row.created_at),
-        updatedAt: new Date(row.updated_at),
-      }));
-
-      // Se não há usuários no banco, retornar os usuários de teste
-      if (dbUsers.length === 0) {
-        return await this.getUsers();
-      }
-
-      console.log('👥 USUÁRIOS CARREGADOS DO BANCO:', dbUsers.map(u => `${u.username} (${Object.keys(u.permissions || {}).length} permissões)`));
-      return dbUsers;
-    } catch (error) {
-      console.error('Erro ao carregar todos os usuários:', error);
-      // Fallback para cache em caso de erro
-      return await this.getUsers();
-    }
+    return DatabaseStorage.userCache;
   }
 
   async updateUser(id: string, data: any): Promise<User> {
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
-    return updatedUser;
+    const userIndex = DatabaseStorage.userCache.findIndex(u => u.id === id);
+    if (userIndex === -1) throw new Error('User not found');
+    
+    DatabaseStorage.userCache[userIndex] = {
+      ...DatabaseStorage.userCache[userIndex],
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    return DatabaseStorage.userCache[userIndex];
   }
 
   async deleteUser(id: string): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+    const userIndex = DatabaseStorage.userCache.findIndex(u => u.id === id);
+    if (userIndex === -1) throw new Error('User not found');
+    
+    DatabaseStorage.userCache.splice(userIndex, 1);
   }
 
   // Dashboard layouts
@@ -629,29 +585,18 @@ export class DatabaseStorage implements IStorage {
       updatedAt: new Date(),
     };
     
-    if (!DatabaseStorage.dashboardLayouts) {
-      DatabaseStorage.dashboardLayouts = new Map();
+    const existingIndex = DatabaseStorage.dashboardLayouts.findIndex(l => l.userId === userId);
+    if (existingIndex >= 0) {
+      DatabaseStorage.dashboardLayouts[existingIndex] = layoutData;
+    } else {
+      DatabaseStorage.dashboardLayouts.push(layoutData);
     }
-    DatabaseStorage.dashboardLayouts.set(userId, layoutData);
     
     return layoutData;
   }
 
   async getDashboardLayout(userId: string): Promise<DashboardLayout | undefined> {
-    if (!DatabaseStorage.dashboardLayouts) {
-      return undefined;
-    }
-    return DatabaseStorage.dashboardLayouts.get(userId);
-  }
-}
-
-// Static cache for dashboard layouts
-DatabaseStorage.dashboardLayouts = new Map();
-
-// Add static property declaration
-declare global {
-  namespace DatabaseStorage {
-    var dashboardLayouts: Map<string, DashboardLayout>;
+    return DatabaseStorage.dashboardLayouts.find(l => l.userId === userId);
   }
 }
 
