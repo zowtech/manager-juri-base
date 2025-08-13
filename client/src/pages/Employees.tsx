@@ -38,7 +38,7 @@ export default function Employees() {
     matricula: "",
     cargo: "",
     departamento: "",
-    empresa: ""
+    empresa: "all"
   });
   
   // Pagination state
@@ -127,7 +127,7 @@ export default function Employees() {
         (!filters.matricula || emp.matricula?.toString().toLowerCase().includes(filters.matricula.toLowerCase())) &&
         (!filters.cargo || emp.cargo?.toLowerCase().includes(filters.cargo.toLowerCase())) &&
         (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase())) &&
-        (!filters.empresa || emp.empresa?.toString() === filters.empresa);
+        (!filters.empresa || filters.empresa === "all" || emp.empresa?.toString() === filters.empresa);
         
       const result = matchesSearch && matchesFilters;
       
@@ -293,7 +293,7 @@ export default function Employees() {
       matricula: "",
       cargo: "",
       departamento: "",
-      empresa: ""
+      empresa: "all"
     });
     setSearchTerm("");
     resetPagination();
@@ -487,7 +487,7 @@ export default function Employees() {
                       <SelectValue placeholder="Todas as empresas" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todas as empresas</SelectItem>
+                      <SelectItem value="all">Todas as empresas</SelectItem>
                       {companyOptions.map((company) => (
                         <SelectItem key={company.value} value={company.value}>
                           {company.label}
