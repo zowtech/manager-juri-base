@@ -212,7 +212,7 @@ export default function EmployeeSearchModal({ onSelectEmployee, trigger }: Emplo
                 <div className="flex items-center gap-2 text-blue-700 text-sm">
                   <Building className="h-4 w-4" />
                   <span className="font-medium">Base de Dados:</span>
-                  <span>{allEmployees?.length || 0} funcionários cadastrados</span>
+                  <span>{(allEmployees || []).filter(emp => emp.status !== 'deletado').length} funcionários cadastrados</span>
                 </div>
                 <p className="text-xs text-blue-600 mt-1">
                   Busque por nome completo, código funcional, RG ou número do PIS para localizar rapidamente.
