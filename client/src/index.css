@@ -117,4 +117,26 @@
   }
 }
 
+/* Password field styling */
+input[type="password"] {
+  font-family: 'Courier New', monospace !important;
+  letter-spacing: 0.1em;
+}
+
+input[type="password"]::-webkit-textfield-decoration-container {
+  visibility: hidden;
+}
+
+input[type="password"]::-webkit-inner-spin-button,
+input[type="password"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* Improve password dots visibility */
+input[type="password"]:not(:placeholder-shown) {
+  font-size: 18px;
+  line-height: 1;
+}
+
 /* Base styles loaded */

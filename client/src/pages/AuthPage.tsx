@@ -141,7 +141,7 @@ export default function AuthPage() {
                               <Input 
                                 {...field} 
                                 className="pl-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm" 
-                                placeholder="admin"
+                                placeholder="Digite seu usuário"
                               />
                             </div>
                           </FormControl>
@@ -162,8 +162,12 @@ export default function AuthPage() {
                               <Input 
                                 {...field} 
                                 type={showPassword ? "text" : "password"}
-                                className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm" 
-                                placeholder="••••••••"
+                                className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg text-sm font-mono tracking-widest" 
+                                placeholder="Digite sua senha"
+                                style={{ 
+                                  letterSpacing: showPassword ? 'normal' : '0.25em',
+                                  fontFamily: showPassword ? 'inherit' : 'monospace'
+                                }}
                               />
                               <button
                                 type="button"
