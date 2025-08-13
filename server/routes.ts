@@ -195,6 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName: req.body.clientName,
         processNumber: req.body.processNumber,
         description: req.body.description,
+        status: req.body.status,
         dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
         startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
         observacoes: req.body.observacoes,
@@ -213,18 +214,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Log atividade apenas se usuário estiver definido
       if (req.user) {
-        await logActivity(
-          req as any,
-          'UPDATE_CASE',
-          'CASE',
-          id,
-          `Editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
-          { 
-            originalData: { processNumber: caseData.processNumber, clientName: caseData.clientName },
-            updatedFields: Object.keys(validatedData),
-            newData: validatedData
-          }
-        );
+        try {
+          await logActivity(
+            req as any,
+            'UPDATE_CASE',
+            'CASE',
+            id,
+            `Editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
+            { 
+              originalData: { processNumber: caseData.processNumber, clientName: caseData.clientName },
+              updatedFields: Object.keys(cleanData),
+              newData: cleanData
+            }
+          );
+        } catch (logError) {
+          console.error('Erro ao fazer log da atividade:', logError);
+          // Continua mesmo se o log falhar
+        }
       }
 
       res.json(updatedCase);
