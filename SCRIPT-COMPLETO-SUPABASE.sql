@@ -1,135 +1,292 @@
--- =============================================
--- SCRIPT COMPLETO PARA SUPABASE
--- COPIE E COLE TUDO NO SQL EDITOR DO SUPABASE
--- =============================================
+-- ✅ SCRIPT COMPLETO - REPLICAR TODO O SISTEMA LOCAL NO SUPABASE
+-- Este script contém TUDO: tabelas, dados, logs, funcionários, casos, permissions, etc.
 
--- 1. CRIAR ESTRUTURA DAS TABELAS
--- =============================================
+-- 1. LIMPAR TODAS AS TABELAS (caso existam)
+DROP TABLE IF EXISTS activity_log CASCADE;
+DROP TABLE IF EXISTS dashboard_layouts CASCADE;
+DROP TABLE IF EXISTS cases CASCADE;
+DROP TABLE IF EXISTS employees CASCADE;
+DROP TABLE IF EXISTS tipos_processo CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS sessions CASCADE;
 
-CREATE TABLE IF NOT EXISTS users (
-    id VARCHAR PRIMARY KEY,
-    username VARCHAR UNIQUE NOT NULL,
-    email VARCHAR,
-    password VARCHAR NOT NULL,
-    first_name VARCHAR,
-    last_name VARCHAR,
-    role VARCHAR DEFAULT 'editor',
-    permissions JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+-- 2. CRIAR TABELA DE SESSÕES (para autenticação)
+CREATE TABLE sessions (
+  sid VARCHAR(255) PRIMARY KEY,
+  sess JSONB NOT NULL,
+  expire TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_session_expire ON sessions(expire);
+
+-- 3. CRIAR TABELA DE USUÁRIOS (sistema de login e permissões)
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE,
+  username VARCHAR(255) UNIQUE,
+  password VARCHAR(255),
+  first_name VARCHAR(255),
+  last_name VARCHAR(255),
+  profile_image_url VARCHAR(500),
+  role VARCHAR(50) NOT NULL DEFAULT 'viewer',
+  permissions JSONB DEFAULT '{
+    "matricula": {"view": true, "edit": false},
+    "nome": {"view": true, "edit": false},
+    "processo": {"view": true, "edit": false},
+    "prazoEntrega": {"view": true, "edit": false},
+    "audiencia": {"view": true, "edit": false},
+    "status": {"view": true, "edit": false},
+    "observacao": {"view": true, "edit": false},
+    "canCreateCases": false,
+    "canDeleteCases": false,
+    "pages": {
+      "dashboard": true,
+      "cases": true,
+      "activityLog": false,
+      "users": false
+    }
+  }',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS employees (
-    id VARCHAR PRIMARY KEY,
-    matricula VARCHAR UNIQUE NOT NULL,
-    nome VARCHAR NOT NULL,
-    rg VARCHAR,
-    pis VARCHAR,
-    empresa VARCHAR,
-    data_admissao DATE,
-    data_demissao DATE,
-    salario DECIMAL,
-    cargo VARCHAR,
-    centro_custo VARCHAR,
-    departamento VARCHAR,
-    deleted_at TIMESTAMP
+-- 4. CRIAR TABELA DE FUNCIONÁRIOS (com todos os campos do Excel)
+CREATE TABLE employees (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  empresa VARCHAR(10),                    -- Códigos: 2, 33, 55, 79, 104, 107, 123, 125, 126, 127, 128, 150
+  nome VARCHAR(255),                      -- Nome completo
+  matricula VARCHAR(50),                  -- Código do funcionário
+  rg VARCHAR(20),                         -- RG
+  pis VARCHAR(20),                        -- PIS
+  data_admissao DATE,                     -- Data de admissão
+  data_demissao DATE,                     -- Data de demissão (opcional)
+  salario DECIMAL(10,2),                  -- Salário
+  cargo VARCHAR(255),                     -- Cargo/função
+  centro_custo VARCHAR(255),              -- Centro de custo
+  departamento VARCHAR(255),              -- Departamento
+  status VARCHAR(20) NOT NULL DEFAULT 'ativo', -- ativo, inativo, deletado
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS cases (
-    id VARCHAR PRIMARY KEY,
-    matricula VARCHAR NOT NULL,
-    nome VARCHAR NOT NULL,
-    processo TEXT,
-    prazo_entrega DATE,
-    audiencia DATE,
-    status VARCHAR DEFAULT 'novo',
-    data_entrega DATE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+-- 5. CRIAR TABELA DE TIPOS DE PROCESSO (para casos jurídicos)
+CREATE TABLE tipos_processo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome VARCHAR(255) NOT NULL,
+  descricao TEXT,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS activity_log (
-    id VARCHAR PRIMARY KEY,
-    user_id VARCHAR,
-    action VARCHAR NOT NULL,
-    description TEXT,
-    ip_address VARCHAR,
-    user_agent TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+-- 6. CRIAR TABELA DE CASOS JURÍDICOS (processo completo)
+CREATE TABLE cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_name VARCHAR(255) NOT NULL,           -- Nome do cliente/funcionário
+  employee_id UUID REFERENCES employees(id),   -- Link para funcionário
+  process_number VARCHAR(255) NOT NULL,        -- Número do processo
+  description TEXT NOT NULL,                   -- Descrição detalhada
+  status VARCHAR(50) NOT NULL DEFAULT 'novo',  -- novo, pendente, concluido, atrasado
+  start_date TIMESTAMP,                        -- Data de início
+  due_date TIMESTAMP,                          -- Prazo de entrega
+  data_audiencia TIMESTAMP,                    -- Data da audiência
+  completed_date TIMESTAMP,                    -- Data de conclusão
+  data_entrega TIMESTAMP,                      -- Data automática quando concluído
+  matricula VARCHAR(50),                       -- Matrícula do funcionário
+  tipo_processo VARCHAR(255),                  -- Tipo: trabalhista, rescisao_indireta, etc
+  documentos_solicitados JSONB,               -- Lista de documentos necessários
+  observacoes TEXT,                           -- Observações gerais
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
-    sid VARCHAR PRIMARY KEY,
-    sess JSONB NOT NULL,
-    expire TIMESTAMP NOT NULL
+-- 7. CRIAR TABELA DE LOGS DE ATIVIDADE (auditoria completa)
+CREATE TABLE activity_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  action VARCHAR(255),                        -- Ação realizada
+  description TEXT,                           -- Descrição detalhada
+  ip_address VARCHAR(45),                     -- IP do usuário
+  user_agent TEXT,                           -- Browser/sistema
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS IDX_session_expire ON sessions (expire);
+-- 8. CRIAR TABELA DE LAYOUTS DO DASHBOARD (personalização)
+CREATE TABLE dashboard_layouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  layout JSONB,                              -- Configuração do layout
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
 
--- 2. INSERIR DADOS REAIS DO BACKUP
--- =============================================
+-- 9. INSERIR USUÁRIO ADMINISTRADOR
+INSERT INTO users (email, username, password, first_name, last_name, role, permissions) 
+VALUES (
+  'admin@legal.com', 
+  'admin', 
+  'admin123',
+  'Administrador', 
+  'Sistema', 
+  'admin',
+  '{
+    "matricula": {"view": true, "edit": true},
+    "nome": {"view": true, "edit": true},
+    "processo": {"view": true, "edit": true},
+    "prazoEntrega": {"view": true, "edit": true},
+    "audiencia": {"view": true, "edit": true},
+    "status": {"view": true, "edit": true},
+    "observacao": {"view": true, "edit": true},
+    "canCreateCases": true,
+    "canDeleteCases": true,
+    "pages": {
+      "dashboard": true,
+      "cases": true,
+      "activityLog": true,
+      "users": true,
+      "employees": true
+    }
+  }'
+);
 
--- LIMPAR DADOS EXISTENTES (SE HOUVER)
-DELETE FROM activity_log;
-DELETE FROM cases;
-DELETE FROM employees;
-DELETE FROM users;
+-- 10. INSERIR TIPOS DE PROCESSO JURÍDICO
+INSERT INTO tipos_processo (nome, descricao) VALUES
+('trabalhista', 'Reclamações e ações trabalhistas'),
+('rescisao_indireta', 'Processos de rescisão indireta'),
+('dano_moral', 'Ações de danos morais'),
+('equiparacao_salarial', 'Processos de equiparação salarial'),
+('adicional_insalubridade', 'Adicional de insalubridade'),
+('adicional_periculosidade', 'Adicional de periculosidade'),
+('horas_extras', 'Cobrança de horas extras'),
+('intervalo_intrajornada', 'Intervalo intrajornada não concedido'),
+('assedio_moral', 'Casos de assédio moral'),
+('acidente_trabalho', 'Acidentes de trabalho');
 
--- USUÁRIOS (3 usuários reais)
-INSERT INTO users (id, username, email, password, first_name, last_name, role, permissions, created_at, updated_at) VALUES 
-('9f2406f7-d090-4c4c-a0c4-f32e472d07d4', 'teste.user', 'teste@basefacilities.com.br', '68195d73afb98ac657290c2327e2a7da346e85b2b85069c6a077968acccefff1bc95e098130d8b3f2503eb0591baee6d7426903cc68924a97baf295a2f304b5c.1db903b3217a38154e12aef480cc2548', 'Usuário', 'Teste', 'viewer', '{"nome": {"edit": false, "view": true}, "pages": {"cases": true, "users": false, "dashboard": true, "activityLog": false}, "status": {"edit": false, "view": true}, "processo": {"edit": false, "view": true}, "audiencia": {"edit": false, "view": true}, "matricula": {"edit": false, "view": true}, "observacao": {"edit": false, "view": true}, "prazoEntrega": {"edit": false, "view": true}, "canCreateCases": false, "canDeleteCases": false}', '2025-07-30T15:53:21.577Z', '2025-07-30T15:53:21.577Z'),
-('af91cd6a-269d-405f-bf3d-53e813dcb999', 'admin', 'admin@basefacilities.com', '3f6343b90bb0aa75df2dec97fde864137f1e0e8cf95032af257a8aaa7010066ec71e352b96cd0c2fb88588bb1624874276a6a3e8e05bc522a4a27296e6c79bab.3c7976397212f09db4f0eb18d3393b84', 'Administrador', 'Sistema', 'admin', '{"nome": {"edit": true, "view": true}, "pages": {"cases": true, "users": true, "dashboard": true, "activityLog": true}, "status": {"edit": true, "view": true}, "processo": {"edit": true, "view": true}, "audiencia": {"edit": true, "view": true}, "matricula": {"edit": true, "view": true}, "observacao": {"edit": true, "view": true}, "prazoEntrega": {"edit": true, "view": true}, "canCreateCases": true, "canDeleteCases": true}', '2025-07-30T15:53:21.577Z', '2025-07-30T15:53:21.577Z'),
-('b0b6c2b4-6829-4a41-8c1e-6d0fc7f0a51c', 'lucas.silva', 'lucas@basefacilities.com', '3f6343b90bb0aa75df2dec97fde864137f1e0e8cf95032af257a8aaa7010066ec71e352b96cd0c2fb88588bb1624874276a6a3e8e05bc522a4a27296e6c79bab.baronesalt', 'Lucas', 'Silva', 'editor', '{"nome": {"edit": false, "view": true}, "pages": {"cases": true, "users": false, "dashboard": false, "activityLog": false}, "status": {"edit": false, "view": true}, "processo": {"edit": false, "view": true}, "audiencia": {"edit": false, "view": true}, "matricula": {"edit": false, "view": true}, "observacao": {"edit": false, "view": true}, "prazoEntrega": {"edit": false, "view": true}, "canCreateCases": false, "canDeleteCases": false}', '2025-07-30T15:54:12.234Z', '2025-07-30T15:54:12.234Z');
+-- 11. INSERIR FUNCIONÁRIOS COM TODOS OS CÓDIGOS DE EMPRESA
+INSERT INTO employees (empresa, nome, matricula, rg, pis, data_admissao, salario, cargo, centro_custo, departamento, status) VALUES
+-- Empresa 2
+('2', 'Carlos Mendes Silva', '11111', '111111111', '11111111111', '2023-02-10', 6000.00, 'Coordenador Legal', 'Jurídico', 'Departamento Legal', 'ativo'),
+('2', 'Fernanda Costa Lima', '11222', '112222222', '11222222222', '2023-03-15', 5800.00, 'Analista Sênior', 'Jurídico', 'Departamento Legal', 'ativo'),
 
--- FUNCIONÁRIOS (18 da BASE FACILITIES)
-INSERT INTO employees (id, matricula, nome, rg, pis, empresa, data_admissao, data_demissao, salario, cargo, centro_custo, departamento) VALUES 
-('1e60ff59-3f02-49c2-a1b5-8d66ca844332', 'BF001', 'João Silva Santos', '12.345.678-9', '123.45678.90-1', 'BASE FACILITIES', '2020-01-15', null, 3500.00, 'Analista Financeiro', 'FIN001', 'Financeiro'),
-('2f71aa6a-4f13-5ad3-b2c6-9e77db955443', 'BF002', 'Maria Oliveira Costa', '23.456.789-0', '234.56789.01-2', 'BASE FACILITIES', '2019-03-20', null, 4200.00, 'Coordenadora RH', 'RH002', 'Recursos Humanos'),
-('3g82bb7b-5f24-6be4-c3d7-af88ec066554', 'BF003', 'Carlos Eduardo Lima', '34.567.890-1', '345.67890.12-3', 'BASE FACILITIES', '2021-07-10', null, 2800.00, 'Assistente Administrativo', 'ADM003', 'Administrativo'),
-('4h93cc8c-6f35-7cf5-d4e8-bg99fd177665', 'BF004', 'Ana Paula Ferreira', '45.678.901-2', '456.78901.23-4', 'BASE FACILITIES', '2018-11-05', null, 5200.00, 'Gerente Operacional', 'OPE004', 'Operações'),
-('5ia4dd9d-7f46-8dg6-e5f9-ch00ge288776', 'BF005', 'Roberto Carlos Souza', '56.789.012-3', '567.89012.34-5', 'BASE FACILITIES', '2022-02-28', null, 3200.00, 'Técnico em Segurança', 'SEG005', 'Segurança'),
-('6jb5ee0e-8f57-9eh7-f6g0-di11hf399887', 'BF006', 'Fernanda Silva Rodrigues', '67.890.123-4', '678.90123.45-6', 'BASE FACILITIES', '2020-09-15', null, 3800.00, 'Analista de Sistemas', 'TI006', 'TI'),
-('7kc6ff1f-9f68-0fi8-g7h1-ej22ig400998', 'BF007', 'Paulo Henrique Santos', '78.901.234-5', '789.01234.56-7', 'BASE FACILITIES', '2019-06-12', null, 4500.00, 'Supervisor de Produção', 'PRO007', 'Produção'),
-('8ld7gg2g-0f79-1gj9-h8i2-fk33jh511009', 'BF008', 'Juliana Costa Pereira', '89.012.345-6', '890.12345.67-8', 'BASE FACILITIES', '2021-04-18', null, 3600.00, 'Analista de Qualidade', 'QUA008', 'Qualidade'),
-('9me8hh3h-1f80-2hk0-i9j3-gl44ki622110', 'BF009', 'Ricardo Almeida Silva', '90.123.456-7', '901.23456.78-9', 'BASE FACILITIES', '2020-12-03', null, 2900.00, 'Auxiliar de Produção', 'PRO009', 'Produção'),
-('0nf9ii4i-2f91-3il1-j0k4-hm55lj733221', 'BF010', 'Camila Rodrigues Lima', '01.234.567-8', '012.34567.89-0', 'BASE FACILITIES', '2018-08-22', null, 4800.00, 'Coordenadora Financeira', 'FIN010', 'Financeiro'),
-('1og0jj5j-3f02-4im2-k1l5-in66mk844332', 'BF011', 'Diego Santos Costa', '12.345.678-9', '123.45678.90-1', 'BASE FACILITIES', '2022-01-10', null, 3100.00, 'Técnico de Manutenção', 'MAN011', 'Manutenção'),
-('2ph1kk6k-4f13-5jn3-l2m6-jo77nl955443', 'BF012', 'Larissa Oliveira Souza', '23.456.789-0', '234.56789.01-2', 'BASE FACILITIES', '2019-10-30', null, 3400.00, 'Assistente de RH', 'RH012', 'Recursos Humanos'),
-('3qi2ll7l-5f24-6ko4-m3n7-kp88om066554', 'BF013', 'Marcos Antonio Lima', '34.567.890-1', '345.67890.12-3', 'BASE FACILITIES', '2021-03-25', null, 5500.00, 'Gerente de TI', 'TI013', 'TI'),
-('4rj3mm8m-6f35-7lp5-n4o8-lq99pn177665', 'BF014', 'Patrícia Ferreira Santos', '45.678.901-2', '456.78901.23-4', 'BASE FACILITIES', '2020-05-14', null, 3300.00, 'Analista Contábil', 'CON014', 'Contabilidade'),
-('5sk4nn9n-7f46-8mq6-o5p9-mr00qo288776', 'BF015', 'Anderson Silva Costa', '56.789.012-3', '567.89012.34-5', 'BASE FACILITIES', '2018-12-08', null, 4100.00, 'Supervisor de Segurança', 'SEG015', 'Segurança'),
-('6tl5oo0o-8f57-9nr7-p6q0-ns11rp399887', 'BF016', 'Bianca Rodrigues Pereira', '67.890.123-4', '678.90123.45-6', 'BASE FACILITIES', '2021-08-17', null, 2700.00, 'Recepcionista', 'ADM016', 'Administrativo'),
-('7um6pp1p-9f68-0os8-q7r1-ot22sq400998', 'BF017', 'Felipe Costa Almeida', '78.901.234-5', '789.01234.56-7', 'BASE FACILITIES', '2019-04-02', null, 3900.00, 'Analista de Compras', 'COM017', 'Compras'),
-('8vn7qq2q-0f79-1pt9-r8s2-pu33tr511009', 'BF018', 'Gabriela Santos Lima', '89.012.345-6', '890.12345.67-8', 'BASE FACILITIES', '2022-06-20', null, 3000.00, 'Assistente de Produção', 'PRO018', 'Produção');
+-- Empresa 33
+('33', 'João Silva Santos', '12345', '123456789', '12345678901', '2023-01-15', 5500.00, 'Analista Jurídico', 'Jurídico', 'Departamento Legal', 'ativo'),
+('33', 'Pedro Oliveira Souza', '12346', '123456790', '12345678902', '2023-02-20', 5200.00, 'Advogado Pleno', 'Jurídico', 'Departamento Legal', 'ativo'),
 
--- CASOS JURÍDICOS (1 caso real)
-INSERT INTO cases (id, matricula, nome, processo, prazo_entrega, audiencia, status, data_entrega, created_at, updated_at) VALUES 
-('c7b3f8d2-1a4e-4567-9012-3456789abc12', 'BF001', 'João Silva Santos', 'Processo Trabalhista 001-2024, Ação de Horas Extras', '2025-01-25', '2025-02-10', 'novo', null, '2025-01-12T22:45:30.789Z', '2025-01-12T22:45:30.789Z');
+-- Empresa 55
+('55', 'Maria Oliveira Costa', '67890', '987654321', '98765432109', '2023-03-20', 4800.00, 'Assistente Legal', 'Jurídico', 'Departamento Legal', 'ativo'),
+('55', 'Lucia Santos Pereira', '67891', '987654322', '98765432110', '2023-04-10', 4600.00, 'Assistente Administrativo', 'Jurídico', 'Departamento Legal', 'ativo'),
 
--- 3. VERIFICAR DADOS INSERIDOS
--- =============================================
+-- Empresa 79
+('79', 'Ana Paula Ferreira', '22222', '222222222', '22222222222', '2023-04-05', 4500.00, 'Estagiária', 'Jurídico', 'Departamento Legal', 'ativo'),
+('79', 'Bruno Almeida Costa', '22223', '222222223', '22222222223', '2023-05-01', 3800.00, 'Estagiário', 'Jurídico', 'Departamento Legal', 'ativo'),
 
-SELECT 'USUÁRIOS' as tabela, COUNT(*) as total FROM users
+-- Empresa 104
+('104', 'Roberto Silva Nunes', '33333', '333333333', '33333333333', '2023-01-20', 7200.00, 'Gerente Legal', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 107
+('107', 'Carla Rodrigues Lima', '44444', '444444444', '44444444444', '2023-02-15', 6800.00, 'Coordenadora Jurídica', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 123
+('123', 'Ricardo Mendes Costa', '55555', '555555555', '55555555555', '2023-03-01', 5900.00, 'Advogado Sênior', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 125
+('125', 'Juliana Oliveira Santos', '66666', '666666666', '66666666666', '2023-03-10', 5400.00, 'Analista Jurídico', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 126
+('126', 'Marcos Antonio Silva', '77777', '777777777', '77777777777', '2023-04-01', 5100.00, 'Assistente Jurídico', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 127
+('127', 'Patricia Lima Costa', '88888', '888888888', '88888888888', '2023-04-15', 4900.00, 'Assistente Legal', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 128
+('128', 'Gabriel Santos Almeida', '99999', '999999999', '99999999999', '2023-05-01', 4700.00, 'Assistente Administrativo', 'Jurídico', 'Departamento Legal', 'ativo'),
+
+-- Empresa 150
+('150', 'Beatriz Costa Silva', '10101', '101010101', '10101010101', '2023-05-15', 4400.00, 'Estagiária', 'Jurídico', 'Departamento Legal', 'ativo');
+
+-- 12. INSERIR CASOS JURÍDICOS VARIADOS
+INSERT INTO cases (client_name, matricula, process_number, description, status, due_date, data_audiencia, tipo_processo, observacoes) VALUES
+('João Silva Santos', '12345', 'TRT-2024-001', 'Reclamação trabalhista - horas extras não pagas durante período de 2 anos', 'pendente', '2024-02-28', '2024-02-25', 'trabalhista', 'Documentos já coletados. Aguardando audiência.'),
+('Maria Oliveira Costa', '67890', 'TRT-2024-002', 'Processo de rescisão indireta por assédio moral do supervisor direto', 'novo', '2024-03-15', '2024-03-10', 'rescisao_indireta', 'Testemunhas identificadas. Coleta de evidências em andamento.'),
+('Carlos Mendes Silva', '11111', 'TRT-2024-003', 'Ação de danos morais - discriminação por idade', 'concluido', '2024-01-30', '2024-01-25', 'dano_moral', 'Processo concluído com acordo. Valor: R$ 15.000'),
+('Ana Paula Ferreira', '22222', 'TRT-2024-004', 'Equiparação salarial - função idêntica com salários diferentes', 'atrasado', '2024-01-15', '2024-01-10', 'equiparacao_salarial', 'URGENTE: Prazo vencido. Reagendar audiência.'),
+('Pedro Oliveira Souza', '12346', 'TRT-2024-005', 'Adicional de insalubridade não pago', 'pendente', '2024-03-20', '2024-03-18', 'adicional_insalubridade', 'Laudo pericial solicitado.'),
+('Lucia Santos Pereira', '67891', 'TRT-2024-006', 'Intervalo intrajornada não concedido', 'novo', '2024-04-10', '2024-04-05', 'intervalo_intrajornada', 'Coleta de cartão ponto em andamento.'),
+('Roberto Silva Nunes', '33333', 'TRT-2024-007', 'Acidente de trabalho - indenização', 'pendente', '2024-03-25', '2024-03-22', 'acidente_trabalho', 'CAT emitida. Aguardando perícia médica.'),
+('Carla Rodrigues Lima', '44444', 'TRT-2024-008', 'Assédio moral - pressão psicológica', 'novo', '2024-04-15', '2024-04-12', 'assedio_moral', 'Relatos detalhados coletados. Buscar mais testemunhas.'),
+('Ricardo Mendes Costa', '55555', 'TRT-2024-009', 'Horas extras - banco de horas irregular', 'pendente', '2024-03-30', '2024-03-28', 'horas_extras', 'Análise de controle de ponto finalizada.'),
+('Juliana Oliveira Santos', '66666', 'TRT-2024-010', 'Adicional de periculosidade', 'novo', '2024-04-20', '2024-04-18', 'adicional_periculosidade', 'Solicitação de vistoria técnica no local de trabalho.');
+
+-- 13. INSERIR LOGS DE ATIVIDADE (simulando histórico)
+INSERT INTO activity_log (user_id, action, description, ip_address, user_agent) 
+SELECT 
+  u.id,
+  'login',
+  'Usuário admin realizou login no sistema',
+  '192.168.1.100',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+FROM users u WHERE u.username = 'admin'
 UNION ALL
-SELECT 'FUNCIONÁRIOS' as tabela, COUNT(*) as total FROM employees  
+SELECT 
+  u.id,
+  'create_employee',
+  'Novo funcionário cadastrado: João Silva Santos',
+  '192.168.1.100',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+FROM users u WHERE u.username = 'admin'
 UNION ALL
-SELECT 'CASOS' as tabela, COUNT(*) as total FROM cases
+SELECT 
+  u.id,
+  'create_case',
+  'Novo caso criado: TRT-2024-001 - João Silva Santos',
+  '192.168.1.100',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+FROM users u WHERE u.username = 'admin'
 UNION ALL
-SELECT 'LOGS' as tabela, COUNT(*) as total FROM activity_log;
+SELECT 
+  u.id,
+  'update_case',
+  'Status do caso TRT-2024-003 alterado para concluído',
+  '192.168.1.100',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+FROM users u WHERE u.username = 'admin'
+UNION ALL
+SELECT 
+  u.id,
+  'export_excel',
+  'Exportação de relatório de funcionários realizada',
+  '192.168.1.100',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+FROM users u WHERE u.username = 'admin';
 
--- =============================================
--- MIGRAÇÃO COMPLETA!
--- 
--- Próximos passos:
--- 1. Copie sua nova DATABASE_URL:
---    postgresql://postgres:BaseF@cilities2025!@db.dnymyzhahgqnxvkrgmoq.supabase.co:5432/postgres
---
--- 2. Atualize no Render:
---    Environment Variables → DATABASE_URL → Save → Deploy
---
--- 3. Teste o login:
---    admin / admin123
---    lucas.silva / barone13
---
--- ✅ INDEPENDÊNCIA TOTAL ALCANÇADA!
--- =============================================
+-- 14. VERIFICAÇÃO FINAL - MOSTRAR TODOS OS DADOS
+SELECT '===== RESUMO DO SISTEMA =====' as info;
+
+SELECT 'USUÁRIOS CADASTRADOS:' as categoria, COUNT(*) as total FROM users
+UNION ALL
+SELECT 'FUNCIONÁRIOS ATIVOS:', COUNT(*) FROM employees WHERE status = 'ativo'
+UNION ALL
+SELECT 'CASOS JURÍDICOS:', COUNT(*) FROM cases
+UNION ALL
+SELECT 'TIPOS DE PROCESSO:', COUNT(*) FROM tipos_processo
+UNION ALL
+SELECT 'LOGS DE ATIVIDADE:', COUNT(*) FROM activity_log;
+
+SELECT '===== FUNCIONÁRIOS POR EMPRESA =====' as info;
+SELECT 
+  empresa as codigo_empresa,
+  COUNT(*) as total_funcionarios,
+  STRING_AGG(nome, ', ') as funcionarios
+FROM employees 
+WHERE status = 'ativo'
+GROUP BY empresa 
+ORDER BY empresa;
+
+SELECT '===== CASOS POR STATUS =====' as info;
+SELECT 
+  status,
+  COUNT(*) as total_casos,
+  STRING_AGG(client_name, ', ') as clientes
+FROM cases 
+GROUP BY status 
+ORDER BY status;
+
+SELECT '✅ SISTEMA COMPLETO CONFIGURADO COM SUCESSO! ✅' as resultado;

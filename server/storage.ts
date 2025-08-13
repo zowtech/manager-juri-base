@@ -193,29 +193,26 @@ export class DatabaseStorage implements IStorage {
       let query = `
         SELECT 
           c.id,
-          c.client_name, 
-          c.process_number,
+          c."clientName", 
+          c."processNumber",
           c.description,
           c.status,
-          c.start_date,
-          c.due_date, 
-          c.completed_date,
-          c.data_entrega,
-          c.data_audiencia,
-          c.tipo_processo,
-          c.documentos_solicitados,
-          c.documentos_anexados, 
+          c."startDate",
+          c."dueDate", 
+          c."completedDate",
+          c."dataEntrega",
+          c."dataAudiencia",
+          c."tipoProcesso",
+          c."documentosSolicitados",
           c.observacoes,
-          c.assigned_to_id,
-          c.created_by_id,
-          c.created_at,
-          c.updated_at,
-          c.employee_id,
+          c."createdAt",
+          c."updatedAt",
+          c."employeeId",
           c.matricula as case_matricula,
           e.nome as employee_name,
           e.matricula as employee_matricula
         FROM cases c
-        LEFT JOIN employees e ON c.employee_id = e.id
+        LEFT JOIN employees e ON c."employeeId" = e.id
         WHERE 1=1
       `;
 
@@ -230,8 +227,8 @@ export class DatabaseStorage implements IStorage {
       if (filters?.search) {
         const searchParam = `%${filters.search.toLowerCase()}%`;
         query += ` AND (
-          LOWER(c.client_name) LIKE $${queryParams.length + 1} OR
-          LOWER(c.process_number) LIKE $${queryParams.length + 2} OR
+          LOWER(c."clientName") LIKE $${queryParams.length + 1} OR
+          LOWER(c."processNumber") LIKE $${queryParams.length + 2} OR
           LOWER(c.description) LIKE $${queryParams.length + 3} OR
           LOWER(COALESCE(e.nome, '')) LIKE $${queryParams.length + 4} OR
           LOWER(COALESCE(e.matricula::text, '')) LIKE $${queryParams.length + 5} OR
@@ -243,18 +240,18 @@ export class DatabaseStorage implements IStorage {
       // Ordenar por prazo de entrega (mais urgente primeiro), depois por data de atualização/criação
       query += ` ORDER BY 
         CASE 
-          WHEN c.due_date IS NULL THEN 1 
+          WHEN c."dueDate" IS NULL THEN 1 
           ELSE 0 
         END,
-        c.due_date ASC, 
-        c.updated_at DESC, 
-        c.created_at DESC`;
+        c."dueDate" ASC, 
+        c."updatedAt" DESC, 
+        c."createdAt" DESC`;
 
       const result = await pool.query(query, queryParams);
 
       const today = new Date();
       const cases = result.rows.map((row: any) => {
-        const dueDate = row.due_date ? new Date(row.due_date) : null;
+        const dueDate = row.dueDate ? new Date(row.dueDate) : null;
         const isOverdue = dueDate && dueDate < today && row.status !== 'concluido';
         const isNearDue = dueDate && !isOverdue && row.status !== 'concluido' ? 
           (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= 3 : false; // 3 dias ou menos
@@ -262,9 +259,9 @@ export class DatabaseStorage implements IStorage {
         // Calcular tempo de conclusão se o processo estiver concluído
         let tempoConclucao = null;
         let tempoConclucaoTexto = null;
-        if (row.status === 'concluido' && row.completed_date && row.created_at) {
-          const criacao = new Date(row.created_at);
-          const conclusao = new Date(row.completed_date);
+        if (row.status === 'concluido' && row.completedDate && row.createdAt) {
+          const criacao = new Date(row.createdAt);
+          const conclusao = new Date(row.completedDate);
           const diffMs = conclusao.getTime() - criacao.getTime();
           
           const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -295,44 +292,28 @@ export class DatabaseStorage implements IStorage {
         
         return {
           id: row.id,
-          clientName: row.client_name,
-          processNumber: row.process_number,
+          clientName: row.clientName,
+          processNumber: row.processNumber,
           description: row.description || '',
           status: isOverdue ? 'atrasado' : row.status, // Atualizar status automaticamente
-          startDate: row.start_date,
-          dueDate: row.due_date,
-          completedDate: row.completed_date,
-          dataEntrega: row.data_entrega,
-          dataAudiencia: row.data_audiencia,
-          tipoProcesso: row.tipo_processo,
-          documentosSolicitados: row.documentos_solicitados,
-          documentosAnexados: row.documentos_anexados,
+          startDate: row.startDate,
+          dueDate: row.dueDate,
+          completedDate: row.completedDate,
+          dataEntrega: row.dataEntrega,
+          dataAudiencia: row.dataAudiencia,
+          tipoProcesso: row.tipoProcesso,
+          documentosSolicitados: row.documentosSolicitados,
           observacoes: row.observacoes,
-          assignedToId: row.assigned_to_id,
-          createdById: row.created_by_id,
-          createdAt: new Date(row.created_at),
-          updatedAt: new Date(row.updated_at),
+          createdAt: new Date(row.createdAt),
+          updatedAt: new Date(row.updatedAt),
           assignedTo: null,
-          createdBy: {
-            id: row.created_by_id,
-            email: null,
-            username: null, 
-            password: null,
-            firstName: null,
-            lastName: null,
-            profileImageUrl: null,
-            role: 'admin',
-            permissions: {},
-            createdAt: null,
-            updatedAt: null
-          },
           // Campos específicos do sistema brasileiro
           matricula: row.case_matricula || row.employee_matricula,
-          nome: row.employee_name || row.client_name,
+          nome: row.employee_name || row.clientName,
           processo: row.description || '',
-          prazoEntrega: row.due_date,
+          prazoEntrega: row.dueDate,
           audiencia: null,
-          employeeId: row.employee_id,
+          employeeId: row.employeeId,
           // Campos para alertas visuais
           alertColor,
           isOverdue,
