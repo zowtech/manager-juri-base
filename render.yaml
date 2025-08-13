@@ -2,7 +2,7 @@ services:
   - type: web
     name: legal-case-management
     env: node
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && ./build-render.sh
     startCommand: npm start
     envVars:
       - key: NODE_ENV
