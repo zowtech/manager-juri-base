@@ -60,63 +60,73 @@ export default function AuthPage() {
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:flex-1 relative overflow-hidden bg-gradient-to-br from-blue-900 via-slate-800 to-blue-950">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-slate-800/40"></div>
-        <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white text-center">
-          <div className="space-y-8 max-w-md mx-auto">
+        
+        {/* Centered Content Container */}
+        <div className="relative z-10 flex flex-col justify-center items-center w-full h-full p-8">
+          <div className="max-w-sm w-full text-center space-y-8">
+            
+            {/* Logo and Brand */}
             <div className="space-y-6">
               <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl">
                 <Scale className="w-10 h-10 text-white" />
               </div>
               
-              <div className="space-y-4 text-center">
-                <h1 className="text-4xl font-bold text-white">BASE FACILITIES</h1>
-                <p className="text-xl text-blue-100 leading-relaxed">
+              <div className="space-y-3">
+                <h1 className="text-3xl font-bold text-white tracking-tight">BASE FACILITIES</h1>
+                <p className="text-lg text-blue-100 font-medium">
                   LegalCore Pro - Gestão Jurídica Integrada
                 </p>
               </div>
             </div>
 
-            <div className="space-y-6 pt-8">
-              <div className="flex items-center space-x-4 text-blue-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-white" />
+            {/* Features Cards */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 text-blue-100 bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/10">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Building2 className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-medium">Gestão Corporativa Integrada</span>
+                <span className="text-sm font-medium">Gestão Corporativa Integrada</span>
               </div>
-              <div className="flex items-center space-x-4 text-blue-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Scale className="w-5 h-5 text-white" />
+              
+              <div className="flex items-center space-x-3 text-blue-100 bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/10">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Scale className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-medium">Controle de Processos Jurídicos</span>
+                <span className="text-sm font-medium">Controle de Processos Jurídicos</span>
               </div>
-              <div className="flex items-center space-x-4 text-blue-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-white" />
+              
+              <div className="flex items-center space-x-3 text-blue-100 bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/10">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Lock className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-medium">Segurança e Conformidade</span>
+                <span className="text-sm font-medium">Segurança e Conformidade</span>
               </div>
             </div>
 
             {/* Security Information */}
-            <div className="mt-12 pt-8 border-t border-white/20">
+            <div className="pt-6 border-t border-white/20">
               <div className="space-y-4">
-                <div className="text-center">
+                <div className="space-y-2">
                   <p className="text-sm font-semibold text-white">BASE FACILITIES® - Sistema Proprietário</p>
-                  <p className="text-xs text-blue-200 mt-1">Criptografia SHA-256 • Conforme LGPD</p>
-                  <p className="text-xs text-blue-200">Acesso restrito e monitorado</p>
+                  <div className="text-xs text-blue-200 space-y-1">
+                    <p>Criptografia SHA-256 • Conforme LGPD</p>
+                    <p>Acesso restrito e monitorado</p>
+                  </div>
                 </div>
                 
-                <div className="flex justify-center space-x-4 pt-4">
-                  <div className="flex items-center space-x-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                <div className="flex justify-center space-x-3">
+                  <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
                     <Lock className="w-3 h-3 text-white" />
                     <span className="text-xs font-medium text-white">Certificado Digital</span>
                   </div>
-                  <div className="flex items-center space-x-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                     <span className="text-xs font-medium text-white">SSL/TLS</span>
                   </div>
                 </div>
               </div>
             </div>
+            
           </div>
         </div>
       </div>
