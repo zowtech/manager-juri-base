@@ -357,6 +357,9 @@ export default function Cases() {
             <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left hide-mobile">
               Observações
             </TableHead>
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left">
+              Status / Tempo
+            </TableHead>
             <TableHead className="font-semibold text-gray-700 bg-white text-sm py-5 text-center">
               Ações
             </TableHead>
@@ -405,6 +408,18 @@ export default function Cases() {
                 <div className="text-sm text-gray-600 leading-relaxed break-words max-w-[200px]" title={caseData.observacoes || ''}>
                   {caseData.observacoes || (
                     <span className="text-gray-400 italic">Sem observações</span>
+                  )}
+                </div>
+              </TableCell>
+              
+              {/* Status e Tempo de Conclusão */}
+              <TableCell className="border-r border-gray-100 py-3 md:py-4">
+                <div className="space-y-2">
+                  <div>{getStatusBadge(caseData)}</div>
+                  {caseData.status === 'concluido' && (caseData as any).tempoConclucaoTexto && (
+                    <div className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded-md inline-block">
+                      ⏱️ {(caseData as any).tempoConclucaoTexto}
+                    </div>
                   )}
                 </div>
               </TableCell>
@@ -698,11 +713,11 @@ export default function Cases() {
             {/* Terceira linha - Estatísticas dos filtros */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
               <div className="bg-blue-50 p-3 rounded-lg text-center">
-                <div className="text-lg font-bold text-blue-600">{filteredCases.filter(c => c.status === 'novo').length}</div>
+                <div className="text-lg font-bold text-blue-600">{filteredCases.filter((c: CaseWithRelations) => c.status === 'novo').length}</div>
                 <div className="text-xs text-blue-600">Novos</div>
               </div>
               <div className="bg-orange-50 p-3 rounded-lg text-center">
-                <div className="text-lg font-bold text-orange-600">{filteredCases.filter(c => c.status === 'pendente').length}</div>
+                <div className="text-lg font-bold text-orange-600">{filteredCases.filter((c: CaseWithRelations) => c.status === 'pendente').length}</div>
                 <div className="text-xs text-orange-600">Pendentes</div>
               </div>
               <div className="bg-red-50 p-3 rounded-lg text-center">

@@ -255,6 +255,30 @@ export class DatabaseStorage implements IStorage {
         const isNearDue = dueDate && !isOverdue && row.status !== 'concluido' ? 
           (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= 3 : false; // 3 dias ou menos
         
+        // Calcular tempo de conclusão se o processo estiver concluído
+        let tempoConclucao = null;
+        let tempoConclucaoTexto = null;
+        if (row.status === 'concluido' && row.completed_date && row.created_at) {
+          const criacao = new Date(row.created_at);
+          const conclusao = new Date(row.completed_date);
+          const diffMs = conclusao.getTime() - criacao.getTime();
+          
+          const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const horas = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          
+          tempoConclucao = diffMs;
+          
+          // Formatação do texto
+          if (dias > 0) {
+            tempoConclucaoTexto = `${dias} dia${dias > 1 ? 's' : ''}${horas > 0 ? ` e ${horas}h` : ''}`;
+          } else if (horas > 0) {
+            tempoConclucaoTexto = `${horas} hora${horas > 1 ? 's' : ''}${minutos > 0 ? ` e ${minutos}min` : ''}`;
+          } else {
+            tempoConclucaoTexto = `${minutos} minuto${minutos > 1 ? 's' : ''}`;
+          }
+        }
+        
         // Calcular cor de alerta
         let alertColor = '';
         if (isOverdue) {
@@ -308,7 +332,10 @@ export class DatabaseStorage implements IStorage {
           // Campos para alertas visuais
           alertColor,
           isOverdue,
-          isNearDue
+          isNearDue,
+          // Campos para tempo de conclusão
+          tempoConclucao,
+          tempoConclucaoTexto
         };
       });
 
