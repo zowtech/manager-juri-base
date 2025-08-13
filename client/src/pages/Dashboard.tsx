@@ -37,7 +37,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const response = await fetch("/api/dashboard/stats", { credentials: 'include' });
       if (!response.ok) {
-        if (isUnauthorizedError(response.status)) {
+        if (response.status === 401) {
           toast({
             title: "Sessão expirada",
             description: "Faça login novamente para continuar.",
@@ -275,8 +275,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
-              {recentCases && recentCases.length > 0 ? (
-                recentCases.slice(0, 5).map((caseData) => (
+              {allCases && allCases.length > 0 ? (
+                allCases.slice(0, 5).map((caseData: CaseWithRelations) => (
                   <div key={caseData.id} className="p-4 hover:bg-green-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
@@ -286,7 +286,7 @@ export default function Dashboard() {
                               {caseData.clientName}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                              Matrícula: {caseData.matricula} • Processo: {caseData.processNumber}
+                              Matrícula: {(caseData as any).matricula} • Processo: {caseData.processNumber}
                             </p>
                             <p className="text-xs text-gray-400 mt-1">
                               Atualizado: {new Date(caseData.updatedAt || caseData.createdAt).toLocaleDateString('pt-BR')}
@@ -323,7 +323,7 @@ export default function Dashboard() {
           <div className="divide-y divide-gray-100">
             {urgentCases.length > 0 ? (
               urgentCases.map((caseData) => {
-                const deadline = new Date(caseData.prazoEntrega!);
+                const deadline = new Date(caseData.dueDate!);
                 const today = new Date();
                 const daysDiff = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                 
@@ -332,7 +332,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">
-                          {caseData.nome}
+                          {caseData.clientName}
                         </p>
                         <div className="flex items-center space-x-2 mt-1">
                           <Calendar className="w-3 h-3 text-red-500" />
@@ -363,7 +363,7 @@ export default function Dashboard() {
 
       {/* Gráfico de Tipos de Processos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ProcessTypeChart cases={recentCases || []} />
+        <ProcessTypeChart cases={allCases || []} />
         
         {/* Performance Summary */}
         <Card className="shadow-lg">
@@ -394,21 +394,21 @@ export default function Dashboard() {
                     <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                     <span>Trabalhista</span>
                   </div>
-                  <span className="font-medium">{recentCases?.filter(c => c.tipoProcesso === 'Trabalhista').length || 0}</span>
+                  <span className="font-medium">{allCases?.filter((c: any) => c.tipoProcesso === 'Trabalhista').length || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                     <span>Rescisão Indireta</span>
                   </div>
-                  <span className="font-medium">{recentCases?.filter(c => c.tipoProcesso === 'Rescisão Indireta').length || 0}</span>
+                  <span className="font-medium">{allCases?.filter((c: any) => c.tipoProcesso === 'Rescisão Indireta').length || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                     <span>Dano Moral</span>
                   </div>
-                  <span className="font-medium">{recentCases?.filter(c => c.tipoProcesso === 'Dano Moral').length || 0}</span>
+                  <span className="font-medium">{allCases?.filter((c: any) => c.tipoProcesso === 'Dano Moral').length || 0}</span>
                 </div>
               </div>
             </div>
