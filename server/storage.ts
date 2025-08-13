@@ -506,13 +506,33 @@ export class DatabaseStorage implements IStorage {
     // Adicionar no início para ter os mais recentes primeiro
     DatabaseStorage.activityLogs.unshift(newLog);
     
-    // Manter apenas os últimos 2000 logs para histórico mais extenso
-    if (DatabaseStorage.activityLogs.length > 2000) {
-      DatabaseStorage.activityLogs = DatabaseStorage.activityLogs.slice(0, 2000);
+    // Manter apenas os últimos 200 logs em memória para performance
+    if (DatabaseStorage.activityLogs.length > 200) {
+      DatabaseStorage.activityLogs = DatabaseStorage.activityLogs.slice(0, 200);
     }
     
-    // Console log detalhado para monitoramento
-    console.log(`📋 NOVO LOG CRIADO: [${newLog.action}] ${newLog.resourceType} - ${newLog.description}`);
+    // Salvar também no banco de dados para persistência
+    try {
+      await pool.query(`
+        INSERT INTO activity_log (id, action, resource_type, resource_id, description, user_id, ip_address, user_agent, metadata, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `, [
+        newLog.id,
+        newLog.action,
+        newLog.resourceType,
+        newLog.resourceId,
+        newLog.description,
+        newLog.userId,
+        newLog.ipAddress,
+        newLog.userAgent,
+        newLog.metadata ? JSON.stringify(newLog.metadata) : null,
+        newLog.createdAt
+      ]);
+      console.log(`📋 NOVO LOG SALVO: [${newLog.action}] ${newLog.resourceType} - ${newLog.description}`);
+    } catch (error) {
+      console.error('❌ ERROR: Falha ao salvar log no banco:', error);
+    }
+    
     console.log(`📋 TOTAL LOGS NO CACHE ESTÁTICO: ${DatabaseStorage.activityLogs.length}`);
     
     return newLog;
@@ -520,59 +540,154 @@ export class DatabaseStorage implements IStorage {
 
   async getActivityLogs(filters?: { action?: string; date?: string; search?: string; limit?: number; processOnly?: boolean }): Promise<ActivityLogWithUser[]> {
     const users = await this.getUsers();
-    let filteredLogs = [...DatabaseStorage.activityLogs];
+    
+    try {
+      // Build SQL query with filters
+      let whereConditions = [];
+      let queryParams: any[] = [];
+      let paramIndex = 1;
 
-    console.log(`🔍 DEBUG: Filtros aplicados: ${JSON.stringify(filters)} - Total logs: ${filteredLogs.length}`);
+      // Process-only filter
+      if (filters?.processOnly) {
+        const processActions = ['CREATE_CASE', 'UPDATE_CASE', 'DELETE_CASE', 'UPDATE_CASE_STATUS'];
+        whereConditions.push(`action = ANY($${paramIndex})`);
+        queryParams.push(processActions);
+        paramIndex++;
+      }
 
-    // Filter for process-only activities if requested
-    if (filters?.processOnly) {
-      const processActions = ['CREATE_CASE', 'UPDATE_CASE', 'DELETE_CASE', 'UPDATE_CASE_STATUS'];
-      filteredLogs = filteredLogs.filter(log => processActions.includes(log.action));
-    }
+      // Action filter
+      if (filters?.action && filters.action !== 'all') {
+        whereConditions.push(`action = $${paramIndex}`);
+        queryParams.push(filters.action);
+        paramIndex++;
+      }
 
-    if (filters?.action && filters.action !== 'all') {
-      filteredLogs = filteredLogs.filter(log => log.action === filters.action);
-    }
+      // Date filter
+      if (filters?.date) {
+        const date = new Date(filters.date);
+        const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+        whereConditions.push(`created_at >= $${paramIndex} AND created_at < $${paramIndex + 1}`);
+        queryParams.push(date, nextDay);
+        paramIndex += 2;
+      }
 
-    if (filters?.date) {
-      const date = new Date(filters.date);
-      const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-      filteredLogs = filteredLogs.filter(log => 
-        log.createdAt && log.createdAt >= date && log.createdAt < nextDay
+      // Search filter
+      if (filters?.search) {
+        whereConditions.push(`(LOWER(description) LIKE $${paramIndex} OR LOWER(action) LIKE $${paramIndex})`);
+        queryParams.push(`%${filters.search.toLowerCase()}%`);
+        paramIndex++;
+      }
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      const limit = filters?.limit || 100;
+      
+      const query = `
+        SELECT * FROM activity_log 
+        ${whereClause}
+        ORDER BY created_at DESC 
+        LIMIT $${paramIndex}
+      `;
+      queryParams.push(limit);
+
+      console.log(`🔍 DEBUG: Executando query com filtros: ${JSON.stringify(filters)}`);
+      console.log(`📋 DEBUG: SQL Query: ${query}`);
+      
+      const result = await pool.query(query, queryParams);
+      const dbLogs = result.rows;
+
+      console.log(`✅ DEBUG: Encontrados ${dbLogs.length} logs no banco de dados`);
+
+      // Combine with in-memory logs (for recent activities that might not be in DB yet)
+      const memoryLogs = [...DatabaseStorage.activityLogs];
+      
+      // Filter memory logs with same criteria
+      let filteredMemoryLogs = memoryLogs;
+      if (filters?.processOnly) {
+        const processActions = ['CREATE_CASE', 'UPDATE_CASE', 'DELETE_CASE', 'UPDATE_CASE_STATUS'];
+        filteredMemoryLogs = filteredMemoryLogs.filter(log => processActions.includes(log.action));
+      }
+      if (filters?.action && filters.action !== 'all') {
+        filteredMemoryLogs = filteredMemoryLogs.filter(log => log.action === filters.action);
+      }
+      if (filters?.search) {
+        filteredMemoryLogs = filteredMemoryLogs.filter(log => 
+          log.description.toLowerCase().includes(filters.search!.toLowerCase()) ||
+          log.action.toLowerCase().includes(filters.search!.toLowerCase())
+        );
+      }
+
+      // Convert DB logs to ActivityLog format and combine with memory logs
+      const allLogs: ActivityLog[] = [
+        ...filteredMemoryLogs, // Memory logs first (most recent)
+        ...dbLogs.map(row => ({
+          id: row.id,
+          action: row.action,
+          resourceType: row.resource_type,
+          resourceId: row.resource_id,
+          description: row.description,
+          userId: row.user_id,
+          ipAddress: row.ip_address,
+          userAgent: row.user_agent,
+          metadata: row.metadata,
+          createdAt: new Date(row.created_at)
+        }))
+      ];
+
+      // Remove duplicates (prefer memory version if exists)
+      const uniqueLogs = allLogs.filter((log, index, self) => 
+        index === self.findIndex(l => l.id === log.id)
       );
+
+      // Sort by creation date (newest first) and apply limit
+      const sortedLogs = uniqueLogs
+        .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
+        .slice(0, limit);
+
+      const resultWithUsers = sortedLogs.map(log => {
+        const user = users.find(u => u.id === log.userId);
+        return {
+          ...log,
+          user: user || { 
+            id: log.userId, 
+            username: 'Usuario Desconhecido', 
+            firstName: 'Usuario', 
+            lastName: 'Desconhecido' 
+          } as User
+        };
+      });
+
+      console.log(`✅ DEBUG: Retornando ${resultWithUsers.length} logs processados para interface`);
+      console.log(`📋 DEBUG: Primeiros 3 logs:`, resultWithUsers.slice(0, 3).map(log => ({
+        id: log.id,
+        action: log.action,
+        description: log.description.substring(0, 50) + '...'
+      })));
+      
+      return resultWithUsers;
+    } catch (error) {
+      console.error('❌ ERROR: Falha ao buscar logs de atividade:', error);
+      // Fallback to memory only
+      let filteredLogs = [...DatabaseStorage.activityLogs];
+      
+      if (filters?.processOnly) {
+        const processActions = ['CREATE_CASE', 'UPDATE_CASE', 'DELETE_CASE', 'UPDATE_CASE_STATUS'];
+        filteredLogs = filteredLogs.filter(log => processActions.includes(log.action));
+      }
+      
+      const limit = filters?.limit || 100;
+      return filteredLogs.slice(0, limit).map(log => {
+        const user = users.find(u => u.id === log.userId);
+        return {
+          ...log,
+          user: user || { 
+            id: log.userId, 
+            username: 'Usuario Desconhecido', 
+            firstName: 'Usuario', 
+            lastName: 'Desconhecido' 
+          } as User
+        };
+      });
     }
-
-    if (filters?.search) {
-      filteredLogs = filteredLogs.filter(log => 
-        log.description.toLowerCase().includes(filters.search!.toLowerCase()) ||
-        log.action.toLowerCase().includes(filters.search!.toLowerCase())
-      );
-    }
-
-    // Apply limit if specified
-    const limit = filters?.limit || 100;
-    filteredLogs = filteredLogs.slice(0, limit);
-
-    const result = filteredLogs.slice(0, 100).map(log => {
-      const user = users.find(u => u.id === log.userId);
-      return {
-        ...log,
-        user: user || { 
-          id: log.userId, 
-          username: 'Usuario Desconhecido', 
-          firstName: 'Usuario', 
-          lastName: 'Desconhecido' 
-        } as User
-      };
-    });
-
-    console.log(`✅ DEBUG: Retornando ${result.length} logs processados para interface`);
-    console.log(`📋 DEBUG: Primeiros 3 logs:`, result.slice(0, 3).map(log => ({
-      id: log.id,
-      action: log.action,
-      description: log.description.substring(0, 50) + '...'
-    })));
-    return result;
   }
 
   // Dashboard statistics
