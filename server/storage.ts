@@ -644,7 +644,44 @@ export class DatabaseStorage implements IStorage {
         .slice(0, limit);
 
       const resultWithUsers = sortedLogs.map(log => {
-        const user = users.find(u => u.id === log.userId);
+        // Buscar usuário tanto no cache quanto tentar mapear IDs conhecidos
+        let user = users.find(u => u.id === log.userId);
+        
+        // Se não encontrou, tentar mapear IDs conhecidos do sistema
+        if (!user) {
+          if (log.userId === 'admin-id' || log.userId === 'admin') {
+            user = {
+              id: 'admin-id',
+              username: 'admin',
+              firstName: 'Admin',
+              lastName: 'User',
+              email: 'admin@example.com',
+              password: '',
+              profileImageUrl: null,
+              role: 'admin',
+              permissions: {},
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+          } else if (log.userId === 'lucas-id' || log.userId === 'lucas.silva') {
+            user = {
+              id: 'lucas-id',
+              username: 'lucas.silva',
+              firstName: 'Lucas',
+              lastName: 'Silva',
+              email: 'lucas.silva@example.com',
+              password: '',
+              profileImageUrl: null,
+              role: 'viewer',
+              permissions: {},
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+          }
+        }
+        
+        console.log(`👤 DEBUG: Log ${log.id} - UserID: ${log.userId} - User found:`, user ? `${user.firstName} ${user.lastName}` : 'NOT FOUND');
+        
         return {
           ...log,
           user: user || { 

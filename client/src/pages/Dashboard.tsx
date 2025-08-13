@@ -52,10 +52,10 @@ export default function Dashboard() {
     refetchInterval: 300000, // 5 minutes
   });
 
-  const { data: recentCases } = useQuery({
-    queryKey: ["/api/cases", { limit: 10 }],
+  const { data: allCases } = useQuery({
+    queryKey: ["/api/cases"],
     queryFn: async () => {
-      const response = await fetch("/api/cases?limit=10", { credentials: 'include' });
+      const response = await fetch("/api/cases", { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch cases');
       return response.json() as Promise<CaseWithRelations[]>;
     },
@@ -97,21 +97,21 @@ export default function Dashboard() {
     );
   };
 
-  // Get urgent cases (deadline within 3 days or overdue)
+  // Get urgent cases (deadline within 3 days or overdue) - usando dados reais dos casos
   const getUrgentCases = () => {
-    if (!recentCases) return [];
+    if (!allCases) return [];
     
     const today = new Date();
-    return recentCases.filter(caseData => {
-      if (!caseData.prazoEntrega) return false;
+    return allCases.filter(caseData => {
+      if (!caseData.dueDate) return false;
       
-      const deadline = new Date(caseData.prazoEntrega);
+      const deadline = new Date(caseData.dueDate);
       const daysDiff = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       
       return daysDiff <= 3; // Within 3 days or overdue
     }).sort((a, b) => {
-      const deadlineA = new Date(a.prazoEntrega!).getTime();
-      const deadlineB = new Date(b.prazoEntrega!).getTime();
+      const deadlineA = new Date(a.dueDate!).getTime();
+      const deadlineB = new Date(b.dueDate!).getTime();
       return deadlineA - deadlineB; // Most urgent first
     });
   };
