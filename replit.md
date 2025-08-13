@@ -137,10 +137,19 @@ Preferred communication style: Simple, everyday language.
 
 ### Environment Configuration (Updated August 2025)
 - **Database**: Supabase PostgreSQL (user's independent instance)
-- **Production URL**: postgresql://postgres:BaseF@cilities2025!@db.dnymyzhahgqnxvkrgmoq.supabase.co:5432/postgres
 - **Authentication**: Custom session-based with local strategy  
 - **Sessions**: Secure session management with TTL
 - **Independence**: Complete user independence achieved - no external dependencies
-- **Deployment**: Successfully deployed on Render platform
+
+### Render Deployment Configuration (August 2025)
+- **Platform**: Render.com with automatic deployments
+- **Build System**: Custom build scripts (build-render.js) for optimized bundling
+- **Build Command**: `npm install && node build-render.js`
+- **Start Command**: `npm start` (serves bundled dist/index.js)
+- **Environment**: NODE_ENV=production, DATABASE_URL from Supabase
+- **Files**: render.yaml, build-render.js, start-render.js, INSTRUCOES-RENDER.md
+- **Port Configuration**: Dynamic PORT from Render (defaults to 5000)
+- **Static Assets**: Frontend served from dist/public/
+- **Database**: Supabase connection via DATABASE_URL environment variable
 
 The system follows a monorepo structure with clear separation between client, server, and shared code, making it maintainable and scalable for legal case management workflows.
