@@ -5,8 +5,10 @@ import type { WidgetConfig } from "@shared/schema";
 
 interface DashboardStats {
   total: number;
-  completed: number;
-  inProgress: number;
+  novos: number;
+  pendentes: number;
+  concluidos: number;
+  atrasados: number;
   averageResponseTime: number;
 }
 
@@ -31,28 +33,28 @@ export default function StatsWidget({ config, data }: StatsWidgetProps) {
 
   const stats = [
     {
-      label: "Total de Processos",
-      value: data.total,
+      label: "Novos",
+      value: data.novos,
       icon: FileText,
       color: "bg-blue-500",
     },
     {
-      label: "Concluídos",
-      value: data.completed,
-      icon: CheckCircle,
-      color: "bg-green-500",
-    },
-    {
-      label: "Em Andamento",
-      value: data.inProgress,
+      label: "Pendentes",
+      value: data.pendentes,
       icon: Clock,
       color: "bg-yellow-500",
     },
     {
-      label: "Tempo Médio",
-      value: `${data.averageResponseTime}d`,
+      label: "Atrasados",
+      value: data.atrasados,
       icon: AlertTriangle,
-      color: "bg-orange-500",
+      color: "bg-red-500",
+    },
+    {
+      label: "Concluídos",
+      value: data.concluidos,
+      icon: CheckCircle,
+      color: "bg-green-500",
     },
   ];
 

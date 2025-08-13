@@ -14,7 +14,7 @@ const AVAILABLE_WIDGETS: WidgetConfig[] = [
   {
     id: 'stats-1',
     type: 'stats',
-    title: 'Estatísticas Gerais',
+    title: 'Estatísticas dos Processos',
     refreshInterval: 300000, // 5 minutes
   },
   {
@@ -28,6 +28,12 @@ const AVAILABLE_WIDGETS: WidgetConfig[] = [
     type: 'chart',
     title: 'Distribuição por Status',
     data: { chartType: 'pie' },
+    refreshInterval: 300000, // 5 minutes
+  },
+  {
+    id: 'delivery-time-1',
+    type: 'delivery-time',
+    title: 'Tempo de Entrega dos Processos',
     refreshInterval: 300000, // 5 minutes
   },
   {
@@ -48,6 +54,13 @@ const AVAILABLE_WIDGETS: WidgetConfig[] = [
     data: { chartType: 'bar' },
     refreshInterval: 3600000, // 1 hour
   },
+  {
+    id: 'chart-process-types-1',
+    type: 'chart',
+    title: 'Tipos de Processo',
+    data: { chartType: 'pie' },
+    refreshInterval: 600000, // 10 minutes
+  },
 ];
 
 // Default layout for new users - LAYOUT CORRIGIDO
@@ -55,23 +68,26 @@ const DEFAULT_LAYOUTS = {
   lg: [
     { i: 'stats-1', x: 0, y: 0, w: 6, h: 3 },
     { i: 'quick-actions-1', x: 6, y: 0, w: 6, h: 3 },
-    { i: 'chart-status-1', x: 0, y: 3, w: 8, h: 5 },
-    { i: 'recent-cases-1', x: 8, y: 3, w: 4, h: 5 },
-    { i: 'activity-feed-1', x: 0, y: 8, w: 12, h: 4 },
+    { i: 'chart-status-1', x: 0, y: 3, w: 6, h: 5 },
+    { i: 'delivery-time-1', x: 6, y: 3, w: 6, h: 5 },
+    { i: 'recent-cases-1', x: 0, y: 8, w: 8, h: 4 },
+    { i: 'activity-feed-1', x: 8, y: 8, w: 4, h: 4 },
   ],
   md: [
     { i: 'stats-1', x: 0, y: 0, w: 5, h: 3 },
     { i: 'quick-actions-1', x: 5, y: 0, w: 5, h: 3 },
-    { i: 'chart-status-1', x: 0, y: 3, w: 7, h: 5 },
-    { i: 'recent-cases-1', x: 7, y: 3, w: 3, h: 5 },
-    { i: 'activity-feed-1', x: 0, y: 8, w: 10, h: 4 },
+    { i: 'chart-status-1', x: 0, y: 3, w: 5, h: 5 },
+    { i: 'delivery-time-1', x: 5, y: 3, w: 5, h: 5 },
+    { i: 'recent-cases-1', x: 0, y: 8, w: 6, h: 4 },
+    { i: 'activity-feed-1', x: 6, y: 8, w: 4, h: 4 },
   ],
   sm: [
     { i: 'stats-1', x: 0, y: 0, w: 6, h: 3 },
     { i: 'quick-actions-1', x: 0, y: 3, w: 6, h: 3 },
     { i: 'chart-status-1', x: 0, y: 6, w: 6, h: 5 },
-    { i: 'recent-cases-1', x: 0, y: 11, w: 6, h: 4 },
-    { i: 'activity-feed-1', x: 0, y: 15, w: 6, h: 4 },
+    { i: 'delivery-time-1', x: 0, y: 11, w: 6, h: 5 },
+    { i: 'recent-cases-1', x: 0, y: 16, w: 6, h: 4 },
+    { i: 'activity-feed-1', x: 0, y: 20, w: 6, h: 4 },
   ],
   xs: [
     { i: 'stats-1', x: 0, y: 0, w: 4, h: 3 },
@@ -177,6 +193,14 @@ export default function CustomDashboard() {
     }
   }, []);
 
+  const handleWidgetConfigChange = useCallback((widgetId: string, newConfig: Partial<WidgetConfig>) => {
+    setActiveWidgets(prev => prev.map(widget => 
+      widget.id === widgetId 
+        ? { ...widget, ...newConfig }
+        : widget
+    ));
+  }, []);
+
   // Data queries for widgets
   const { data: stats } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -261,6 +285,7 @@ export default function CustomDashboard() {
             // Navigate to cases page with search focus
             window.location.href = '/cases?search=true';
           }}
+          onWidgetConfigChange={handleWidgetConfigChange}
         />
 
         {isSavingLayout && (

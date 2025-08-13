@@ -5,6 +5,7 @@ import RecentCasesWidget from "./widgets/RecentCasesWidget";
 import ChartWidget from "./widgets/ChartWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ActivityFeedWidget from "./widgets/ActivityFeedWidget";
+import DeliveryTimeWidget from "./widgets/DeliveryTimeWidget";
 import type { WidgetConfig, LayoutItem } from "@shared/schema";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -25,6 +26,7 @@ interface DashboardGridProps {
   };
   onNewCase?: () => void;
   onSearchEmployees?: () => void;
+  onWidgetConfigChange?: (widgetId: string, newConfig: Partial<WidgetConfig>) => void;
 }
 
 export default function DashboardGrid({ 
@@ -33,18 +35,39 @@ export default function DashboardGrid({
   onLayoutChange, 
   dashboardData,
   onNewCase,
-  onSearchEmployees
+  onSearchEmployees,
+  onWidgetConfigChange
 }: DashboardGridProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const renderWidget = useCallback((widget: WidgetConfig) => {
+    const handleConfigChange = (newConfig: Partial<WidgetConfig>) => {
+      if (onWidgetConfigChange) {
+        onWidgetConfigChange(widget.id, newConfig);
+      }
+    };
+
     switch (widget.type) {
       case 'stats':
         return <StatsWidget config={widget} data={dashboardData.stats} />;
       case 'recent-cases':
         return <RecentCasesWidget config={widget} data={dashboardData.recentCases} />;
       case 'chart':
-        return <ChartWidget config={widget} data={dashboardData.chartData} />;
+        return (
+          <ChartWidget 
+            config={widget} 
+            data={dashboardData.chartData} 
+            onConfigChange={handleConfigChange}
+          />
+        );
+      case 'delivery-time':
+        return (
+          <DeliveryTimeWidget
+            config={widget}
+            data={dashboardData.recentCases}
+            onConfigChange={handleConfigChange}
+          />
+        );
       case 'activity-feed':
         return <ActivityFeedWidget config={widget} data={dashboardData.activityLogs} />;
       case 'quick-actions':
@@ -62,7 +85,7 @@ export default function DashboardGrid({
           </div>
         );
     }
-  }, [dashboardData, onNewCase, onSearchEmployees]);
+  }, [dashboardData, onNewCase, onSearchEmployees, onWidgetConfigChange]);
 
   return (
     <div className={`transition-all duration-200 ${isDragging ? 'cursor-grabbing' : ''}`}>

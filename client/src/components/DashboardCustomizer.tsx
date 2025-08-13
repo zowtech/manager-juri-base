@@ -30,6 +30,7 @@ export default function DashboardCustomizer({
     'case-distribution': "Distribuição de Casos",
     'activity-feed': "Feed de Atividades",
     'quick-actions': "Ações Rápidas",
+    'delivery-time': "Tempo de Entrega",
   };
 
   const activeWidgetIds = activeWidgets.map(w => w.id);
