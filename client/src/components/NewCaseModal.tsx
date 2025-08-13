@@ -50,12 +50,12 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      matricula: "",
-      clientName: "",
-      processType: "",
-      dueDate: "",
-      audienceDate: "",
-      observacoes: "",
+      matricula: caseData?.matricula || "",
+      clientName: caseData?.clientName || "",
+      processType: caseData?.processNumber || "",
+      dueDate: caseData?.dueDate ? new Date(caseData.dueDate).toISOString().split('T')[0] : "",
+      audienceDate: caseData?.dataAudiencia ? new Date(caseData.dataAudiencia).toISOString().split('T')[0] : "",
+      observacoes: caseData?.observacoes || "",
     },
   });
 
@@ -121,7 +121,7 @@ export default function NewCaseModal({ isOpen, onClose, onSubmit, isSubmitting, 
         clientName: caseData.clientName || "",
         processType: caseData.processNumber || "",
         dueDate: caseData.dueDate ? new Date(caseData.dueDate).toISOString().split('T')[0] : "",
-        audienceDate: (caseData as any).audienceDate ? new Date((caseData as any).audienceDate).toISOString().split('T')[0] : "",
+        audienceDate: caseData.dataAudiencia ? new Date(caseData.dataAudiencia).toISOString().split('T')[0] : "",
         observacoes: caseData.observacoes || "",
       });
     } else {
