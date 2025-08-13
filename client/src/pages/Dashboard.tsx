@@ -102,18 +102,35 @@ export default function Dashboard() {
     if (!allCases) return [];
     
     const today = new Date();
-    return allCases.filter(caseData => {
-      if (!caseData.dueDate) return false;
+    console.log('🔍 DEBUG URGENT CASES - Total cases:', allCases.length);
+    
+    const urgentFiltered = allCases.filter(caseData => {
+      if (!caseData.dueDate) {
+        console.log('❌ Case sem dueDate:', caseData.id, caseData.clientName);
+        return false;
+      }
+      
+      // Excluir casos concluídos dos casos urgentes
+      if (caseData.status === 'concluido') {
+        console.log('✅ Case concluído (excluído):', caseData.id, caseData.clientName);
+        return false;
+      }
       
       const deadline = new Date(caseData.dueDate);
       const daysDiff = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       
-      return daysDiff <= 3; // Within 3 days or overdue
+      const isUrgent = daysDiff <= 3;
+      console.log(`📅 Case ${caseData.id} (${caseData.clientName}): dueDate=${caseData.dueDate}, daysDiff=${daysDiff}, status=${caseData.status}, isUrgent=${isUrgent}`);
+      
+      return isUrgent; // Within 3 days or overdue
     }).sort((a, b) => {
       const deadlineA = new Date(a.dueDate!).getTime();
       const deadlineB = new Date(b.dueDate!).getTime();
       return deadlineA - deadlineB; // Most urgent first
     });
+    
+    console.log('✅ DEBUG URGENT CASES - Filtered count:', urgentFiltered.length);
+    return urgentFiltered;
   };
 
   const urgentCases = getUrgentCases();
