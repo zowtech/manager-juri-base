@@ -37,10 +37,15 @@ export default function Employees() {
     nome: "",
     matricula: "",
     cargo: "",
-    departamento: ""
+    departamento: "",
+    empresa: ""
   });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [formData, setFormData] = useState({
-    empresa: "BASE FACILITIES",
+    empresa: "2",
     nome: "",
     matricula: "",
     rg: "",
@@ -56,7 +61,24 @@ export default function Employees() {
     telefone: "",
     endereco: ""
   });
-  const { toast } = useToast();
+
+  // Company options
+  const companyOptions = [
+    { value: "2", label: "Empresa 2" },
+    { value: "33", label: "Empresa 33" },
+    { value: "55", label: "Empresa 55" },
+    { value: "79", label: "Empresa 79" },
+    { value: "104", label: "Empresa 104" },
+    { value: "107", label: "Empresa 107" },
+    { value: "123", label: "Empresa 123" },
+    { value: "125", label: "Empresa 125" },
+    { value: "126", label: "Empresa 126" },
+    { value: "127", label: "Empresa 127" },
+    { value: "128", label: "Empresa 128" },
+    { value: "150", label: "Empresa 150" }
+  ];
+
+
 
   const { data: allEmployees, isLoading } = useQuery({
     queryKey: ["/api/employees"],
@@ -74,7 +96,7 @@ export default function Employees() {
   });
 
   // Filtros funcionais melhorados - excluir deletados
-  const employees = useMemo(() => {
+  const filteredEmployees = useMemo(() => {
     if (!allEmployees) return [];
     
     console.log('🔍 FILTROS DEBUG:', {
@@ -96,6 +118,7 @@ export default function Employees() {
         emp.pis?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.cargo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.departamento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.empresa?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.centroCusto?.toString().toLowerCase().includes(searchTerm.toLowerCase());
         
       // Filtros específicos
@@ -103,7 +126,8 @@ export default function Employees() {
         (!filters.nome || emp.nome?.toLowerCase().includes(filters.nome.toLowerCase())) &&
         (!filters.matricula || emp.matricula?.toString().toLowerCase().includes(filters.matricula.toLowerCase())) &&
         (!filters.cargo || emp.cargo?.toLowerCase().includes(filters.cargo.toLowerCase())) &&
-        (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase()));
+        (!filters.departamento || emp.departamento?.toLowerCase().includes(filters.departamento.toLowerCase())) &&
+        (!filters.empresa || emp.empresa?.toString() === filters.empresa);
         
       const result = matchesSearch && matchesFilters;
       
@@ -117,6 +141,17 @@ export default function Employees() {
     console.log('📊 FILTROS RESULTADO:', filtered.length, 'de', allEmployees.length);
     return filtered;
   }, [allEmployees, searchTerm, filters]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const employees = filteredEmployees.slice(startIndex, endIndex);
+
+  // Reset pagination when filters change
+  const resetPagination = () => {
+    setCurrentPage(1);
+  };
 
   // Importar planilha
   const importMutation = useMutation({
@@ -204,7 +239,7 @@ export default function Employees() {
   // Funções auxiliares
   const resetForm = () => {
     setFormData({
-      empresa: "BASE FACILITIES",
+      empresa: "2",
       nome: "",
       matricula: "",
       rg: "",
@@ -225,7 +260,7 @@ export default function Employees() {
   const openEditModal = (employee: Employee) => {
     setSelectedEmployee(employee);
     setFormData({
-      empresa: employee.empresa || "BASE FACILITIES",
+      empresa: employee.empresa || "2",
       nome: employee.nome || "",
       matricula: employee.matricula || "",
       rg: employee.rg || "",
@@ -257,9 +292,11 @@ export default function Employees() {
       nome: "",
       matricula: "",
       cargo: "",
-      departamento: ""
+      departamento: "",
+      empresa: ""
     });
     setSearchTerm("");
+    resetPagination();
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -267,12 +304,20 @@ export default function Employees() {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  const formatSalary = (salary: string | null) => {
+  const formatSalaryDisplay = (salary: string | null) => {
     if (!salary) return "-";
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(Number(salary));
+  };
+
+  // Handle salary input change with formatting
+  const handleSalaryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Remove everything except numbers, comma, and period
+    const cleanValue = value.replace(/[^\d,.]/g, '');
+    setFormData({ ...formData, salario: cleanValue });
   };
 
   const uploadFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -306,8 +351,11 @@ export default function Employees() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">{employees.length}</div>
-            <div className="text-blue-100">Funcionários</div>
+            <div className="text-2xl font-bold">{filteredEmployees.length}</div>
+            <div className="text-blue-100">Total de Funcionários</div>
+            <div className="text-sm text-blue-200 mt-1">
+              Página {currentPage} de {totalPages}
+            </div>
           </div>
         </div>
       </div>
@@ -410,16 +458,114 @@ export default function Employees() {
                     className="mt-1"
                   />
                 </div>
+
+                <div>
+                  <Label className="text-sm font-medium">Empresa</Label>
+                  <Select
+                    value={filters.empresa}
+                    onValueChange={(value) => {
+                      setFilters({...filters, empresa: value});
+                      resetPagination();
+                    }}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Todas as empresas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todas as empresas</SelectItem>
+                      {companyOptions.map((company) => (
+                        <SelectItem key={company.value} value={company.value}>
+                          {company.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
-              <div className="flex justify-end mt-4">
-                <Button variant="outline" size="sm" onClick={clearFilters}>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={clearFilters}
+                  size="sm"
+                >
                   <X className="h-4 w-4 mr-2" />
                   Limpar Filtros
                 </Button>
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Pagination Controls */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Funcionários por página:</span>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => {
+                  setItemsPerPage(parseInt(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="30">30</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-gray-600">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredEmployees.length)} de {filteredEmployees.length} funcionários
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              
+              <div className="flex space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) => {
+                    const maxVisiblePages = 5;
+                    const halfRange = Math.floor(maxVisiblePages / 2);
+                    return page >= currentPage - halfRange && page <= currentPage + halfRange;
+                  })
+                  .map((page) => (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
+                  ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -439,15 +585,14 @@ export default function Employees() {
             <Table>
               <TableHeader className="bg-gray-50">
                 <TableRow>
+                  <TableHead className="w-[80px] font-semibold">Empresa</TableHead>
                   <TableHead className="w-[120px] font-semibold">Matrícula</TableHead>
                   <TableHead className="font-semibold">Nome</TableHead>
                   <TableHead className="font-semibold">RG</TableHead>
                   <TableHead className="font-semibold">PIS</TableHead>
                   <TableHead className="font-semibold">Admissão</TableHead>
-                  <TableHead className="font-semibold">Demissão</TableHead>
                   <TableHead className="font-semibold">Salário</TableHead>
                   <TableHead className="font-semibold">Cargo</TableHead>
-                  <TableHead className="font-semibold">Centro Custo</TableHead>
                   <TableHead className="font-semibold">Departamento</TableHead>
                   <TableHead className="w-[100px] font-semibold">Ações</TableHead>
                 </TableRow>
@@ -456,6 +601,11 @@ export default function Employees() {
               <TableBody>
                 {employees.map((employee) => (
                   <TableRow key={employee.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">
+                      <Badge variant="outline" className="text-xs">
+                        {employee.empresa || "N/A"}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-medium text-blue-600">
                       {employee.matricula}
                     </TableCell>
@@ -471,17 +621,11 @@ export default function Employees() {
                     <TableCell>
                       {formatDate(employee.dataAdmissao)}
                     </TableCell>
-                    <TableCell>
-                      {formatDate(employee.dataDemissao)}
-                    </TableCell>
                     <TableCell className="font-medium">
-                      {formatSalary(employee.salario)}
+                      {formatSalaryDisplay(employee.salario)}
                     </TableCell>
                     <TableCell>
                       {employee.cargo || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {employee.centroCusto || "-"}
                     </TableCell>
                     <TableCell>
                       {employee.departamento || "-"}
@@ -559,13 +703,22 @@ export default function Employees() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
             <div>
-              <Label htmlFor="empresa">Empresa</Label>
-              <Input
-                id="empresa"
+              <Label htmlFor="empresa">Empresa *</Label>
+              <Select
                 value={formData.empresa}
-                onChange={(e) => setFormData({...formData, empresa: e.target.value})}
-                className="mt-1"
-              />
+                onValueChange={(value) => setFormData({...formData, empresa: value})}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecione a empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companyOptions.map((company) => (
+                    <SelectItem key={company.value} value={company.value}>
+                      {company.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div>
@@ -575,6 +728,7 @@ export default function Employees() {
                 value={formData.nome}
                 onChange={(e) => setFormData({...formData, nome: e.target.value})}
                 className="mt-1"
+                placeholder="Ex: Lucas Silva"
                 required
               />
             </div>
@@ -637,10 +791,11 @@ export default function Employees() {
               <Input
                 id="salario"
                 value={formData.salario}
-                onChange={(e) => setFormData({...formData, salario: e.target.value})}
-                placeholder="1000.00"
+                onChange={handleSalaryChange}
+                placeholder="Ex: 5000,00 ou 5000.50"
                 className="mt-1"
               />
+              <p className="text-xs text-gray-500 mt-1">Digite apenas números, vírgula ou ponto</p>
             </div>
             
             <div>
