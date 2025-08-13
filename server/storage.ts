@@ -339,6 +339,10 @@ export class DatabaseStorage implements IStorage {
           description = COALESCE($4, description),
           status = COALESCE($5, status),
           due_date = COALESCE($6, due_date),
+          start_date = COALESCE($7, start_date),
+          observacoes = COALESCE($8, observacoes),
+          employee_id = COALESCE($9, employee_id),
+          assigned_to_id = COALESCE($10, assigned_to_id),
           updated_at = NOW()
         WHERE id = $1
         RETURNING *
@@ -350,7 +354,11 @@ export class DatabaseStorage implements IStorage {
         updates.processNumber || null,
         updates.description || null,
         updates.status || null,
-        updates.dueDate || null
+        updates.dueDate || null,
+        updates.startDate || null,
+        updates.observacoes || null,
+        updates.employeeId || null,
+        updates.assignedToId || null
       ]);
       
       if (result.rows.length === 0) {

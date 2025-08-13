@@ -66,17 +66,18 @@ Preferred communication style: Simple, everyday language.
 - **Navigation**: Default route corrected to open Dashboard on login
 - **Manual Entry**: Complete forms with all 11 Excel fields for data entry
 
-### Case Management (Updated July 2025)
+### Case Management (Updated August 2025)
 - **Field Structure**: Matrícula, Nome, Processo, Prazo de entrega, Audiência, Status
 - **Process Tags**: Comma-separated processes display as individual badges for analytics
-- **Deadline Alerts**: Color-coded alerts (red=overdue, orange=approaching, green=safe)
+- **Status System**: NOVOS → PENDENTES → CONCLUÍDOS + ATRASADOS (automatic calculation)
+- **Smart Ordering**: Always sorted by deadline (most urgent first), not alphabetical
+- **Visual Alerts**: Red (overdue), Yellow (approaching deadline within 3 days), Green (safe)
+- **Automatic Status**: Cases past deadline auto-marked as "atrasado" regardless of current status
+- **Dashboard Integration**: Live counters show Novos, Pendentes, Concluídos, Atrasados
 - **Advanced Filtering**: Multi-column filters including matrícula, nome, status, date, and process search
 - **Professional UI**: Enhanced table with borders, professional styling, and responsive design
-- **Status Tracking**: Four-state workflow (novo, andamento, concluido, pendente)
 - **Automatic Date Tracking**: Data de entrega automatically set when status changes to "concluído"
-- **Clean Slate**: All data removed at user request (January 2025)
-- **Manual Population**: User will add data through interface manually
-- **Reset System**: Database and files completely cleared for fresh start
+- **Update System**: Fixed PATCH endpoint validation for seamless case editing
 
 ### Process Analytics
 - **Tag Visualization**: Process fields split by commas into individual badges

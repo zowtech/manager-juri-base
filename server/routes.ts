@@ -171,6 +171,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/cases/:id', isAuthenticated, async (req: any, res: any) => {
     try {
       const { id } = req.params;
+      
+      console.log('🔧 DEBUG: Recebendo dados para atualização:', req.body);
 
       const caseData = await storage.getCaseById(id);
       if (!caseData) {
@@ -188,8 +190,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const validatedData = insertCaseSchema.partial().parse(req.body);
-      const updatedCase = await storage.updateCase(id, validatedData);
+      // Validar apenas os campos permitidos para atualização
+      const allowedUpdateFields = {
+        clientName: req.body.clientName,
+        processNumber: req.body.processNumber,
+        description: req.body.description,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        observacoes: req.body.observacoes,
+        employeeId: req.body.employeeId,
+        assignedToId: req.body.assignedToId
+      };
+      
+      // Remover campos undefined
+      const cleanData = Object.fromEntries(
+        Object.entries(allowedUpdateFields).filter(([_, value]) => value !== undefined)
+      );
+      
+      console.log('🔧 DEBUG: Dados limpos para atualização:', cleanData);
+      
+      const updatedCase = await storage.updateCase(id, cleanData);
       
       // Log atividade apenas se usuário estiver definido
       if (req.user) {
