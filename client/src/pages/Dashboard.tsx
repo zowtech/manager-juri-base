@@ -131,6 +131,9 @@ export default function Dashboard() {
   };
 
   const urgentCases = getUrgentCases();
+  
+  // Calculate completion rate
+  const completionRate = stats?.total ? Math.round((stats.concluidos / stats.total) * 100) : 0;
 
   if (statsLoading) {
     return (

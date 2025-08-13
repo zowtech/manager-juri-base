@@ -586,48 +586,74 @@ export class DatabaseStorage implements IStorage {
     atrasados: number;
     averageResponseTime: number;
   }> {
-    const allCases = await this.getCases();
-    const today = new Date();
-    
-    // Calcular casos atrasados automaticamente
-    const casesWithStatus = allCases.map(c => {
-      const dueDate = c.dueDate ? new Date(c.dueDate) : null;
-      const isOverdue = dueDate && dueDate < today && c.status !== 'concluido';
+    try {
+      console.log('📊 DEBUG: Iniciando cálculo de estatísticas do dashboard');
       
-      return {
-        ...c,
-        calculatedStatus: isOverdue ? 'atrasado' : c.status
+      const allCases = await this.getCases();
+      console.log(`📋 DEBUG: Total de casos carregados: ${allCases.length}`);
+      
+      const today = new Date();
+      
+      // Contar por status real dos casos
+      const total = allCases.length;
+      const novos = allCases.filter(c => c.status === 'novo').length;
+      const pendentes = allCases.filter(c => c.status === 'pendente').length;
+      const concluidos = allCases.filter(c => c.status === 'concluido').length;
+      
+      // Calcular atrasados: casos com prazo vencido que não estão concluídos
+      const atrasados = allCases.filter(c => {
+        if (c.status === 'concluido') return false;
+        if (!c.dueDate) return false;
+        const dueDate = new Date(c.dueDate);
+        return dueDate < today;
+      }).length;
+      
+      console.log(`📊 DEBUG: Estatísticas calculadas:`, {
+        total, novos, pendentes, concluidos, atrasados
+      });
+      
+      // Calcular tempo médio de resposta baseado em casos concluídos
+      const completedCases = allCases.filter(c => 
+        c.status === 'concluido' && c.createdAt && (c.completedDate || c.dataEntrega)
+      );
+      
+      let averageResponseTime = 0;
+      
+      if (completedCases.length > 0) {
+        const totalDays = completedCases.reduce((sum, c) => {
+          const created = new Date(c.createdAt!);
+          const completed = new Date(c.completedDate || c.dataEntrega || c.updatedAt!);
+          const days = Math.ceil((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+          return sum + Math.max(days, 0); // Evitar valores negativos
+        }, 0);
+        averageResponseTime = Math.round(totalDays / completedCases.length);
+      }
+      
+      const stats = {
+        total,
+        novos,
+        pendentes,
+        concluidos,
+        atrasados,
+        averageResponseTime,
       };
-    });
-    
-    const total = casesWithStatus.length;
-    const novos = casesWithStatus.filter(c => c.calculatedStatus === 'novo').length;
-    const pendentes = casesWithStatus.filter(c => c.calculatedStatus === 'pendente').length;
-    const concluidos = casesWithStatus.filter(c => c.calculatedStatus === 'concluido').length;
-    const atrasados = casesWithStatus.filter(c => c.calculatedStatus === 'atrasado').length;
-    
-    // Calcular tempo médio de resposta baseado em casos concluídos
-    const completedCases = casesWithStatus.filter(c => c.status === 'concluido' && c.createdAt && c.updatedAt);
-    let averageResponseTime = 0;
-    
-    if (completedCases.length > 0) {
-      const totalDays = completedCases.reduce((sum, c) => {
-        const created = new Date(c.createdAt!);
-        const completed = new Date(c.updatedAt!);
-        const days = Math.ceil((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-        return sum + days;
-      }, 0);
-      averageResponseTime = Math.round(totalDays / completedCases.length);
+      
+      console.log('✅ DEBUG: Estatísticas finais retornadas:', stats);
+      return stats;
+      
+    } catch (error) {
+      console.error('❌ ERRO ao calcular estatísticas do dashboard:', error);
+      
+      // Retornar valores padrão em caso de erro
+      return {
+        total: 0,
+        novos: 0,
+        pendentes: 0,
+        concluidos: 0,
+        atrasados: 0,
+        averageResponseTime: 0,
+      };
     }
-    
-    return {
-      total,
-      novos,
-      pendentes,
-      concluidos,
-      atrasados,
-      averageResponseTime,
-    };
   }
 
   // Get users for assignment
