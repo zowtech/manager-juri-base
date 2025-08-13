@@ -237,13 +237,14 @@ export class DatabaseStorage implements IStorage {
         queryParams.push(searchParam, searchParam, searchParam, searchParam, searchParam);
       }
 
-      // Ordenar por prazo de entrega (mais urgente primeiro), depois por data de criação
+      // Ordenar por prazo de entrega (mais urgente primeiro), depois por data de atualização/criação
       query += ` ORDER BY 
         CASE 
           WHEN c.due_date IS NULL THEN 1 
           ELSE 0 
         END,
         c.due_date ASC, 
+        c.updated_at DESC, 
         c.created_at DESC`;
 
       const result = await pool.query(query, queryParams);
