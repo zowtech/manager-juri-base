@@ -29,7 +29,7 @@ export interface IStorage {
   getCaseById(id: string): Promise<CaseWithRelations | undefined>;
   updateCase(id: string, updates: Partial<InsertCase>): Promise<Case>;
   deleteCase(id: string): Promise<void>;
-  updateCaseStatus(id: string, status: string, completedDate?: Date): Promise<Case>;
+  updateCaseStatus(id: string, status: string, completedDate?: Date | null, dataEntrega?: Date | null): Promise<Case>;
   
   // Activity log operations
   logActivity(activity: InsertActivityLog): Promise<ActivityLog>;
@@ -41,6 +41,10 @@ export interface IStorage {
     completed: number;
     inProgress: number;
     averageResponseTime: number;
+    novos?: number;
+    pendentes?: number;
+    concluidos?: number;
+    atrasados?: number;
   }>;
   
   // Get users for assignment
@@ -273,6 +277,7 @@ export class DatabaseStorage implements IStorage {
           dueDate: row.due_date,
           completedDate: row.completed_date,
           dataEntrega: row.data_entrega,
+          dataAudiencia: row.data_audiencia,
           tipoProcesso: row.tipo_processo,
           documentosSolicitados: row.documentos_solicitados,
           documentosAnexados: row.documentos_anexados,
@@ -388,7 +393,9 @@ export class DatabaseStorage implements IStorage {
         createdById: updatedCase.created_by_id,
         createdAt: new Date(updatedCase.created_at),
         updatedAt: new Date(updatedCase.updated_at),
-        employeeId: updatedCase.employee_id
+        employeeId: updatedCase.employee_id,
+        matricula: updatedCase.matricula,
+        dataAudiencia: updatedCase.data_audiencia
       };
     } catch (error) {
       console.error('❌ DEBUG: Erro ao atualizar caso:', error);
@@ -477,7 +484,9 @@ export class DatabaseStorage implements IStorage {
         createdById: updatedCase.created_by_id,
         createdAt: new Date(updatedCase.created_at),
         updatedAt: new Date(updatedCase.updated_at),
-        employeeId: updatedCase.employee_id
+        employeeId: updatedCase.employee_id,
+        matricula: updatedCase.matricula,
+        dataAudiencia: updatedCase.data_audiencia
       };
     } catch (error) {
       console.error('❌ DEBUG: Erro ao atualizar status do caso:', error);

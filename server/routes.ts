@@ -14,7 +14,7 @@ async function hashPassword(password: string) {
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
-import { insertCaseSchema, insertUserSchema, updateUserSchema } from "@shared/schema";
+import { insertCaseSchema, insertUserSchema, updateUserSchema, User } from "@shared/schema";
 import { z } from "zod";
 import { db, pool } from "./db";
 import { employees } from "@shared/schema";
@@ -24,14 +24,7 @@ import { sql, eq } from "drizzle-orm";
 
 // Extend Request type to include user
 interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
+  user?: User;
 }
 
 // Authentication middleware
@@ -137,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      if (req.user.role !== 'admin') {
+      if (req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
@@ -301,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
-      if (req.user.role !== 'admin') {
+      if (req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
@@ -349,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard layout endpoints
   app.get('/api/dashboard/layout', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const layout = await storage.getDashboardLayout(req.user.id);
+      const layout = await storage.getDashboardLayout(req.user!.id);
       res.json(layout);
     } catch (error) {
       console.error("Error fetching dashboard layout:", error);
@@ -360,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/dashboard/layout', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { layout, widgets } = req.body;
-      const savedLayout = await storage.saveDashboardLayout(req.user.id, layout, widgets);
+      const savedLayout = await storage.saveDashboardLayout(req.user!.id, layout, widgets);
       
       await logActivity(
         req,
