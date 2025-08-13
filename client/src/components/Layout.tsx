@@ -20,9 +20,9 @@ export default function Layout({ children }: LayoutProps) {
 
   // Buscar notificações recentes (últimos logs)
   const { data: recentLogs } = useQuery({
-    queryKey: ["/api/activity-logs", { limit: 5 }],
+    queryKey: ["/api/activity-logs", { limit: 5, processOnly: true }],
     queryFn: async () => {
-      const response = await fetch(`/api/activity-logs?limit=5`, {
+      const response = await fetch(`/api/activity-logs?limit=5&processOnly=true`, {
         credentials: 'include',
       });
       if (!response.ok) return [];

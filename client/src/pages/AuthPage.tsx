@@ -100,8 +100,8 @@ export default function AuthPage() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-white">
-        <div className="w-full max-w-md px-6 py-8">
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-white p-4">
+        <div className="w-full max-w-md">
           <div className="space-y-8">
             {/* Mobile Header */}
             <div className="text-center lg:hidden">
