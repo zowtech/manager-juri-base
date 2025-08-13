@@ -590,7 +590,7 @@ export default function Employees() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Lista de Funcionários</CardTitle>
             <div className="text-sm text-gray-500">
-              {employees.length} de {allEmployees?.length || 0} funcionários
+              {employees.length} de {filteredEmployees.length} funcionários
             </div>
           </div>
         </CardHeader>
