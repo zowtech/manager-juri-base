@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 
 import AuthPage from "@/pages/AuthPage";
-import CustomDashboard from "@/pages/CustomDashboard";
+import Dashboard from "@/pages/Dashboard";
 import Cases from "@/pages/Cases";
 import Users from "@/pages/Users";
 import ActivityLog from "@/pages/ActivityLog";
@@ -78,7 +78,7 @@ function Router() {
       <Switch>
         {/* Dashboard na página principal se tiver permissão */}
         {hasPagePermission('dashboard') ? (
-          <Route path="/" component={CustomDashboard} />
+          <Route path="/" component={Dashboard} />
         ) : firstAllowedPage === 'cases' ? (
           <Route path="/" component={Cases} />
         ) : firstAllowedPage === 'activityLog' ? (
