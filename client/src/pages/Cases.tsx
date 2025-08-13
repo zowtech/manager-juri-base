@@ -337,51 +337,51 @@ export default function Cases() {
   const renderCaseTable = (casesToShow: CaseWithRelations[], showCompleteAction = true) => (
     <div className="overflow-x-auto max-h-[400px] md:max-h-[600px] overflow-y-auto border border-gray-200 rounded-lg cases-table-wrapper">
       <Table className="cases-table">
-        <TableHeader className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
-          <TableRow className="border-b-2 border-gray-300">
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              📊 Matrícula
+        <TableHeader className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+          <TableRow className="border-b border-gray-200">
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left">
+              Matrícula
             </TableHead>  
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              👤 Nome
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left">
+              Nome do Cliente
             </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
-              📝 Descrição do Processo
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left hide-mobile">
+              Tipo de Processo
             </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              ⏰ Prazo de Entrega
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left">
+              Prazo de Entrega
             </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
-              📅 Data Audiência
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left hide-mobile">
+              Data Audiência
             </TableHead>
-            <TableHead className="font-bold text-gray-800 border-r border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4 hide-mobile">
-              💬 Observação
+            <TableHead className="font-semibold text-gray-700 border-r border-gray-200 bg-white text-sm py-5 text-left hide-mobile">
+              Observações
             </TableHead>
-            <TableHead className="font-bold text-gray-800 bg-gradient-to-r from-gray-50 to-gray-100 text-sm py-4">
-              ⚙️ Ações
+            <TableHead className="font-semibold text-gray-700 bg-white text-sm py-5 text-center">
+              Ações
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {casesToShow.map((caseData: CaseWithRelations) => (
-            <TableRow key={caseData.id} className={`${getRowClassName(caseData)} hover:bg-gray-50/50 border-b border-gray-100 transition-colors`}>
+            <TableRow key={caseData.id} className={`${getRowClassName(caseData)} hover:bg-gray-50/70 border-b border-gray-100 transition-all duration-200`}>
               {/* Matrícula */}
               <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
-                <div className="flex flex-col space-y-1">
-                  <span className="font-bold text-blue-600 text-lg">
-                    {caseData.matricula || 'N/A'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    ID: {caseData.processNumber}
-                  </span>
-                </div>
+                <span className="font-bold text-blue-600 text-lg tracking-wide">
+                  {caseData.matricula || 'N/A'}
+                </span>
               </TableCell>
               
               {/* Nome */}
               <TableCell className="font-medium border-r border-gray-100 py-3 md:py-4 text-sm">
-                <span className="font-semibold text-gray-900 leading-tight break-words max-w-[180px] md:max-w-[250px]">
-                  {caseData.clientName}
-                </span>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-gray-900 text-base leading-tight">
+                    {caseData.clientName}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    Processo: {caseData.processNumber}
+                  </span>
+                </div>
               </TableCell>
               
               {/* Descrição do Processo */}
@@ -415,8 +415,8 @@ export default function Cases() {
               </TableCell>
               
               {/* Ações */}
-              <TableCell className="py-3 md:py-4">
-                <div className="flex items-center space-x-1 md:space-x-2">
+              <TableCell className="py-4 text-center">
+                <div className="flex items-center justify-center gap-2">
                   {getUserPermissions(user).canEditAllCases && (
                     <Button
                       variant="ghost"
@@ -426,6 +426,7 @@ export default function Cases() {
                         setIsModalOpen(true);
                       }}
                       title="Editar processo"
+                      className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-all duration-200"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -441,7 +442,7 @@ export default function Cases() {
                         newStatus: 'concluido'
                       })}
                       title="Marcar como concluído"
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-all duration-200"
                     >
                       <CheckCircle className="h-4 w-4" />
                     </Button>
@@ -456,7 +457,7 @@ export default function Cases() {
                         newStatus: 'andamento'
                       })}
                       title="Reabrir processo"
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-all duration-200"
                     >
                       <Clock className="h-4 w-4" />
                     </Button>
@@ -468,7 +469,7 @@ export default function Cases() {
                           variant="ghost"
                           size="sm"
                           title="Mais opções de status"
-                          className="text-gray-500 hover:text-gray-700"
+                          className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-all duration-200"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
@@ -507,6 +508,7 @@ export default function Cases() {
                         }
                       }}
                       title="Excluir processo"
+                      className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-all duration-200"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
