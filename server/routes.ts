@@ -94,7 +94,6 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== USERS ==================== */
 
-  // Lista de usuários (para a página "Usuários")
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -126,7 +125,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Criar usuário
   app.post("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -167,7 +165,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Atualizar usuário
   app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -201,13 +198,12 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Remover usuário
   app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-      await storage.deleteUser(req.params.id);
+    await storage.deleteUser(req.params.id);
       await logActivity(req, "DELETE_USER", "USER", req.params.id, `Excluiu usuário`);
       res.status(204).send();
     } catch (err) {
@@ -278,12 +274,25 @@ export function registerRoutes(app: Express): void {
         deleted: r.deleted,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
+
+        // --- campos do funcionário ---
         employeeId: r.employee_id,
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
-        // compat com UI
+
+        // --- aliases "flat" para compatibilidade com a UI ---
         matricula: r.employee_registration,
         registration: r.employee_registration,
+
+        // --- objetos aninhados que alguns cards procuram ---
+        employee: {
+          id: r.employee_id,
+          name: r.employee_name,
+          registration: r.employee_registration,
+        },
+        process: {
+          number: r.process_number,
+        },
       }));
 
       res.json(mapped);
@@ -328,11 +337,19 @@ export function registerRoutes(app: Express): void {
         deleted: r.deleted,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
+
         employeeId: r.employee_id,
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
         matricula: r.employee_registration,
         registration: r.employee_registration,
+
+        employee: {
+          id: r.employee_id,
+          name: r.employee_name,
+          registration: r.employee_registration,
+        },
+        process: { number: r.process_number },
       };
 
       res.json(caseData);
@@ -395,7 +412,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ATUALIZAR CASO (status/dataEntrega)
+  // ATUALIZAR STATUS
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -434,7 +451,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // EDITAR CASO (dados gerais)
+  // EDITAR CASO
   app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -504,42 +521,72 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== DASHBOARD ==================== */
 
+  // Cards do dashboard (contagem por status)
   app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
     try {
-      const stats = await storage.getCaseStats();
-      res.json(stats);
+      const q = `
+        select 
+          count(*)::int                                       as total,
+          sum((status = 'novo')::int)::int                    as novo,
+          sum((status = 'pendente')::int)::int               as pendente,
+          sum((status = 'concluido')::int)::int              as concluido,
+          sum((status = 'atrasado')::int)::int               as atrasado,
+          sum((due_date < now() and status <> 'concluido')::int)::int as vencidos
+        from public.cases
+      `;
+      const { rows: [r] } = await pool.query(q);
+
+      res.json({
+        total:      r?.total      ?? 0,
+        novo:       r?.novo       ?? 0,
+        pendente:   r?.pendente   ?? 0,
+        atrasado:   r?.atrasado   ?? 0,
+        concluido:  r?.concluido  ?? 0,
+        vencidos:   r?.vencidos   ?? 0,
+      });
     } catch (err) {
       console.error("Error fetching dashboard stats:", err);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
 
-  app.get("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
+  // Últimas Atualizações (top 10 por updated_at)
+  app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
-      const layout = await storage.getDashboardLayout(req.user!.id);
-      res.json(layout);
-    } catch (err) {
-      console.error("Error fetching dashboard layout:", err);
-      res.status(500).json({ message: "Failed to fetch dashboard layout" });
-    }
-  });
+      const q = `
+        select
+          c.id, c.client_name, c.process_number, c.status, c.updated_at,
+          e.id as employee_id, e.name as employee_name, e.registration as employee_registration
+        from public.cases c
+        left join public.employees e on e.id = c.employee_id
+        order by c.updated_at desc nulls last, c.created_at desc
+        limit 10
+      `;
+      const { rows } = await pool.query(q);
+      res.json(rows.map((r: any) => ({
+        id: r.id,
+        clientName: r.client_name,
+        processNumber: r.process_number,
+        status: r.status,
+        updatedAt: r.updated_at,
 
-  app.post("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
-    try {
-      const { layout, widgets } = req.body;
-      const saved = await storage.saveDashboardLayout(req.user!.id, layout, widgets);
-      await logActivity(
-        req,
-        "UPDATE_DASHBOARD",
-        "DASHBOARD",
-        saved.id,
-        "Personalizou layout do dashboard",
-        { widgetCount: widgets?.length || 0 }
-      );
-      res.json(saved);
+        employeeId: r.employee_id,
+        employeeName: r.employee_name,
+        employeeRegistration: r.employee_registration,
+
+        // aliases e objetos esperados pelo front
+        matricula: r.employee_registration,
+        registration: r.employee_registration,
+        employee: {
+          id: r.employee_id,
+          name: r.employee_name,
+          registration: r.employee_registration,
+        },
+        process: { number: r.process_number },
+      })));
     } catch (err) {
-      console.error("Error saving dashboard layout:", err);
-      res.status(500).json({ message: "Failed to save dashboard layout" });
+      console.error("Error fetching dashboard updates:", err);
+      res.status(500).json({ message: "Failed to fetch updates" });
     }
   });
 
@@ -807,7 +854,6 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== SEED DE DEMONSTRAÇÃO ==================== */
 
-  // POST /api/admin/seed-demo  (somente admin logado)
   app.post("/api/admin/seed-demo", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
