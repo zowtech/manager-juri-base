@@ -5,7 +5,7 @@ import multer from "multer";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { z } from "zod";
-import { sql, eq, and } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
@@ -24,7 +24,7 @@ import {
 const scryptAsync = promisify(crypto.scrypt);
 const upload = multer({ dest: "uploads/" });
 
-/** ===== Helpers ===== */
+/* ============ Helpers ============ */
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated && req.isAuthenticated()) return next();
   return res.status(401).json({ message: "Unauthorized" });
@@ -64,20 +64,20 @@ const logActivity = async (
   }
 };
 
-/** ===== Tipos ===== */
+/* ============ Tipos ============ */
 interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
-/** ===== Rotas ===== */
+/* ============ Rotas ============ */
 export function registerRoutes(app: Express): void {
-  /** sanity */
+  /* sanidade */
   app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
-  /** auth & sessão */
+  /* auth & sessão */
   setupAuth(app);
 
-  /** usuário logado */
+  /* usuário logado */
   app.get("/api/user", async (req: any, res) => {
     try {
       if (!req.isAuthenticated?.() || !req.user?.id) {
@@ -94,7 +94,7 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== USERS ==================== */
 
-  // Lista de usuários (para página "Usuários")
+  // Lista de usuários (para a página "Usuários")
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -136,14 +136,11 @@ export function registerRoutes(app: Express): void {
       const username = data.username?.trim() || `user_${Date.now()}`;
       const email = data.email?.trim() || null;
 
-      // Duplicates
       if (await storage.getUserByUsername(username)) {
         return res.status(400).json({ message: `Usuário "${username}" já existe` });
       }
-      if (email) {
-        if (await storage.getUserByEmail(email)) {
-          return res.status(400).json({ message: `Email "${email}" já está em uso` });
-        }
+      if (email && (await storage.getUserByEmail(email))) {
+        return res.status(400).json({ message: `Email "${email}" já está em uso` });
       }
 
       const passwordPlain = (data.password || "").trim() || "temp123";
@@ -221,70 +218,223 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== CASES ==================== */
 
-  app.get("/api/cases", isAuthenticated, async (req: any, res) => {
+  // LISTAR CASOS (JOIN para matrícula/nome do funcionário)
+  app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
-      const { status, search, limit, orderBy } = req.query;
-      const list = await storage.getCases({ status, search } as any);
-      const sorted =
+      const { status, search, limit, orderBy } = req.query as any;
+
+      const params: any[] = [];
+      let where = "WHERE 1=1";
+
+      if (status) {
+        params.push(status);
+        where += ` AND c.status = $${params.length}`;
+      }
+
+      if (search) {
+        const like = `%${String(search).toLowerCase()}%`;
+        params.push(like, like, like, like);
+        where += ` AND (LOWER(c.client_name)   LIKE $${params.length - 3}
+                    OR LOWER(c.process_number) LIKE $${params.length - 2}
+                    OR LOWER(e.name)           LIKE $${params.length - 1}
+                    OR LOWER(e.registration)   LIKE $${params.length})`;
+      }
+
+      const ord =
         orderBy === "recent"
-          ? [...list].sort(
-              (a: any, b: any) =>
-                new Date(b.updatedAt || b.createdAt || 0).getTime() -
-                new Date(a.updatedAt || a.createdAt || 0).getTime()
-            )
-          : list;
-      res.json(limit ? sorted.slice(0, Number(limit)) : sorted);
-    } catch (err) {
-      console.error("Error fetching cases:", err);
+          ? "ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC"
+          : "ORDER BY c.created_at DESC";
+
+      const lim = Number(limit) > 0 ? `LIMIT ${Number(limit)}` : "LIMIT 500";
+
+      const q = `
+        SELECT
+          c.*,
+          e.id           AS employee_id,
+          e.name         AS employee_name,
+          e.registration AS employee_registration
+        FROM public.cases c
+        LEFT JOIN public.employees e ON e.id = c.employee_id
+        ${where}
+        ${ord}
+        ${lim}
+      `;
+
+      const { rows } = await pool.query(q, params);
+
+      const mapped = rows.map((r: any) => ({
+        id: r.id,
+        clientName: r.client_name,
+        processType: r.process_type,
+        processNumber: r.process_number,
+        description: r.description,
+        dueDate: r.due_date,
+        hearingDate: r.hearing_date,
+        startDate: r.start_date,
+        observacoes: r.observacoes,
+        companyId: r.company_id,
+        status: r.status,
+        archived: r.archived,
+        deleted: r.deleted,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        employeeId: r.employee_id,
+        employeeName: r.employee_name,
+        employeeRegistration: r.employee_registration,
+        // compat com UI
+        matricula: r.employee_registration,
+        registration: r.employee_registration,
+      }));
+
+      res.json(mapped);
+    } catch (error) {
+      console.error("Error fetching cases:", error);
       res.status(500).json({ message: "Failed to fetch cases" });
     }
   });
 
+  // DETALHE DO CASO (JOIN para matrícula)
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
-      const c = await storage.getCaseById(req.params.id);
-      if (!c) return res.status(404).json({ message: "Case not found" });
-      res.json(c);
-    } catch (err) {
-      console.error("Error fetching case:", err);
+      const { id } = req.params;
+      const q = `
+        SELECT
+          c.*,
+          e.id           AS employee_id,
+          e.name         AS employee_name,
+          e.registration AS employee_registration
+        FROM public.cases c
+        LEFT JOIN public.employees e ON e.id = c.employee_id
+        WHERE c.id = $1
+        LIMIT 1
+      `;
+      const { rows } = await pool.query(q, [id]);
+      if (!rows.length) return res.status(404).json({ message: "Case not found" });
+
+      const r = rows[0];
+      const caseData = {
+        id: r.id,
+        clientName: r.client_name,
+        processType: r.process_type,
+        processNumber: r.process_number,
+        description: r.description,
+        dueDate: r.due_date,
+        hearingDate: r.hearing_date,
+        startDate: r.start_date,
+        observacoes: r.observacoes,
+        companyId: r.company_id,
+        status: r.status,
+        archived: r.archived,
+        deleted: r.deleted,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        employeeId: r.employee_id,
+        employeeName: r.employee_name,
+        employeeRegistration: r.employee_registration,
+        matricula: r.employee_registration,
+        registration: r.employee_registration,
+      };
+
+      res.json(caseData);
+    } catch (error) {
+      console.error("Error fetching case:", error);
       res.status(500).json({ message: "Failed to fetch case" });
     }
   });
 
+  // CRIAR CASO (aceita `matricula` e resolve para `employeeId`)
   app.post("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.role !== "admin")
+      if (req.user?.role !== "admin") {
         return res.status(403).json({ message: "Insufficient permissions" });
+      }
 
-      const withDates = {
-        ...req.body,
-        dueDate: parseBRDate(req.body?.dueDate) ?? req.body?.dueDate ?? null,
-        hearingDate: parseBRDate(req.body?.hearingDate) ?? req.body?.hearingDate ?? null,
-        startDate: parseBRDate(req.body?.startDate) ?? req.body?.startDate ?? null,
+      const body = req.body || {};
+      let employeeId = body.employeeId;
+
+      const matricula = body.matricula || body.registration;
+      if (!employeeId && matricula) {
+        const rs = await pool.query(
+          `SELECT id FROM public.employees WHERE registration = $1 LIMIT 1`,
+          [String(matricula)]
+        );
+        if (rs.rowCount) {
+          employeeId = rs.rows[0].id;
+        }
+      }
+
+      const toDate = (v: any) => (v ? new Date(v) : null);
+
+      const data = {
+        ...body,
+        employeeId,
+        dueDate: toDate(body.dueDate || body.prazoEntrega),
+        hearingDate: toDate(body.hearingDate || body.dataAudiencia),
+        startDate: toDate(body.startDate || body.dataInicio),
         createdById: req.user.id,
       };
 
-      const validated = insertCaseSchema.parse(withDates);
-      const created = await storage.createCase(validated);
+      const validated = insertCaseSchema.parse(data);
+      const newCase = await storage.createCase(validated);
 
       await logActivity(
         req,
         "CREATE_CASE",
         "CASE",
-        created.id,
-        `Criou processo ${created.processNumber} - Cliente: ${created.clientName}`
+        newCase.id,
+        `Criou processo ${newCase.processNumber} - Cliente: ${newCase.clientName}`
       );
 
-      res.status(201).json(created);
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: err.errors });
+      res.status(201).json(newCase);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
-      console.error("❌ Error creating case:", err);
+      console.error("❌ Error creating case:", error);
       res.status(500).json({ message: "Failed to create case" });
     }
   });
 
+  // ATUALIZAR CASO (status/dataEntrega)
+  app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = req.params.id;
+      const { status } = req.body;
+      if (!status || !["novo", "pendente", "concluido", "atrasado"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      const c = await storage.getCaseById(id);
+      if (!c) return res.status(404).json({ message: "Case not found" });
+
+      let completedDate = c.completedDate;
+      let dataEntrega = c.dataEntrega;
+      if (status === "concluido" && c.status !== "concluido") {
+        completedDate = new Date();
+        dataEntrega = new Date();
+      } else if (status !== "concluido" && c.status === "concluido") {
+        completedDate = null;
+        dataEntrega = null;
+      }
+
+      const updated = await storage.updateCaseStatus(id, status, completedDate, dataEntrega);
+
+      await logActivity(
+        req,
+        "UPDATE_STATUS",
+        "CASE",
+        id,
+        `Alterou status do processo ${c.processNumber} de "${c.status}" para "${status}"`,
+        { previousStatus: c.status, newStatus: status }
+      );
+
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating case status:", err);
+      res.status(500).json({ message: "Failed to update case status" });
+    }
+  });
+
+  // EDITAR CASO (dados gerais)
   app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -335,44 +485,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
-    try {
-      const id = req.params.id;
-      const { status } = req.body;
-      if (!status || !["novo", "pendente", "concluido", "atrasado"].includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
-      }
-      const c = await storage.getCaseById(id);
-      if (!c) return res.status(404).json({ message: "Case not found" });
-
-      let completedDate = c.completedDate;
-      let dataEntrega = c.dataEntrega;
-      if (status === "concluido" && c.status !== "concluido") {
-        completedDate = new Date();
-        dataEntrega = new Date();
-      } else if (status !== "concluido" && c.status === "concluido") {
-        completedDate = null;
-        dataEntrega = null;
-      }
-
-      const updated = await storage.updateCaseStatus(id, status, completedDate, dataEntrega);
-
-      await logActivity(
-        req,
-        "UPDATE_STATUS",
-        "CASE",
-        id,
-        `Alterou status do processo ${c.processNumber} de "${c.status}" para "${status}"`,
-        { previousStatus: c.status, newStatus: status }
-      );
-
-      res.json(updated);
-    } catch (err) {
-      console.error("Error updating case status:", err);
-      res.status(500).json({ message: "Failed to update case status" });
-    }
-  });
-
+  // REMOVER CASO
   app.delete("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -621,7 +734,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Export XLSX (dynamic import)
+  // Export XLSX
   app.get("/api/employees/export", isAuthenticated, async (_req, res) => {
     try {
       const mod: any = await import("xlsx");
@@ -821,6 +934,7 @@ export function registerRoutes(app: Express): void {
       }
 
       // Activity logs (exemplos)
+      const adminId = (await storage.getUserByUsername("admin"))?.id ?? null;
       for (const c of casesToInsert.slice(0, 6)) {
         await pool.query(
           `insert into public.activity_log
@@ -828,7 +942,7 @@ export function registerRoutes(app: Express): void {
           values ($1,$2,$3,$4,$5,$6, now())`,
           [
             crypto.randomUUID(),
-            (await storage.getUserByUsername("admin"))?.id ?? null,
+            adminId,
             "CREATE_CASE",
             "CASE",
             c.id,
@@ -845,7 +959,7 @@ export function registerRoutes(app: Express): void {
         on conflict (user_id, layout_key) do update set layout = excluded.layout, updated_at = now()`,
         [
           crypto.randomUUID(),
-          (await storage.getUserByUsername("admin"))?.id ?? null,
+          adminId,
           JSON.stringify({
             widgets: [
               { id: "w1", type: "kpi", title: "Total Processos", source: "cases.total" },
@@ -873,6 +987,8 @@ export function registerRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error("Unhandled error:", err);
-    res.status(typeof err?.status === "number" ? err.status : 500).json({ message: "Internal server error" });
+    res
+      .status(typeof err?.status === "number" ? err.status : 500)
+      .json({ message: "Internal server error" });
   });
 }
