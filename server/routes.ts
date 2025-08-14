@@ -24,7 +24,7 @@ import { sql, eq } from "drizzle-orm";
 
 // Extend Request type to include user
 interface AuthenticatedRequest extends Request {
-  user?: User;
+  user?: any;
 }
 
 // Authentication middleware
@@ -468,16 +468,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const [newEmployee] = await db.insert(employees).values({
-        matricula: employeeData.matricula,
+        empresa: employeeData.empresa || '2',
         nome: employeeData.nome,
+        matricula: employeeData.matricula,
         rg: employeeData.rg || null,
-        departamento: employeeData.departamento || null,
+        pis: employeeData.pis || null,
+        dataAdmissao: employeeData.dataAdmissao || null,
+        dataDemissao: employeeData.dataDemissao || null,
+        salario: employeeData.salario || null,
         cargo: employeeData.cargo || null,
-        dataAdmissao: employeeData.dataAdmissao ? new Date(employeeData.dataAdmissao) : null,
-        status: employeeData.status || 'ativo',
-        email: employeeData.email || null,
-        telefone: employeeData.telefone || null,
-        endereco: employeeData.endereco || null,
+        centroCusto: employeeData.centroCusto || null,
+        departamento: employeeData.departamento || null
       }).returning();
 
       await logActivity(
