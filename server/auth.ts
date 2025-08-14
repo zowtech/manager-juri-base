@@ -1,195 +1,97 @@
+// server/auth.ts
+import type { Express } from "express";
+import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
-import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
-import { storage } from "./storage";
-import { User } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import crypto from "node:crypto";
+import { promisify } from "node:util";
+import { storage } from "./storage"; // sua camada já integrada ao Postgres
 
-declare global {
-  namespace Express {
-    interface User {
-      id: string;
-      username: string | null;
-      email: string | null;
-      role: string;
-    }
+const scryptAsync = promisify(crypto.scrypt);
+
+// Aceita "salt:hash" (novo) e "hash.salt" (legado)
+async function verifyPassword(supplied: string, stored: string): Promise<boolean> {
+  if (!stored || typeof stored !== "string") return false;
+
+  // novo: SALT:HASH (ambos hex)
+  if (stored.includes(":")) {
+    const [saltHex, hashHex] = stored.split(":");
+    const derived = (await scryptAsync(supplied, Buffer.from(saltHex, "hex"), 64)) as Buffer;
+    return (
+      derived.length === Buffer.from(hashHex, "hex").length &&
+      crypto.timingSafeEqual(derived, Buffer.from(hashHex, "hex"))
+    );
   }
-}
 
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-
-async function comparePasswords(supplied: string, stored: string) {
-  if (!stored || !stored.includes('.')) {
-    return false;
+  // legado: HASH.SALT (salt tratado como string)
+  if (stored.includes(".")) {
+    const [hashOld, saltOld] = stored.split(".");
+    const derived = (await scryptAsync(supplied, saltOld, 64)) as Buffer;
+    return (
+      derived.length === Buffer.from(hashOld, "hex").length &&
+      crypto.timingSafeEqual(derived, Buffer.from(hashOld, "hex"))
+    );
   }
-  const [hashed, salt] = stored.split(".");
-  if (!hashed || !salt) {
-    return false;
-  }
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+
+  return false;
 }
 
 export function setupAuth(app: Express) {
-  const MemoryStore = createMemoryStore(session);
-  const sessionStore = new MemoryStore({
-    checkPeriod: 86400000,
-  });
+  const SESSION_SECRET = process.env.SESSION_SECRET || "change-me-in-prod";
 
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "your-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    store: sessionStore,
-    cookie: {
-      httpOnly: true,
-      secure: false, // Set to true in production with HTTPS
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
-    },
-  };
+  app.use(
+    session({
+      secret: SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+      },
+    })
+  );
 
-  app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log(`🔐 LOGIN ATTEMPT: ${username}`);
         const user = await storage.getUserByUsername(username);
-        console.log(`👤 USER FOUND:`, user ? `${user.username} (${user.id})` : 'null');
-        
-        if (!user) {
-          console.log(`❌ USER NOT FOUND: ${username}`);
-          return done(null, false);
-        }
-        
-        // Check password
-        if (!user.password) {
-          console.log(`❌ NO PASSWORD SET FOR USER: ${username}`);
-          return done(null, false);
-        }
-        
-        const passwordMatch = await comparePasswords(password, user.password);
-        console.log(`🔑 PASSWORD CHECK: supplied="${password}" stored="${user.password.substring(0, 10)}..." match=${passwordMatch}`);
-        
-        if (!passwordMatch) {
-          console.log(`❌ INVALID PASSWORD for ${username}`);
-          return done(null, false);
-        }
-        
-        console.log(`✅ LOGIN SUCCESS: ${username}`);
-        return done(null, {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role
-        });
-      } catch (error) {
-        console.error(`🚨 LOGIN ERROR:`, error);
-        return done(error);
+        if (!user) return done(null, false);
+
+        const ok = await verifyPassword(password, user.password);
+        if (!ok) return done(null, false);
+
+        return done(null, { id: user.id, username: user.username, role: user.role });
+      } catch (err) {
+        return done(err);
       }
-    }),
+    })
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user: any, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
+      if (!user) return done(null, false);
+      return done(null, { id: user.id, username: user.username, role: user.role });
+    } catch (err) {
+      return done(err);
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
-    try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username já existe" });
-      }
-
-      const existingEmail = await storage.getUserByEmail(req.body.email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email já existe" });
-      }
-
-      const user = await storage.createUser({
-        ...req.body,
-        password: await hashPassword(req.body.password),
-      });
-
-      req.login(user, (err: any) => {
-        if (err) return next(err);
-        res.status(201).json(user);
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
+  // Rotas básicas de auth
+  app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    res.json({ ok: true });
   });
 
-  app.post("/api/login", (req, res, next) => {
-    console.log('🔐 LOGIN REQUEST BODY:', req.body);
-    passport.authenticate("local", (err: any, user: any, info: any) => {
-      console.log('🔐 PASSPORT RESULT:', { err, user: user ? user.username : null, info });
-      if (err) {
-        console.error('🚨 PASSPORT ERROR:', err);
-        return next(err);
-      }
-      if (!user) {
-        console.log('❌ AUTHENTICATION FAILED');
-        return res.status(401).json({ message: "Credenciais inválidas" });
-      }
-      req.logIn(user, (err: any) => {
-        if (err) {
-          console.error('🚨 LOGIN ERROR:', err);
-          return next(err);
-        }
-        console.log('✅ LOGIN SUCCESS:', user.username);
-        res.status(200).json(user);
-      });
-    })(req, res, next);
-  });
-
-  app.post("/api/logout", async (req: any, res, next) => {
-    req.logout((err: any) => {
+  app.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
       if (err) return next(err);
-      req.session.destroy((destroyErr: any) => {
-        if (destroyErr) {
-          console.error("Session destruction error:", destroyErr);
-        }
-        res.clearCookie('connect.sid');
-        res.sendStatus(200);
-      });
+      res.json({ ok: true });
     });
   });
-
-  app.get("/api/logout", (req, res, next) => {
-    req.logout((err: any) => {
-      if (err) return next(err);
-      req.session.destroy((destroyErr: any) => {
-        if (destroyErr) {
-          console.error("Session destruction error:", destroyErr);
-        }
-        res.clearCookie('connect.sid');
-        res.redirect("/auth");
-      });
-    });
-  });
-
-  // Remove duplicate user route - it's handled in routes.ts
 }
-
-export { hashPassword };

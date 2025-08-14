@@ -11,10 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
-/* =========================
-   DRIZZLE TABLES (snake_case no banco,
-   propriedades camelCase no código)
-   ========================= */
+/* ========== DRIZZLE TABLES ========== */
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -44,7 +41,7 @@ export const employees = pgTable("employees", {
   id: text("id").primaryKey(),
   companyId: integer("company_id").notNull().default(1),
   name: text("name").notNull(),
-  registration: text("registration").notNull(), // matrícula
+  registration: text("registration").notNull(),
   rg: text("rg"),
   pis: text("pis"),
   admissionDate: date("admission_date"),
@@ -94,30 +91,18 @@ export const dashboardLayouts = pgTable("dashboard_layouts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-/* =========================
-   TIPOS (úteis se você precisar)
-   ========================= */
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-export type Employee = typeof employees.$inferSelect;
-export type Case = typeof cases.$inferSelect;
+/* ========== ZOD SCHEMAS ========== */
 
-/* =========================
-   ZOD SCHEMAS (exports esperados pelo routes.ts)
-   ========================= */
-
-// Criação de usuário (tela Usuários)
 export const insertUserSchema = z.object({
   email: z.string().email().optional().nullable(),
-  username: z.string().min(3, "username deve ter ao menos 3 caracteres"),
-  password: z.string().min(1, "password obrigatório").optional().nullable(),
+  username: z.string().min(3),
+  password: z.string().min(1).optional().nullable(),
   firstName: z.string().optional().nullable(),
   lastName: z.string().optional().nullable(),
   role: z.string().optional().nullable(),
   permissions: z.union([z.string(), z.null()]).optional(),
 });
 
-// Atualização de usuário
 export const updateUserSchema = z.object({
   email: z.string().email().optional().nullable(),
   username: z.string().min(3).optional(),
@@ -128,9 +113,6 @@ export const updateUserSchema = z.object({
   permissions: z.union([z.string(), z.null()]).optional(),
 });
 
-// Criação de caso/processo
-// Deixei permissivo pra não travar seu fluxo atual;
-// aceitamos string ou Date para datas e passamos adiante.
 export const insertCaseSchema = z
   .object({
     clientName: z.string().optional().nullable(),
@@ -142,10 +124,9 @@ export const insertCaseSchema = z
     hearingDate: z.union([z.string(), z.date()]).optional().nullable(),
     startDate: z.union([z.string(), z.date()]).optional().nullable(),
     observacoes: z.string().optional().nullable(),
-
     employeeId: z.string().optional().nullable(),
     assignedToId: z.string().optional().nullable(),
     companyId: z.number().int().optional().nullable(),
     createdById: z.string().optional().nullable(),
   })
-  .passthrough(); // permite campos extras sem quebrar
+  .passthrough();

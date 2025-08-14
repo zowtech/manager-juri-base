@@ -1,32 +1,33 @@
 // server/db.ts
-import { Pool } from "pg";
+import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "../shared/schema"; // ajuste o caminho se seu schema estiver noutro lugar
 
-const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) throw new Error("DATABASE_URL is not set");
+const { Pool } = pg;
+
+const DATABASE_URL = process.env.DATABASE_URL!;
+if (!DATABASE_URL) {
+  // eslint-disable-next-line no-console
+  console.error("❌ DATABASE_URL não definido");
+  process.exit(1);
+}
 
 export const pool = new Pool({
-  connectionString: dbUrl,
+  connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 1, // recomendado para o Transaction Pooler do Supabase (pgbouncer)
+  max: 1, // com pgbouncer
 });
 
-// fixar o schema para evitar sumiços por search_path diferente
-pool.on("connect", (client) => {
-  client.query("set search_path to public");
-});
+export const db = drizzle(pool);
 
-export const db = drizzle(pool, { schema });
-
-// log seguro (sem senha)
-try {
-  const u = new URL(dbUrl);
-  console.log("[DB] Using:", `${u.protocol}//${u.hostname}:${u.port}${u.pathname}`);
-} catch {}
-
-// smoke test (não bloqueante)
-pool
-  .query("select now() as now")
-  .then((r) => console.log("🎉 Database ready:", r.rows[0].now))
-  .catch((e) => console.error("❌ Database test failed:", e.message));
+(async () => {
+  try {
+    const c = await pool.connect();
+    await c.query('set search_path to "public";');
+    c.release();
+    // eslint-disable-next-line no-console
+    console.log(`[DB] Using: postgresql://${new URL(DATABASE_URL).hostname}:${new URL(DATABASE_URL).port}/postgres`);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("❌ DB init error:", e);
+  }
+})();

@@ -3,49 +3,46 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { db } from "./db";
-import { users } from "@shared/schema"; // troque para ../shared/schema se não tiver alias
+import { users } from "@shared/schema"; // troque para "../shared/schema" se não usar alias
 import { eq } from "drizzle-orm";
+import { insertUserSchema, updateUserSchema } from "@shared/schema";
 
-const scrypt = promisify(crypto.scrypt);
+const scryptAsync = promisify(crypto.scrypt);
 const router = Router();
 
-/** Lista usuários */
+async function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16);
+  const key = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt.toString("hex")}:${key.toString("hex")}`;
+}
+
+// GET /api/users
 router.get("/", async (_req, res) => {
   try {
     const rows = await db.select().from(users).orderBy(users.createdAt);
-    res.json(rows);
-  } catch (err: any) {
+    res.json(rows.map((u) => ({ ...u, password: null })));
+  } catch (err) {
     console.error("[USERS/LIST] DB error:", err);
     res.status(500).json({ message: "DB error" });
   }
 });
 
-/** Cria usuário (hasheia a senha com scrypt) */
+// POST /api/users
 router.post("/", async (req, res) => {
   try {
-    const { email, username, password, firstName, lastName, role, permissions } = req.body || {};
-    if (!email || !username || !password) {
-      return res.status(400).json({ message: "email, username e password são obrigatórios" });
-    }
-
-    // unique username
-    const exists = await db.select({ id: users.id }).from(users).where(eq(users.username, username)).limit(1);
-    if (exists.length) return res.status(409).json({ message: "username já existe" });
-
-    // scrypt: salt:hash (hex)
-    const salt = crypto.randomBytes(16);
-    const key = (await scrypt(password, salt, 64)) as Buffer;
-    const passwordHashed = `${salt.toString("hex")}:${key.toString("hex")}`;
+    const data = insertUserSchema.parse(req.body);
+    const password = data.password && data.password.trim() !== "" ? data.password : "temp123";
+    const hashed = await hashPassword(password);
 
     await db.insert(users).values({
       id: crypto.randomUUID(),
-      email,
-      username,
-      password: passwordHashed,
-      firstName: firstName || null,
-      lastName: lastName || null,
-      role: role || "user",
-      permissions: permissions || null,
+      email: data.email || null,
+      username: data.username,
+      password: hashed,
+      firstName: data.firstName || null,
+      lastName: data.lastName || null,
+      role: data.role || "user",
+      permissions: data.permissions || null,
     });
 
     res.status(201).json({ ok: true });
@@ -55,24 +52,29 @@ router.post("/", async (req, res) => {
   }
 });
 
-/** Atualiza usuário (troca senha se enviada) */
+// PATCH /api/users/:id
 router.patch("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, username, firstName, lastName, role, permissions, password } = req.body || {};
+    const data = updateUserSchema.parse(req.body);
 
-    const update: any = { email, username, firstName, lastName, role, permissions };
-    Object.keys(update).forEach((k) => update[k] === undefined && delete update[k]);
+    const patch: any = {
+      email: data.email ?? undefined,
+      username: data.username ?? undefined,
+      firstName: data.firstName ?? undefined,
+      lastName: data.lastName ?? undefined,
+      role: data.role ?? undefined,
+      permissions: data.permissions ?? undefined,
+    };
+    Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
 
-    if (password) {
-      const salt = crypto.randomBytes(16);
-      const key = (await scrypt(password, salt, 64)) as Buffer;
-      update.password = `${salt.toString("hex")}:${key.toString("hex")}`;
+    if (data.password && data.password.trim() !== "") {
+      patch.password = await hashPassword(data.password);
     }
 
-    await db.update(users).set(update).where(eq(users.id, id));
+    await db.update(users).set(patch).where(eq(users.id, id));
     res.json({ ok: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[USERS/UPDATE] DB error:", err);
     res.status(500).json({ message: "DB error" });
   }

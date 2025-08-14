@@ -1,41 +1,27 @@
-// server/routes.ts
+// server/routes.ts  — versão completa/estendida
 import type { Express, Request, Response, NextFunction } from "express";
 import * as fs from "fs";
 import multer from "multer";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
+import { z } from "zod";
 import { sql, eq } from "drizzle-orm";
 
 import { setupAuth } from "./auth";
-import { storage } from "./storage"; // sua camada DB-backed
+import { storage } from "./storage";
 import { db, pool } from "./db";
+import { parseBRDate, parseBRMoney } from "./utils/normalize";
 
-// Schemas Drizzle (snake_case no banco, camelCase no código)
 import {
   users as usersTable,
   employees as employeesTable,
-} from "@shared/schema";
-
-// Se você tiver zod schemas no shared, mantenha estes imports
-import { z } from "zod";
-import {
-  insertCaseSchema,
   insertUserSchema,
   updateUserSchema,
-  // User // (se precisar do tipo)
+  insertCaseSchema,
 } from "@shared/schema";
 
-// Utilidades para data/moeda (se criadas em server/utils/normalize.ts)
-import { parseBRDate, parseBRMoney } from "./utils/normalize";
-
-// ===== helpers =====
 const scryptAsync = promisify(crypto.scrypt);
-
-async function hashPassword(password: string) {
-  const salt = crypto.randomBytes(16);
-  const key = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${salt.toString("hex")}:${key.toString("hex")}`;
-}
+const upload = multer({ dest: "uploads/" });
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -46,7 +32,6 @@ function isAuthenticated(req: any, res: Response, next: NextFunction) {
   return res.status(401).json({ message: "Unauthorized" });
 }
 
-// Log de atividade (usa sua camada storage)
 const logActivity = async (
   req: any,
   action: string,
@@ -75,19 +60,14 @@ const logActivity = async (
   }
 };
 
-// =====================================================
-// ================ REGISTER ROUTES ====================
-// =====================================================
 export function registerRoutes(app: Express): void {
-  // TEST
-  app.get("/api/test", (_req, res) => {
-    res.json({ message: "API routing is working", timestamp: new Date().toISOString() });
-  });
+  /** sanity check */
+  app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
-  // AUTH
+  /** auth + sessão */
   setupAuth(app);
 
-  // ------- Current user -------
+  /** usuário logado */
   app.get("/api/user", async (req: any, res) => {
     try {
       if (!req.isAuthenticated?.() || !req.user?.id) {
@@ -102,21 +82,21 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ================= CASES =================
-  // (mantidos como estavam, delegando ao storage)
-  app.get("/api/cases", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  /* ==================== CASES ==================== */
+
+  app.get("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
-      const { status, search, limit, orderBy } = req.query as any;
-      const cases = await storage.getCases({ status, search });
-      let data = cases;
-      if (orderBy === "recent") {
-        data = cases.sort((a: any, b: any) => {
-          const da = new Date(a.updatedAt || a.createdAt || 0).getTime();
-          const dbb = new Date(b.updatedAt || b.createdAt || 0).getTime();
-          return dbb - da;
-        });
-      }
-      res.json(limit ? data.slice(0, Number(limit)) : data);
+      const { status, search, limit, orderBy } = req.query;
+      const list = await storage.getCases({ status, search } as any);
+      const sorted =
+        orderBy === "recent"
+          ? [...list].sort(
+              (a: any, b: any) =>
+                new Date(b.updatedAt || b.createdAt || 0).getTime() -
+                new Date(a.updatedAt || a.createdAt || 0).getTime()
+            )
+          : list;
+      res.json(limit ? sorted.slice(0, Number(limit)) : sorted);
     } catch (err) {
       console.error("Error fetching cases:", err);
       res.status(500).json({ message: "Failed to fetch cases" });
@@ -139,11 +119,10 @@ export function registerRoutes(app: Express): void {
       if (req.user?.role !== "admin")
         return res.status(403).json({ message: "Insufficient permissions" });
 
-      // normaliza datas se vierem como dd/mm/aaaa
       const withDates = {
         ...req.body,
         dueDate: parseBRDate(req.body?.dueDate) ?? req.body?.dueDate ?? null,
-        dataAudiencia: parseBRDate(req.body?.dataAudiencia) ?? req.body?.dataAudiencia ?? null,
+        hearingDate: parseBRDate(req.body?.hearingDate) ?? req.body?.hearingDate ?? null,
         startDate: parseBRDate(req.body?.startDate) ?? req.body?.startDate ?? null,
         createdById: req.user.id,
       };
@@ -156,8 +135,7 @@ export function registerRoutes(app: Express): void {
         "CREATE_CASE",
         "CASE",
         created.id,
-        `Criou processo ${created.processNumber} - Cliente: ${created.clientName}`,
-        { processNumber: created.processNumber, clientName: created.clientName, status: created.status }
+        `Criou processo ${created.processNumber} - Cliente: ${created.clientName}`
       );
 
       res.status(201).json(created);
@@ -192,9 +170,9 @@ export function registerRoutes(app: Express): void {
         observacoes: req.body.observacoes,
         employeeId: req.body.employeeId,
         assignedToId: req.body.assignedToId,
-      };
-      Object.keys(patch).forEach((k) => patch[k as keyof typeof patch] === undefined && delete (patch as any)[k]);
+      } as any;
 
+      Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
       const updated = await storage.updateCase(id, patch);
 
       await logActivity(
@@ -216,6 +194,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // ⇩⇩ ROTA DE STATUS (faltava)
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -269,7 +248,8 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ================= DASHBOARD =================
+  /* ==================== DASHBOARD ==================== */
+
   app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
     try {
       const stats = await storage.getCaseStats();
@@ -280,6 +260,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // ⇩⇩ endpoints de layout (faltavam)
   app.get("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
     try {
       const layout = await storage.getDashboardLayout(req.user!.id);
@@ -304,7 +285,8 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ================= ACTIVITY LOG =================
+  /* ==================== ACTIVITY LOG ==================== */
+
   app.get("/api/activity-logs", isAuthenticated, async (req, res) => {
     try {
       const { action, date, search, limit, processOnly } = req.query as any;
@@ -322,11 +304,11 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ================= EMPLOYEES =================
-  // GET (busca por nome/matrícula). Retorna **tanto** snake_case (inglês) quanto aliases PT.
+  /* ==================== EMPLOYEES ==================== */
+
   app.get("/api/employees", isAuthenticated, async (req, res) => {
     try {
-      const term = (String((req.query as any).search || "") || "").toLowerCase();
+      const term = String((req.query as any).search || "").toLowerCase();
       let rows;
       if (term) {
         const like = `%${term}%`;
@@ -341,7 +323,6 @@ export function registerRoutes(app: Express): void {
         rows = await db.select().from(employeesTable).orderBy(employeesTable.name);
       }
 
-      // adiciona aliases PT para compatibilidade com o front
       const mapped = rows.map((e: any) => ({
         ...e,
         empresa: e.companyId,
@@ -361,22 +342,20 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // CREATE
   app.post("/api/employees", isAuthenticated, async (req: any, res) => {
     try {
-      // aceita tanto camelCase quanto PT no body
-      const body = req.body || {};
-      const companyId = body.companyId ?? body.empresa ?? 1;
-      const name = body.name ?? body.nome;
-      const registration = body.registration ?? body.matricula;
-      const rg = body.rg ?? null;
-      const pis = body.pis ?? null;
-      const admissionDate = parseBRDate(body.admissionDate ?? body.dataAdmissao);
-      const terminationDate = parseBRDate(body.terminationDate ?? body.dataDemissao);
-      const salary = parseBRMoney(body.salary ?? body.salario);
-      const role = body.role ?? body.cargo ?? null;
-      const department = body.department ?? body.departamento ?? null;
-      const costCenter = body.costCenter ?? body.centroCusto ?? null;
+      const b = req.body || {};
+      const companyId = b.companyId ?? b.empresa ?? 1;
+      const name = b.name ?? b.nome;
+      const registration = b.registration ?? b.matricula;
+      const rg = b.rg ?? null;
+      const pis = b.pis ?? null;
+      const admissionDate = parseBRDate(b.admissionDate ?? b.dataAdmissao);
+      const terminationDate = parseBRDate(b.terminationDate ?? b.dataDemissao);
+      const salary = parseBRMoney(b.salary ?? b.salario);
+      const role = b.role ?? b.cargo ?? null;
+      const department = b.department ?? b.departamento ?? null;
+      const costCenter = b.costCenter ?? b.centroCusto ?? null;
 
       if (!name || !registration) {
         return res.status(400).json({ message: "Nome e matrícula são obrigatórios" });
@@ -387,7 +366,6 @@ export function registerRoutes(app: Express): void {
         .from(employeesTable)
         .where(eq(employeesTable.registration, registration))
         .limit(1);
-
       if (dup.length) return res.status(400).json({ message: "Matrícula já existe" });
 
       const [created] = await db
@@ -418,7 +396,6 @@ export function registerRoutes(app: Express): void {
 
       res.status(201).json({
         ...created,
-        // aliases PT
         empresa: created.companyId,
         nome: created.name,
         matricula: created.registration,
@@ -428,32 +405,31 @@ export function registerRoutes(app: Express): void {
         cargo: created.role,
         departamento: created.department,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error("[EMPLOYEES/CREATE] DB error:", err);
       res.status(500).json({ message: "Failed to create employee" });
     }
   });
 
-  // UPDATE (PATCH)
   app.patch("/api/employees/:id", isAuthenticated, async (req, res) => {
     try {
       const id = req.params.id;
       const cur = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
       if (!cur.length) return res.status(404).json({ message: "Funcionário não encontrado" });
 
-      const body = req.body || {};
+      const b = req.body || {};
       const patch: any = {
-        companyId: body.companyId ?? body.empresa,
-        name: body.name ?? body.nome,
-        registration: body.registration ?? body.matricula,
-        rg: body.rg,
-        pis: body.pis,
-        admissionDate: parseBRDate(body.admissionDate ?? body.dataAdmissao) ?? body.admissionDate,
-        terminationDate: parseBRDate(body.terminationDate ?? body.dataDemissao) ?? body.terminationDate,
-        salary: parseBRMoney(body.salary ?? body.salario) ?? body.salary,
-        role: body.role ?? body.cargo,
-        department: body.department ?? body.departamento,
-        costCenter: body.costCenter ?? body.centroCusto,
+        companyId: b.companyId ?? b.empresa,
+        name: b.name ?? b.nome,
+        registration: b.registration ?? b.matricula,
+        rg: b.rg,
+        pis: b.pis,
+        admissionDate: parseBRDate(b.admissionDate ?? b.dataAdmissao) ?? b.admissionDate,
+        terminationDate: parseBRDate(b.terminationDate ?? b.dataDemissao) ?? b.terminationDate,
+        salary: parseBRMoney(b.salary ?? b.salario) ?? b.salary,
+        role: b.role ?? b.cargo,
+        department: b.department ?? b.departamento,
+        costCenter: b.costCenter ?? b.centroCusto,
       };
       Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
 
@@ -478,7 +454,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // DELETE (hard delete; remova se preferir soft delete)
   app.delete("/api/employees/:id", isAuthenticated, async (req, res) => {
     try {
       const id = req.params.id;
@@ -495,43 +470,15 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // IMPORT/EXPORT (mantidos; export usa XLSX se estiver no package.json)
-  const upload = multer({ dest: "uploads/" });
-  app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
+  // ⇩⇩ export (xlsx) — precisa do pacote "xlsx" instalado
+  app.get("/api/employees/export", isAuthenticated, async (_req, res) => {
     try {
-      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
-      if (!req.file) return res.status(400).json({ success: false, error: "Nenhum arquivo enviado" });
-
-      const { importEmployeesFromExcel } = await import("./importEmployees");
-      const result = await importEmployeesFromExcel(req.file.path);
-      fs.unlinkSync(req.file.path);
-
-      await logActivity(req, "IMPORT_EMPLOYEES", "EMPLOYEE", "bulk", `Importou ${result.imported} funcionários do Excel`);
-      res.json(result);
-    } catch (err) {
-      console.error("Error importing employees:", err);
-      res.status(500).json({ success: false, error: "Failed to import employees" });
-    }
-  });
-
-  app.get("/api/employees/export", isAuthenticated, async (req, res) => {
-    try {
-      // cuidado: requer "xlsx" no package.json
       // @ts-ignore
       const XLSX = require("xlsx");
       const all = await db.select().from(employeesTable).orderBy(employeesTable.name);
 
       const worksheetData = [
-        [
-          "Empresa",
-          "Nome do Funcionário",
-          "Matrícula",
-          "RG",
-          "Data Admissão",
-          "Cargo",
-          "Departamento",
-          "Centro de Custo",
-        ],
+        ["Empresa", "Nome", "Matrícula", "RG", "Data Admissão", "Cargo", "Departamento", "Centro de Custo"],
       ];
       all.forEach((e: any) => {
         worksheetData.push([
@@ -561,21 +508,50 @@ export function registerRoutes(app: Express): void {
       );
       res.send(buffer);
 
-      await logActivity(req, "EXPORT_EMPLOYEES", "EMPLOYEE", "all", `Exportou ${all.length} funcionários`);
+      await logActivity(_req as any, "EXPORT_EMPLOYEES", "EMPLOYEE", "all", `Exportou ${all.length} funcionários`);
     } catch (err) {
       console.error("Error exporting employees:", err);
       res.status(500).json({ message: "Failed to export employees" });
     }
   });
 
-  // ================= USERS (gestão via API) =================
-  // LIST
+  // ⇩⇩ import + link-cases (como você tinha)
+  app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
+      if (!req.file) return res.status(400).json({ success: false, error: "Nenhum arquivo enviado" });
+
+      const { importEmployeesFromExcel } = await import("./importEmployees");
+      const result = await importEmployeesFromExcel(req.file.path);
+      fs.unlinkSync(req.file.path);
+
+      await logActivity(req, "IMPORT_EMPLOYEES", "EMPLOYEE", "bulk", `Importou ${result.imported} funcionários do Excel`);
+      res.json(result);
+    } catch (err) {
+      console.error("Error importing employees:", err);
+      res.status(500).json({ success: false, error: "Failed to import employees" });
+    }
+  });
+
+  app.post("/api/employees/link-cases", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
+      const { linkCasesToEmployees } = await import("./importEmployees");
+      const result = await linkCasesToEmployees();
+      res.json(result);
+    } catch (err) {
+      console.error("Error linking cases:", err);
+      res.status(500).json({ message: "Failed to link cases" });
+    }
+  });
+
+  /* ==================== USERS ==================== */
+
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user?.id);
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-      // snake_case no banco
       const result = await pool.query(`
         select id, email, username, first_name, last_name, role, permissions, created_at, updated_at
         from public.users
@@ -601,74 +577,71 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // CREATE
   app.post("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user?.id);
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-      const userData = insertUserSchema.parse(req.body);
-      // dup checks
-      if (userData.username && (await storage.getUserByUsername(userData.username)))
-        return res.status(400).json({ message: `Usuário "${userData.username}" já existe` });
-      if (userData.email && (await storage.getUserByEmail(userData.email)))
-        return res.status(400).json({ message: `Email "${userData.email}" já está em uso` });
+      const data = insertUserSchema.parse(req.body);
+      const password = data.password && data.password.trim() !== "" ? data.password : "temp123";
 
-      const passwordPlain =
-        userData.password && userData.password.trim() !== "" ? userData.password : "temp123";
-      const hashed = await hashPassword(passwordPlain);
+      const salt = crypto.randomBytes(16);
+      const key = (await scryptAsync(password, salt, 64)) as Buffer;
+      const hashed = `${salt.toString("hex")}:${key.toString("hex")}`;
 
-      const created = await storage.createUser({
-        ...userData,
+      await db.insert(usersTable).values({
+        id: crypto.randomUUID(),
+        email: data.email || null,
+        username: data.username,
         password: hashed,
-        email: userData.email || null,
-        username: userData.username || `user_${Date.now()}`,
-        firstName: userData.firstName || null,
-        lastName: userData.lastName || null,
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
+        role: data.role || "user",
+        permissions: data.permissions || null,
       });
 
-      await logActivity(req, "CREATE_USER", "USER", created.id, `Criou usuário ${created.username}`);
-      res.status(201).json(created);
+      res.status(201).json({ ok: true });
     } catch (err: any) {
       console.error("❌ ERRO COMPLETO AO CRIAR USUÁRIO:", err);
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: "Dados inválidos", errors: err.errors });
-      }
       res.status(500).json({ message: "Falha ao criar usuário" });
     }
   });
 
-  // UPDATE
   app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user?.id);
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-      const userData = updateUserSchema.parse(req.body);
-      const patch: any = { ...userData };
-      if (userData.password && userData.password.trim() !== "") {
-        patch.password = await hashPassword(userData.password);
-      } else {
-        delete patch.password;
+      const data = updateUserSchema.parse(req.body);
+      const patch: any = {
+        email: data.email ?? undefined,
+        username: data.username ?? undefined,
+        firstName: data.firstName ?? undefined,
+        lastName: data.lastName ?? undefined,
+        role: data.role ?? undefined,
+        permissions: data.permissions ?? undefined,
+      };
+      Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
+
+      if (data.password && data.password.trim() !== "") {
+        const salt = crypto.randomBytes(16);
+        const key = (await scryptAsync(data.password, salt, 64)) as Buffer;
+        patch.password = `${salt.toString("hex")}:${key.toString("hex")}`;
       }
 
-      const updated = await storage.updateUser(req.params.id, patch);
-      res.json(updated);
+      await db.update(usersTable).set(patch).where(eq(usersTable.id, req.params.id));
+      res.json({ ok: true });
     } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: "Dados inválidos", errors: err.errors });
-      }
       console.error("Error updating user:", err);
       res.status(500).json({ message: "Failed to update user" });
     }
   });
 
-  // DELETE
   app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user?.id);
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
-      await storage.deleteUser(req.params.id);
+    await db.delete(usersTable).where(eq(usersTable.id, req.params.id));
       res.status(204).send();
     } catch (err) {
       console.error("Error deleting user:", err);
@@ -676,7 +649,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // 404 e error handler para API
+  /* ===== 404 e error handler ===== */
   app.use("/api", (_req, res) => res.status(404).json({ message: "Not found" }));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
