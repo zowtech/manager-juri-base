@@ -10,20 +10,24 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.disable("x-powered-by");
-app.use(compression());
+
+// JSON body
 app.use(express.json({ limit: "2mb" }));
+
+// compressão
+app.use(compression());
 
 // Rotas de API
 registerRoutes(app);
 
-// Static do front (Vite output: dist/public)
+// Static do front (Vite -> dist/public)
 const publicDir = path.resolve(__dirname, "public");
 app.use(express.static(publicDir, { etag: true, maxAge: "1h" }));
 
-// Healthcheck para o Render
+// Healthcheck para Render
 app.get("/health", (_req, res) => res.type("text").send("ok"));
 
-// 🔑 SPA fallback: qualquer rota que NÃO começa com /api retorna index.html
+// SPA fallback: qualquer rota que NÃO comece com /api devolve index.html
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api")) return next();
   res.sendFile(path.join(publicDir, "index.html"));

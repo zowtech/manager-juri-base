@@ -1,4 +1,4 @@
-// server/routes.ts  — versão completa/estendida
+// server/routes.ts
 import type { Express, Request, Response, NextFunction } from "express";
 import * as fs from "fs";
 import multer from "multer";
@@ -194,7 +194,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ⇩⇩ ROTA DE STATUS (faltava)
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -260,7 +259,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ⇩⇩ endpoints de layout (faltavam)
   app.get("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
     try {
       const layout = await storage.getDashboardLayout(req.user!.id);
@@ -304,23 +302,23 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-// Alias para singular: /api/activity-log -> usa o mesmo handler
-app.get("/api/activity-log", isAuthenticated, async (req, res) => {
-  try {
-    const { action, date, search, limit, processOnly } = req.query as any;
-    const logs = await storage.getActivityLogs({
-      action,
-      date,
-      search,
-      limit: limit ? Number(limit) : undefined,
-      processOnly: processOnly === "true",
-    });
-    res.json(logs);
-  } catch (err) {
-    console.error("❌ Erro ao buscar logs de atividade (alias):", err);
-    res.status(500).json({ message: "Failed to fetch activity logs" });
-  }
-});
+  // Alias: alguns fronts chamam /api/activity-log (singular)
+  app.get("/api/activity-log", isAuthenticated, async (req, res) => {
+    try {
+      const { action, date, search, limit, processOnly } = req.query as any;
+      const logs = await storage.getActivityLogs({
+        action,
+        date,
+        search,
+        limit: limit ? Number(limit) : undefined,
+        processOnly: processOnly === "true",
+      });
+      res.json(logs);
+    } catch (err) {
+      console.error("❌ Erro ao buscar logs de atividade (alias):", err);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
 
   /* ==================== EMPLOYEES ==================== */
 
@@ -488,11 +486,12 @@ app.get("/api/activity-log", isAuthenticated, async (req, res) => {
     }
   });
 
-  // ⇩⇩ export (xlsx) — precisa do pacote "xlsx" instalado
+  // Export (xlsx) — usa dynamic import pra funcionar em ESM
   app.get("/api/employees/export", isAuthenticated, async (_req, res) => {
     try {
-      // @ts-ignore
-      const XLSX = require("xlsx");
+      const mod: any = await import("xlsx");
+      const XLSX = mod.default ?? mod;
+
       const all = await db.select().from(employeesTable).orderBy(employeesTable.name);
 
       const worksheetData = [
@@ -533,7 +532,7 @@ app.get("/api/activity-log", isAuthenticated, async (req, res) => {
     }
   });
 
-  // ⇩⇩ import + link-cases (como você tinha)
+  // Import Excel + link-cases
   app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
       if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
@@ -560,110 +559,6 @@ app.get("/api/activity-log", isAuthenticated, async (req, res) => {
     } catch (err) {
       console.error("Error linking cases:", err);
       res.status(500).json({ message: "Failed to link cases" });
-    }
-  });
-
-  /* ==================== USERS ==================== */
-
-  app.get("/api/users", isAuthenticated, async (req: any, res) => {
-    try {
-      const me = await storage.getUser(req.user?.id);
-      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
-
-      const result = await pool.query(`
-        select id, email, username, first_name, last_name, role, permissions, created_at, updated_at
-        from public.users
-        order by created_at desc
-      `);
-
-      const out = result.rows.map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        username: u.username,
-        firstName: u.first_name,
-        lastName: u.last_name,
-        role: u.role,
-        permissions: u.permissions,
-        createdAt: u.created_at,
-        updatedAt: u.updated_at,
-        password: null,
-      }));
-      res.json(out);
-    } catch (err: any) {
-      console.error("[USERS/LIST] DB error:", err);
-      res.status(500).json({ message: "DB error" });
-    }
-  });
-
-  app.post("/api/users", isAuthenticated, async (req: any, res) => {
-    try {
-      const me = await storage.getUser(req.user?.id);
-      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
-
-      const data = insertUserSchema.parse(req.body);
-      const password = data.password && data.password.trim() !== "" ? data.password : "temp123";
-
-      const salt = crypto.randomBytes(16);
-      const key = (await scryptAsync(password, salt, 64)) as Buffer;
-      const hashed = `${salt.toString("hex")}:${key.toString("hex")}`;
-
-      await db.insert(usersTable).values({
-        id: crypto.randomUUID(),
-        email: data.email || null,
-        username: data.username,
-        password: hashed,
-        firstName: data.firstName || null,
-        lastName: data.lastName || null,
-        role: data.role || "user",
-        permissions: data.permissions || null,
-      });
-
-      res.status(201).json({ ok: true });
-    } catch (err: any) {
-      console.error("❌ ERRO COMPLETO AO CRIAR USUÁRIO:", err);
-      res.status(500).json({ message: "Falha ao criar usuário" });
-    }
-  });
-
-  app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const me = await storage.getUser(req.user?.id);
-      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
-
-      const data = updateUserSchema.parse(req.body);
-      const patch: any = {
-        email: data.email ?? undefined,
-        username: data.username ?? undefined,
-        firstName: data.firstName ?? undefined,
-        lastName: data.lastName ?? undefined,
-        role: data.role ?? undefined,
-        permissions: data.permissions ?? undefined,
-      };
-      Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
-
-      if (data.password && data.password.trim() !== "") {
-        const salt = crypto.randomBytes(16);
-        const key = (await scryptAsync(data.password, salt, 64)) as Buffer;
-        patch.password = `${salt.toString("hex")}:${key.toString("hex")}`;
-      }
-
-      await db.update(usersTable).set(patch).where(eq(usersTable.id, req.params.id));
-      res.json({ ok: true });
-    } catch (err: any) {
-      console.error("Error updating user:", err);
-      res.status(500).json({ message: "Failed to update user" });
-    }
-  });
-
-  app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const me = await storage.getUser(req.user?.id);
-      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
-    await db.delete(usersTable).where(eq(usersTable.id, req.params.id));
-      res.status(204).send();
-    } catch (err) {
-      console.error("Error deleting user:", err);
-      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
