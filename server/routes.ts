@@ -710,13 +710,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Buscar usuários diretamente do Supabase incluindo Joyce
       const result = await pool.query(`
-        SELECT id, email, username, "firstName", "lastName", role, permissions, "createdAt", "updatedAt"
+        SELECT id, email, username, first_name, last_name, role, permissions, created_at, updated_at
         FROM users 
-        ORDER BY "createdAt" DESC
+        ORDER BY created_at DESC
       `);
       
       const users = result.rows.map(user => ({
-        ...user,
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        permissions: user.permissions,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
         password: null // Não retornar senha
       }));
       

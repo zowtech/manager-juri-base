@@ -144,13 +144,13 @@ export class DatabaseStorage implements IStorage {
           email: dbUser.email,
           username: dbUser.username,
           password: dbUser.password,
-          firstName: dbUser.first_name,
-          lastName: dbUser.last_name,
-          profileImageUrl: dbUser.profile_image_url,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+          profileImageUrl: dbUser.profileImageUrl,
           role: dbUser.role,
           permissions: dbUser.permissions || {},
-          createdAt: new Date(dbUser.created_at),
-          updatedAt: new Date(dbUser.updated_at)
+          createdAt: new Date(dbUser.createdAt),
+          updatedAt: new Date(dbUser.updatedAt)
         };
         
         // Adicionar ao cache para próximas consultas
@@ -186,13 +186,13 @@ export class DatabaseStorage implements IStorage {
           email: dbUser.email,
           username: dbUser.username,
           password: dbUser.password,
-          firstName: dbUser.first_name,
-          lastName: dbUser.last_name,
-          profileImageUrl: dbUser.profile_image_url,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+          profileImageUrl: dbUser.profileImageUrl,
           role: dbUser.role,
           permissions: dbUser.permissions || {},
-          createdAt: new Date(dbUser.created_at),
-          updatedAt: new Date(dbUser.updated_at)
+          createdAt: new Date(dbUser.createdAt),
+          updatedAt: new Date(dbUser.updatedAt)
         };
         
         // Adicionar ao cache para próximas consultas
@@ -511,7 +511,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // Atualizar status primeiro
-      const updateStatusQuery = `UPDATE cases SET status = $2, updated_at = NOW() WHERE id = $1`;
+      const updateStatusQuery = `UPDATE cases SET status = $2, "updatedAt" = NOW() WHERE id = $1`;
       await pool.query(updateStatusQuery, [id, status]);
       
       // Se status for "concluído", atualizar datas
@@ -519,8 +519,8 @@ export class DatabaseStorage implements IStorage {
         const updateDatesQuery = `
           UPDATE cases 
           SET 
-            completed_date = COALESCE($2, NOW()),
-            data_entrega = COALESCE($3, NOW())
+            "completedDate" = COALESCE($2, NOW()),
+            "dataEntrega" = COALESCE($3, NOW())
           WHERE id = $1
         `;
         await pool.query(updateDatesQuery, [id, completedDate, dataEntrega]);
@@ -538,28 +538,28 @@ export class DatabaseStorage implements IStorage {
       const updatedCase = result.rows[0];
       console.log('✅ DEBUG: Status do caso atualizado no banco:', updatedCase.id, '->', updatedCase.status);
       
-      // Converter para o formato correto
+      // Converter para o formato correto usando camelCase do Supabase
       return {
         id: updatedCase.id,
-        clientName: updatedCase.client_name,
-        processNumber: updatedCase.process_number,
+        clientName: updatedCase.clientName,
+        processNumber: updatedCase.processNumber,
         description: updatedCase.description,
         status: updatedCase.status,
-        startDate: updatedCase.start_date,
-        dueDate: updatedCase.due_date,
-        completedDate: updatedCase.completed_date,
-        dataEntrega: updatedCase.data_entrega,
-        tipoProcesso: updatedCase.tipo_processo,
-        documentosSolicitados: updatedCase.documentos_solicitados,
-        documentosAnexados: updatedCase.documentos_anexados,
+        startDate: updatedCase.startDate,
+        dueDate: updatedCase.dueDate,
+        completedDate: updatedCase.completedDate,
+        dataEntrega: updatedCase.dataEntrega,
+        tipoProcesso: updatedCase.tipoProcesso,
+        documentosSolicitados: updatedCase.documentosSolicitados,
+        documentosAnexados: updatedCase.documentosAnexados,
         observacoes: updatedCase.observacoes,
-        assignedToId: updatedCase.assigned_to_id,
-        createdById: updatedCase.created_by_id,
-        createdAt: new Date(updatedCase.created_at),
-        updatedAt: new Date(updatedCase.updated_at),
-        employeeId: updatedCase.employee_id,
+        assignedToId: updatedCase.assignedToId,
+        createdById: updatedCase.createdById,
+        createdAt: new Date(updatedCase.createdAt),
+        updatedAt: new Date(updatedCase.updatedAt),
+        employeeId: updatedCase.employeeId,
         matricula: updatedCase.matricula,
-        dataAudiencia: updatedCase.data_audiencia
+        dataAudiencia: updatedCase.dataAudiencia
       };
     } catch (error) {
       console.error('❌ DEBUG: Erro ao atualizar status do caso:', error);
