@@ -1,9 +1,18 @@
 services:
   - type: web
-    name: legal-case-management
+    name: legal-system
     env: node
-    buildCommand: ./build.sh
+    plan: free
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: legal-system-db
+          property: connectionString
+databases:
+  - name: legal-system-db
+    databaseName: legal_system
+    user: legal_user

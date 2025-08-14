@@ -127,10 +127,39 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     console.log(`🔍 BUSCANDO USUÁRIO: ${id}`);
     
-    const user = DatabaseStorage.userCache.find(user => user.id === id);
+    // Primeiro tentar cache local
+    let user = DatabaseStorage.userCache.find(user => user.id === id);
     if (user) {
-      console.log(`✅ USUÁRIO ENCONTRADO: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
+      console.log(`✅ USUÁRIO ENCONTRADO NO CACHE: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
       return user;
+    }
+    
+    // Se não encontrar no cache, buscar no Supabase
+    try {
+      const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+      if (result.rows.length > 0) {
+        const dbUser = result.rows[0];
+        user = {
+          id: dbUser.id,
+          email: dbUser.email,
+          username: dbUser.username,
+          password: dbUser.password,
+          firstName: dbUser.firstName,
+          lastName: dbUser.lastName,
+          profileImageUrl: dbUser.profileImageUrl,
+          role: dbUser.role,
+          permissions: dbUser.permissions || {},
+          createdAt: new Date(dbUser.createdAt),
+          updatedAt: new Date(dbUser.updatedAt)
+        };
+        
+        // Adicionar ao cache para próximas consultas
+        DatabaseStorage.userCache.push(user);
+        console.log(`✅ USUÁRIO ENCONTRADO NO SUPABASE: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
+        return user;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário no Supabase:', error);
     }
     
     console.log(`❌ USUÁRIO NÃO ENCONTRADO: ${id}`);
@@ -140,9 +169,43 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     console.log(`🔍 SEARCHING USER: ${username}`);
     
-    const user = DatabaseStorage.userCache.find(user => user.username === username);
-    console.log(`✅ FOUND USER:`, user ? `${user.username} (${user.id})` : 'null');
-    return user;
+    // Primeiro tentar cache local
+    let user = DatabaseStorage.userCache.find(user => user.username === username);
+    if (user) {
+      console.log(`✅ FOUND USER IN CACHE: ${user.username} (${user.id})`);
+      return user;
+    }
+    
+    // Se não encontrar no cache, buscar no Supabase
+    try {
+      const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+      if (result.rows.length > 0) {
+        const dbUser = result.rows[0];
+        user = {
+          id: dbUser.id,
+          email: dbUser.email,
+          username: dbUser.username,
+          password: dbUser.password,
+          firstName: dbUser.first_name,
+          lastName: dbUser.last_name,
+          profileImageUrl: dbUser.profile_image_url,
+          role: dbUser.role,
+          permissions: dbUser.permissions || {},
+          createdAt: new Date(dbUser.created_at),
+          updatedAt: new Date(dbUser.updated_at)
+        };
+        
+        // Adicionar ao cache para próximas consultas
+        DatabaseStorage.userCache.push(user);
+        console.log(`✅ FOUND USER IN SUPABASE: ${user.username} (${user.id})`);
+        return user;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário no Supabase:', error);
+    }
+    
+    console.log(`❌ USER NOT FOUND: ${username}`);
+    return undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -448,7 +511,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // Atualizar status primeiro
-      const updateStatusQuery = `UPDATE cases SET status = $2, updated_at = NOW() WHERE id = $1`;
+      const updateStatusQuery = `UPDATE cases SET status = $2, "updatedAt" = NOW() WHERE id = $1`;
       await pool.query(updateStatusQuery, [id, status]);
       
       // Se status for "concluído", atualizar datas
@@ -456,8 +519,8 @@ export class DatabaseStorage implements IStorage {
         const updateDatesQuery = `
           UPDATE cases 
           SET 
-            completed_date = COALESCE($2, NOW()),
-            data_entrega = COALESCE($3, NOW())
+            "completedDate" = COALESCE($2, NOW()),
+            "dataEntrega" = COALESCE($3, NOW())
           WHERE id = $1
         `;
         await pool.query(updateDatesQuery, [id, completedDate, dataEntrega]);
@@ -475,28 +538,28 @@ export class DatabaseStorage implements IStorage {
       const updatedCase = result.rows[0];
       console.log('✅ DEBUG: Status do caso atualizado no banco:', updatedCase.id, '->', updatedCase.status);
       
-      // Converter para o formato correto
+      // Converter para o formato correto usando camelCase do Supabase
       return {
         id: updatedCase.id,
-        clientName: updatedCase.client_name,
-        processNumber: updatedCase.process_number,
+        clientName: updatedCase.clientName,
+        processNumber: updatedCase.processNumber,
         description: updatedCase.description,
         status: updatedCase.status,
-        startDate: updatedCase.start_date,
-        dueDate: updatedCase.due_date,
-        completedDate: updatedCase.completed_date,
-        dataEntrega: updatedCase.data_entrega,
-        tipoProcesso: updatedCase.tipo_processo,
-        documentosSolicitados: updatedCase.documentos_solicitados,
-        documentosAnexados: updatedCase.documentos_anexados,
+        startDate: updatedCase.startDate,
+        dueDate: updatedCase.dueDate,
+        completedDate: updatedCase.completedDate,
+        dataEntrega: updatedCase.dataEntrega,
+        tipoProcesso: updatedCase.tipoProcesso,
+        documentosSolicitados: updatedCase.documentosSolicitados,
+        documentosAnexados: updatedCase.documentosAnexados,
         observacoes: updatedCase.observacoes,
-        assignedToId: updatedCase.assigned_to_id,
-        createdById: updatedCase.created_by_id,
-        createdAt: new Date(updatedCase.created_at),
-        updatedAt: new Date(updatedCase.updated_at),
-        employeeId: updatedCase.employee_id,
+        assignedToId: updatedCase.assignedToId,
+        createdById: updatedCase.createdById,
+        createdAt: new Date(updatedCase.createdAt),
+        updatedAt: new Date(updatedCase.updatedAt),
+        employeeId: updatedCase.employeeId,
         matricula: updatedCase.matricula,
-        dataAudiencia: updatedCase.data_audiencia
+        dataAudiencia: updatedCase.dataAudiencia
       };
     } catch (error) {
       console.error('❌ DEBUG: Erro ao atualizar status do caso:', error);
@@ -578,7 +641,7 @@ export class DatabaseStorage implements IStorage {
       if (filters?.date) {
         const date = new Date(filters.date);
         const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-        whereConditions.push(`created_at >= $${paramIndex} AND created_at < $${paramIndex + 1}`);
+        whereConditions.push(`"createdAt" >= $${paramIndex} AND "createdAt" < $${paramIndex + 1}`);
         queryParams.push(date, nextDay);
         paramIndex += 2;
       }
@@ -596,7 +659,7 @@ export class DatabaseStorage implements IStorage {
       const query = `
         SELECT * FROM activity_log 
         ${whereClause}
-        ORDER BY created_at DESC 
+        ORDER BY "createdAt" DESC 
         LIMIT $${paramIndex}
       `;
       queryParams.push(limit);
@@ -709,7 +772,7 @@ export class DatabaseStorage implements IStorage {
       console.log(`📋 DEBUG: Primeiros 3 logs:`, resultWithUsers.slice(0, 3).map(log => ({
         id: log.id,
         action: log.action,
-        description: log.description.substring(0, 50) + '...'
+        description: log.description ? log.description.substring(0, 50) + '...' : 'No description'
       })));
       
       return resultWithUsers;

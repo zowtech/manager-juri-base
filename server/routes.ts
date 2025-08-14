@@ -24,7 +24,7 @@ import { sql, eq } from "drizzle-orm";
 
 // Extend Request type to include user
 interface AuthenticatedRequest extends Request {
-  user?: User;
+  user?: any;
 }
 
 // Authentication middleware
@@ -428,33 +428,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Employee routes
+  // Employee routes - corrigido para Supabase
   app.get('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { search } = req.query;
-      let employeeList;
+      
+      // Usar query direta para Supabase com colunas corretas
+      let query = `
+        SELECT 
+          id, nome, matricula, rg, pis, 
+          "dataAdmissao", "dataDemissao", salario, 
+          cargo, departamento, "centroCusto", empresa
+        FROM employees 
+        WHERE 1=1
+      `;
+      
+      const queryParams: any[] = [];
       
       if (search) {
         const searchTerm = `%${search.toString().toLowerCase()}%`;
-        employeeList = await db.select()
-          .from(employees)
-          .where(sql`LOWER(nome) LIKE ${searchTerm} OR LOWER(matricula) LIKE ${searchTerm}`)
-          .limit(50);
-      } else {
-        employeeList = await db.select().from(employees).orderBy(employees.nome).limit(100);
+        query += ` AND (LOWER(nome) LIKE $1 OR LOWER(matricula) LIKE $2)`;
+        queryParams.push(searchTerm, searchTerm);
       }
       
-      res.json(employeeList);
+      query += ` ORDER BY nome LIMIT 100`;
+      
+      const result = await pool.query(query, queryParams);
+      res.json(result.rows);
     } catch (error) {
       console.error("Error fetching employees:", error);
       res.status(500).json({ message: "Failed to fetch employees" });
     }
   });
 
-  // Create employee
+  // Create employee with proper error handling
   app.post('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const employeeData = req.body;
+      console.log('[EMPLOYEES/CREATE] Request body:', req.body);
+      
+      // Map camelCase to snake_case for database
+      const {
+        companyId, name, registration, rg, pis,
+        admissionDate, terminationDate, salary,
+        role, department, costCenter, empresa, nome, matricula
+      } = req.body;
+
+      // Support both camelCase and Portuguese field names
+      const employeeData = {
+        empresa: empresa || companyId || '2',
+        nome: nome || name,
+        matricula: matricula || registration,
+        rg: rg || null,
+        pis: pis || null,
+        dataAdmissao: admissionDate ? new Date(admissionDate) : null,
+        dataDemissao: terminationDate ? new Date(terminationDate) : null,
+        salario: salary || null,
+        cargo: role || null,
+        departamento: department || null,
+        centroCusto: costCenter || null
+      };
+
+      console.log('[EMPLOYEES/CREATE] Mapped data:', employeeData);
       
       // Validar dados obrigatórios
       if (!employeeData.matricula || !employeeData.nome) {
@@ -467,31 +501,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Matrícula já existe" });
       }
 
-      const [newEmployee] = await db.insert(employees).values({
-        matricula: employeeData.matricula,
-        nome: employeeData.nome,
-        rg: employeeData.rg || null,
-        departamento: employeeData.departamento || null,
-        cargo: employeeData.cargo || null,
-        dataAdmissao: employeeData.dataAdmissao ? new Date(employeeData.dataAdmissao) : null,
-        status: employeeData.status || 'ativo',
-        email: employeeData.email || null,
-        telefone: employeeData.telefone || null,
-        endereco: employeeData.endereco || null,
-      }).returning();
+      const [newEmployee] = await db.insert(employees).values(employeeData).returning();
+
+      console.log('[EMPLOYEES/CREATE] Success:', newEmployee);
 
       await logActivity(
         req,
         'CREATE_EMPLOYEE',
         'EMPLOYEE',
         newEmployee.id,
-        `Criou funcionário ${newEmployee.nome} (${newEmployee.matricula})`
+        `Criou funcionário ${newEmployee.nome} - Matrícula: ${newEmployee.matricula}`,
+        { 
+          matricula: newEmployee.matricula,
+          nome: newEmployee.nome,
+          empresa: newEmployee.empresa
+        }
       );
 
       res.status(201).json(newEmployee);
-    } catch (error) {
-      console.error("Error creating employee:", error);
-      res.status(500).json({ message: "Failed to create employee" });
+    } catch (error: any) {
+      console.error('[EMPLOYEES/CREATE] DB error:', error);
+      res.status(500).json({ message: 'Failed to create employee', error: error.message });
     }
   });
 
@@ -678,11 +708,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const users = await storage.getAllUsers();
+      // Buscar usuários com snake_case correto
+      const sql = `
+        SELECT id, email, username, first_name, last_name, role, permissions, created_at, updated_at
+        FROM public.users 
+        ORDER BY created_at DESC
+      `;
+      const result = await pool.query(sql);
+      
+      const users = result.rows.map(user => ({
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        permissions: user.permissions,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        password: null // Não retornar senha
+      }));
+      
       res.json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
+    } catch (err: any) {
+      console.error('[USERS/LIST] DB error:', err);
+      return res.status(500).json({ message: 'DB error' });
     }
   });
 

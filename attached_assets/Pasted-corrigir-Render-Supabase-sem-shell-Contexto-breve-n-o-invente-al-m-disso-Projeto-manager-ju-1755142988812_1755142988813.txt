@@ -1,0 +1,260 @@
+corrigir Render + Supabase, sem shell
+
+Contexto breve (não invente além disso):
+
+Projeto: manager-juri-base (frontend Vite + backend Node/Express ESM).
+
+Hospedagem: Render (web service).
+
+Banco: Supabase Postgres via Transaction Pooler 6543.
+
+Problema atual: dados existem no Supabase, mas não aparecem na UI ou alguns inserts dão 500. Antes havia EADDRINUSE por listen duplicado; isso já foi tratado. Agora o foco é conexão/consulta/filtros.
+
+Restrições (SIGA À RISCA):
+
+Não inserir segredos no código. Ler somente process.env.DATABASE_URL.
+
+Não adicionar dependências novas. Não reescrever camadas inteiras.
+
+Faça mudanças mínimas e idempotentes.
+
+Gere diffs claros e um resumo das alterações no final.
+
+Evite “otimizações” não solicitadas (para não gastar tokens).
+
+OBJETIVOS
+
+Conexão DB correta (Supabase Pooler 6543, SSL) e schema fixo public.
+
+Debug sem shell: rotas leves para checar DB e tabelas, e logs de erros reais.
+
+Listagens e inserts usando nomes de coluna do banco (snake_case) e mapeando camelCase → snake_case.
+
+Filtros que escondem dados: garantir defaults e consulta que não “apague” registros por company_id/status/archived/deleted.
+
+Scripts Render OK: render-build e start corretos.
+
+Sem listen duplicado: apenas um ponto de server.listen (no arquivo do servidor principal).
+
+Sem depender de shell do Render (rotas de debug e logs bastam).
+
+ALTERAÇÕES QUE QUERO (faça exatamente)
+A) server/db.ts (ou arquivo equivalente da conexão)
+
+Usar pg.Pool com SSL e max:1 (Pooler).
+
+Fixar schema public no connect.
+
+Exemplo exato (adapte os imports de acordo com o projeto):
+
+import { Pool } from 'pg';
+
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) throw new Error('DATABASE_URL is not set');
+
+export const pool = new Pool({
+  connectionString: dbUrl,
+  ssl: { rejectUnauthorized: false },
+  max: 1
+});
+
+pool.on('connect', (client) => {
+  client.query('set search_path to public');
+});
+
+
+Importante: não deixar fallback/URL hardcoded no código.
+
+B) server/index.ts (após criar o app)
+
+Log seguro da conexão (sem senha):
+
+try {
+  const u = new URL(process.env.DATABASE_URL!);
+  console.log('[DB] Using:', `${u.protocol}//${u.hostname}:${u.port}${u.pathname}`);
+} catch {
+  console.log('[DB] DATABASE_URL inválida/ausente');
+}
+
+
+Rotas de debug/health (temporárias) — não usar shell:
+
+import { pool } from './db';
+
+app.get('/health/db', async (_req, res) => {
+  try {
+    const r = await pool.query('select now() as now');
+    res.json({ ok: true, now: r.rows[0].now });
+  } catch (e:any) {
+    console.error('[HEALTH/DB]', e);
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+app.get('/debug/where', async (_req, res) => {
+  try {
+    const r = await pool.query(`
+      select current_database() as db,
+             current_user,
+             current_schema() as schema,
+             inet_server_addr()::text as host,
+             inet_server_port() as port
+    `);
+    res.json({ ok: true, info: r.rows[0] });
+  } catch (e:any) {
+    console.error('[DEBUG/WHERE]', e);
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+
+Garantir único listen usando a porta do Render:
+
+const PORT = Number(process.env.PORT) || 10000;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server listening on port ${PORT}`);
+});
+process.on('SIGTERM', () => server.close(() => process.exit(0)));
+
+
+Certifique-se que não existe outro app.listen/server.listen em nenhum outro arquivo (ex.: start-production.js deve ser apenas loader que importa dist/index.js, sem listen).
+
+C) Endpoints que carregam users/cases/employees
+
+Envolver SELECT/INSERT em try/catch com log do erro real:
+
+try {
+  // ... query
+} catch (err:any) {
+  console.error('[USERS/LIST] DB error:', err); // troque o prefixo conforme a rota
+  return res.status(500).json({ message: 'DB error' });
+}
+
+
+Mapear camelCase → snake_case nas queries.
+Exemplos (ajuste nomes e tabelas conforme o projeto):
+
+LISTAR usuários (exemplo):
+
+const sql = `
+  select id, company_id, name, email, active, created_at
+  from public.users
+  where ($1::int is null or company_id = $1)
+  order by created_at desc
+`;
+const params = [req.user?.companyId ?? null];
+const r = await pool.query(sql, params);
+res.json(r.rows);
+
+
+CRIAR funcionário (exemplo):
+
+const {
+  companyId, name, registration, rg, pis,
+  admissionDate, terminationDate, salary,
+  role, department, costCenter
+} = req.body;
+
+const sql = `
+  insert into public.employees
+  (company_id, name, registration, rg, pis, admission_date, termination_date, salary, role, department, cost_center)
+  values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+  returning id
+`;
+const params = [
+  companyId, name, registration, rg || null, pis || null,
+  admissionDate || null, terminationDate || null, salary || null,
+  role || null, department || null, costCenter || null
+];
+
+let created;
+try {
+  const r = await pool.query(sql, params);
+  created = r.rows[0];
+} catch (err:any) {
+  console.error('[EMPLOYEES/CREATE] DB error:', err);
+  return res.status(500).json({ message: 'Failed to create employee' });
+}
+res.status(201).json({ id: created.id });
+
+
+Ponto crítico: use snake_case exatamente como está no banco (company_id, admission_date, etc.).
+Se a UI filtra por company_id/status/archived/deleted, garanta que existem esses campos nas tabelas e que recebem valores compatíveis.
+
+D) Defaults de colunas que afetam filtros (SQL de migração mínima)
+
+Se as listas filtram por status/archived/deleted/company_id, crie defaults para não “sumir” dados:
+
+alter table if exists public.cases
+  alter column status   set default 'open',
+  alter column archived set default false,
+  alter column deleted  set default false;
+
+update public.cases set status='open' where status is null;
+update public.cases set archived=false where archived is null;
+update public.cases set deleted=false  where deleted  is null;
+
+-- Ajustar usuários/funcionários se necessário (exemplos):
+-- alter table public.users add column if not exists active boolean default true;
+-- update public.users set active=true where active is null;
+
+
+Se necessário, crie public.employees com as colunas esperadas (snake_case). Não apague dados existentes.
+
+E) package.json (scripts Render)
+
+Garantir estes scripts (não adicione libs novas):
+
+{
+  "type": "module",
+  "scripts": {
+    "build": "npx vite build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "render-build": "npm ci --include=dev && npm run build",
+    "start": "NODE_ENV=production node dist/index.js"
+  },
+  "engines": { "node": ">=22 <23" }
+}
+
+
+O Start Command no Render pode ser node start-production.js se e somente se esse arquivo for apenas loader que faz import('./dist/index.js') (sem listen). Caso contrário, use npm start.
+
+F) DATABASE_URL (não codificar no código)
+
+Não hardcode.
+
+O valor no Render deve estar percent-encoded se a senha tiver @/!.
+Ex.: BaseF@cilities2025! → BaseF%40cilities2025%21.
+
+ACEITE / TESTES (sem shell)
+
+Após deploy, acessar:
+
+GET /health/db → { ok: true, now: ... }
+
+GET /debug/where → host=aws-0-us-east-2.pooler.supabase.com, port=6543, schema=public
+
+Listas passam a mostrar os registros esperados.
+
+Logs não exibem erros de coluna/tabela; qualquer 500 mostra o erro real via console.error configurado.
+
+Apenas um “Server listening on port …” nos logs.
+
+ENTREGÁVEIS
+
+Patches nos arquivos alterados (nomes e caminhos exatos).
+
+Resumo das mudanças (1–2 parágrafos).
+
+Confirmação de que:
+
+só há um listen;
+
+conexões usam public;
+
+queries estão em snake_case;
+
+scripts render-build/start prontos;
+
+nenhum segredo no código.
+
+Aplique somente isso. Evite refatorações adicionais para não aumentar custo/risco. Se algo for incerto, pare e devolva um checklist das dúvidas, sem executar mudanças irreversíveis.
