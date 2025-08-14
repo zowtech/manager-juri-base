@@ -61,13 +61,9 @@ const logActivity = async (
 };
 
 export function registerRoutes(app: Express): void {
-  /** sanity check */
   app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
-
-  /** auth + sessão */
   setupAuth(app);
 
-  /** usuário logado */
   app.get("/api/user", async (req: any, res) => {
     try {
       if (!req.isAuthenticated?.() || !req.user?.id) {
@@ -285,7 +281,8 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== ACTIVITY LOG ==================== */
 
-  app.get("/api/activity-logs", isAuthenticated, async (req, res) => {
+  // >>> As duas rotas retornam a MESMA estrutura "achatada"
+  const activityHandler = async (req: any, res: any) => {
     try {
       const { action, date, search, limit, processOnly } = req.query as any;
       const logs = await storage.getActivityLogs({
@@ -295,30 +292,15 @@ export function registerRoutes(app: Express): void {
         limit: limit ? Number(limit) : undefined,
         processOnly: processOnly === "true",
       });
-      res.json(logs);
+      res.json(Array.isArray(logs) ? logs : []);
     } catch (err) {
       console.error("❌ Erro ao buscar logs de atividade:", err);
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
-  });
+  };
 
-  // Alias: alguns fronts chamam /api/activity-log (singular)
-  app.get("/api/activity-log", isAuthenticated, async (req, res) => {
-    try {
-      const { action, date, search, limit, processOnly } = req.query as any;
-      const logs = await storage.getActivityLogs({
-        action,
-        date,
-        search,
-        limit: limit ? Number(limit) : undefined,
-        processOnly: processOnly === "true",
-      });
-      res.json(logs);
-    } catch (err) {
-      console.error("❌ Erro ao buscar logs de atividade (alias):", err);
-      res.status(500).json({ message: "Failed to fetch activity logs" });
-    }
-  });
+  app.get("/api/activity-logs", isAuthenticated, activityHandler);
+  app.get("/api/activity-log", isAuthenticated, activityHandler); // alias singular
 
   /* ==================== EMPLOYEES ==================== */
 
@@ -449,7 +431,11 @@ export function registerRoutes(app: Express): void {
       };
       Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
 
-      const [updated] = await db.update(employeesTable).set(patch).where(eq(employeesTable.id, id)).returning();
+      const [updated] = await db
+        .update(employeesTable)
+        .set(patch)
+        .where(eq(employeesTable.id, id))
+        .returning();
 
       await logActivity(req, "UPDATE_EMPLOYEE", "EMPLOYEE", id, `Atualizou funcionário ${updated.name}`);
 
@@ -486,12 +472,10 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Export (xlsx) — usa dynamic import pra funcionar em ESM
   app.get("/api/employees/export", isAuthenticated, async (_req, res) => {
     try {
       const mod: any = await import("xlsx");
       const XLSX = mod.default ?? mod;
-
       const all = await db.select().from(employeesTable).orderBy(employeesTable.name);
 
       const worksheetData = [
@@ -519,20 +503,14 @@ export function registerRoutes(app: Express): void {
         "Content-Disposition",
         `attachment; filename="funcionarios_${new Date().toISOString().split("T")[0]}.xlsx"`
       );
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.send(buffer);
-
-      await logActivity(_req as any, "EXPORT_EMPLOYEES", "EMPLOYEE", "all", `Exportou ${all.length} funcionários`);
     } catch (err) {
       console.error("Error exporting employees:", err);
       res.status(500).json({ message: "Failed to export employees" });
     }
   });
 
-  // Import Excel + link-cases
   app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
       if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
@@ -541,8 +519,6 @@ export function registerRoutes(app: Express): void {
       const { importEmployeesFromExcel } = await import("./importEmployees");
       const result = await importEmployeesFromExcel(req.file.path);
       fs.unlinkSync(req.file.path);
-
-      await logActivity(req, "IMPORT_EMPLOYEES", "EMPLOYEE", "bulk", `Importou ${result.imported} funcionários do Excel`);
       res.json(result);
     } catch (err) {
       console.error("Error importing employees:", err);
@@ -562,7 +538,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ===== 404 e error handler ===== */
   app.use("/api", (_req, res) => res.status(404).json({ message: "Not found" }));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

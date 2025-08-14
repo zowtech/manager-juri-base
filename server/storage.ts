@@ -1,293 +1,335 @@
-import { db } from "./db";
-import { eq } from "drizzle-orm";
-import type { User, InsertUser, Case, InsertCase, Employee, InsertEmployee, ActivityLog, InsertActivityLog } from "@shared/schema";
-import { users, cases, employees, activityLog } from "@shared/schema";
-import { createHash } from "crypto";
+// server/storage.ts
+import crypto from "node:crypto";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { db, pool } from "./db";
+import {
+  users,
+  sessions,
+  employees,
+  cases,
+  activityLog,
+  dashboardLayouts,
+} from "@shared/schema";
 
-export interface IStorage {
-  // User methods
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(data: InsertUser): Promise<User>;
-  updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
-  deleteUser(id: string): Promise<boolean>;
-  getAllUsers(): Promise<User[]>;
+type Maybe<T> = T | null | undefined;
 
-  // Case methods
-  getAllCases(): Promise<Case[]>;
-  getCaseById(id: string): Promise<Case | undefined>;
-  createCase(data: InsertCase): Promise<Case>;
-  updateCase(id: string, data: Partial<InsertCase>): Promise<Case | undefined>;
-  deleteCase(id: string): Promise<boolean>;
+export const storage = {
+  /* ========== USERS ========== */
 
-  // Employee methods
-  getAllEmployees(): Promise<Employee[]>;
-  getEmployeeById(id: string): Promise<Employee | undefined>;
-  createEmployee(data: InsertEmployee): Promise<Employee>;
-  updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined>;
-  deleteEmployee(id: string): Promise<boolean>;
+  async getUser(id: string) {
+    const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return rows[0] ?? null;
+  },
 
-  // Activity log methods
-  createActivityLog(data: InsertActivityLog): Promise<ActivityLog>;
-  getActivityLogs(filters?: { limit?: number; processOnly?: boolean }): Promise<Array<ActivityLog & { user?: User }>>;
+  async getUserByUsername(username: string) {
+    const rows = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+    return rows[0] ?? null;
+  },
 
-  // Dashboard methods
-  getCaseStatistics(): Promise<{
-    total: number;
-    completed: number;
-    inProgress: number;
-    overdue: number;
-  }>;
-}
+  async getUserByEmail(email: string) {
+    const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return rows[0] ?? null;
+  },
 
-export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
-    try {
-      const [user] = await db.select().from(users).where(eq(users.id, id));
-      return user || undefined;
-    } catch (error) {
-      console.error('Error getting user:', error);
-      return undefined;
+  async createUser(data: {
+    email?: Maybe<string>;
+    username: string;
+    password: string;
+    firstName?: Maybe<string>;
+    lastName?: Maybe<string>;
+    role?: Maybe<string>;
+    permissions?: Maybe<string>;
+  }) {
+    const id = crypto.randomUUID();
+    const [row] = await db
+      .insert(users)
+      .values({
+        id,
+        email: data.email ?? null,
+        username: data.username,
+        password: data.password,
+        firstName: data.firstName ?? null,
+        lastName: data.lastName ?? null,
+        role: data.role ?? "user",
+        permissions: data.permissions ?? null,
+      })
+      .returning();
+    return row;
+  },
+
+  async updateUser(
+    id: string,
+    patch: Partial<{
+      email: string | null;
+      username: string;
+      password: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: string | null;
+      permissions: string | null;
+    }>
+  ) {
+    const [row] = await db.update(users).set(patch as any).where(eq(users.id, id)).returning();
+    return row;
+  },
+
+  async deleteUser(id: string) {
+    await db.delete(users).where(eq(users.id, id));
+  },
+
+  /* ========== CASES ========== */
+
+  async getCases(params?: { status?: string; search?: string }) {
+    const whereParts: any[] = [];
+
+    if (params?.status) {
+      whereParts.push(eq(cases.status, params.status));
     }
-  }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    try {
-      const [user] = await db.select().from(users).where(eq(users.username, username));
-      return user || undefined;
-    } catch (error) {
-      console.error('Error getting user by username:', error);
-      return undefined;
-    }
-  }
-
-  async createUser(data: InsertUser): Promise<User> {
-    try {
-      const hashedPassword = data.password ? createHash('sha256').update(data.password).digest('hex') : null;
-      
-      const [user] = await db
-        .insert(users)
-        .values({
-          ...data,
-          password: hashedPassword
-        })
-        .returning();
-      return user;
-    } catch (error) {
-      console.error('Error creating user:', error);
-      throw error;
-    }
-  }
-
-  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
-    try {
-      const updateData: any = { ...data };
-      if (data.password) {
-        updateData.password = createHash('sha256').update(data.password).digest('hex');
-      }
-      
-      const [user] = await db
-        .update(users)
-        .set(updateData)
-        .where(eq(users.id, id))
-        .returning();
-      return user || undefined;
-    } catch (error) {
-      console.error('Error updating user:', error);
-      return undefined;
-    }
-  }
-
-  async deleteUser(id: string): Promise<boolean> {
-    try {
-      const result = await db.delete(users).where(eq(users.id, id));
-      return (result as any).rowCount > 0;
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      return false;
-    }
-  }
-
-  async getAllUsers(): Promise<User[]> {
-    try {
-      const allUsers = await db.select().from(users);
-      return allUsers;
-    } catch (error) {
-      console.error('Error getting all users:', error);
-      return [];
-    }
-  }
-
-  async getAllCases(): Promise<Case[]> {
-    try {
-      const allCases = await db.select().from(cases);
-      return allCases;
-    } catch (error) {
-      console.error('Error getting all cases:', error);
-      return [];
-    }
-  }
-
-  async getCaseById(id: string): Promise<Case | undefined> {
-    try {
-      const [case_] = await db.select().from(cases).where(eq(cases.id, id));
-      return case_ || undefined;
-    } catch (error) {
-      console.error('Error getting case by id:', error);
-      return undefined;
-    }
-  }
-
-  async createCase(data: InsertCase): Promise<Case> {
-    try {
-      const [case_] = await db.insert(cases).values(data).returning();
-      return case_;
-    } catch (error) {
-      console.error('Error creating case:', error);
-      throw error;
-    }
-  }
-
-  async updateCase(id: string, data: Partial<InsertCase>): Promise<Case | undefined> {
-    try {
-      const [case_] = await db
-        .update(cases)
-        .set(data)
-        .where(eq(cases.id, id))
-        .returning();
-      return case_ || undefined;
-    } catch (error) {
-      console.error('Error updating case:', error);
-      return undefined;
-    }
-  }
-
-  async deleteCase(id: string): Promise<boolean> {
-    try {
-      const result = await db.delete(cases).where(eq(cases.id, id));
-      return (result as any).rowCount > 0;
-    } catch (error) {
-      console.error('Error deleting case:', error);
-      return false;
-    }
-  }
-
-  async getAllEmployees(): Promise<Employee[]> {
-    try {
-      const allEmployees = await db.select().from(employees);
-      return allEmployees;
-    } catch (error) {
-      console.error('Error getting all employees:', error);
-      return [];
-    }
-  }
-
-  async getEmployeeById(id: string): Promise<Employee | undefined> {
-    try {
-      const [employee] = await db.select().from(employees).where(eq(employees.id, id));
-      return employee || undefined;
-    } catch (error) {
-      console.error('Error getting employee by id:', error);
-      return undefined;
-    }
-  }
-
-  async createEmployee(data: InsertEmployee): Promise<Employee> {
-    try {
-      const [employee] = await db.insert(employees).values(data).returning();
-      return employee;
-    } catch (error) {
-      console.error('Error creating employee:', error);
-      throw error;
-    }
-  }
-
-  async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined> {
-    try {
-      const [employee] = await db
-        .update(employees)
-        .set(data)
-        .where(eq(employees.id, id))
-        .returning();
-      return employee || undefined;
-    } catch (error) {
-      console.error('Error updating employee:', error);
-      return undefined;
-    }
-  }
-
-  async deleteEmployee(id: string): Promise<boolean> {
-    try {
-      const result = await db.delete(employees).where(eq(employees.id, id));
-      return (result as any).rowCount > 0;
-    } catch (error) {
-      console.error('Error deleting employee:', error);
-      return false;
-    }
-  }
-
-  async createActivityLog(data: InsertActivityLog): Promise<ActivityLog> {
-    try {
-      const [log] = await db.insert(activityLog).values(data).returning();
-      return log;
-    } catch (error) {
-      console.error('Error creating activity log:', error);
-      throw error;
-    }
-  }
-
-  async getActivityLogs(filters?: { limit?: number; processOnly?: boolean }): Promise<Array<ActivityLog & { user?: User }>> {
-    try {
-      let query = db.select().from(activityLog);
-      
-      if (filters?.processOnly) {
-        query = query.where(eq(activityLog.action, 'UPDATE_CASE'));
-      }
-      
-      if (filters?.limit) {
-        query = query.limit(filters.limit);
-      }
-      
-      const logs = await query;
-      
-      // Get users for each log
-      const logsWithUsers = await Promise.all(
-        logs.map(async (log) => {
-          const user = await this.getUser(log.userId);
-          return { ...log, user };
-        })
+    if (params?.search && params.search.trim() !== "") {
+      const like = `%${params.search.toLowerCase()}%`;
+      whereParts.push(
+        sql`LOWER(${cases.clientName}) like ${like} OR LOWER(${cases.processNumber}) like ${like}`
       );
-      
-      return logsWithUsers;
-    } catch (error) {
-      console.error('Error getting activity logs:', error);
-      return [];
     }
-  }
 
-  async getCaseStatistics(): Promise<{
-    total: number;
-    completed: number;
-    inProgress: number;
-    overdue: number;
-  }> {
-    try {
-      const allCases = await this.getAllCases();
-      const now = new Date();
-      
-      const total = allCases.length;
-      const completed = allCases.filter(c => c.status === 'concluido').length;
-      const inProgress = allCases.filter(c => ['novo', 'pendente'].includes(c.status)).length;
-      const overdue = allCases.filter(c => 
-        c.dueDate && new Date(c.dueDate) < now && c.status !== 'concluido'
-      ).length;
-      
-      return { total, completed, inProgress, overdue };
-    } catch (error) {
-      console.error('Error getting case statistics:', error);
-      return { total: 0, completed: 0, inProgress: 0, overdue: 0 };
+    const where = whereParts.length
+      ? whereParts.length === 1
+        ? whereParts[0]
+        : and(...whereParts)
+      : undefined;
+
+    const rows = await db
+      .select()
+      .from(cases)
+      .where(where as any)
+      .orderBy(desc(cases.updatedAt), desc(cases.createdAt), asc(cases.clientName));
+
+    return rows;
+  },
+
+  async getCaseById(id: string) {
+    const rows = await db.select().from(cases).where(eq(cases.id, id)).limit(1);
+    return rows[0] ?? null;
+  },
+
+  async createCase(data: any) {
+    const id = crypto.randomUUID();
+
+    const toInsert: any = {
+      id,
+      employeeId: data.employeeId ?? null,
+      clientName: data.clientName ?? null,
+      processType: data.processType ?? null,
+      processNumber: data.processNumber ?? null,
+      description: data.description ?? null,
+      dueDate: data.dueDate ?? null,
+      hearingDate: data.hearingDate ?? null,
+      startDate: data.startDate ?? null,
+      observacoes: data.observacoes ?? null,
+      companyId: data.companyId ?? 1,
+      status: data.status ?? "open",
+      archived: data.archived ?? false,
+      deleted: data.deleted ?? false,
+    };
+
+    const [row] = await db.insert(cases).values(toInsert).returning();
+    return row;
+  },
+
+  async updateCase(id: string, patch: any) {
+    const toSet: any = {
+      ...patch,
+      updatedAt: new Date(),
+    };
+    const [row] = await db.update(cases).set(toSet).where(eq(cases.id, id)).returning();
+    return row;
+  },
+
+  async updateCaseStatus(
+    id: string,
+    status: string,
+    _completedDate?: Date | null,
+    _dataEntrega?: Date | null
+  ) {
+    const [row] = await db
+      .update(cases)
+      .set({ status, updatedAt: new Date() } as any)
+      .where(eq(cases.id, id))
+      .returning();
+    return row;
+  },
+
+  async deleteCase(id: string) {
+    await db.delete(cases).where(eq(cases.id, id));
+  },
+
+  async getCaseStats() {
+    const result = await pool.query<{
+      status: string;
+      count: string;
+    }>(`select status, count(*)::int as count from public.cases group by status`);
+    const byStatus = Object.fromEntries(result.rows.map((r) => [r.status || "unknown", Number(r.count)]));
+    const total = Object.values(byStatus).reduce((a: number, b: any) => a + Number(b), 0);
+    return { total, byStatus };
+  },
+
+  /* ========== DASHBOARD LAYOUTS ========== */
+
+  async getDashboardLayout(userId: string) {
+    const rows = await db
+      .select()
+      .from(dashboardLayouts)
+      .where(and(eq(dashboardLayouts.userId, userId), eq(dashboardLayouts.layoutKey, "default")))
+      .limit(1);
+    if (rows[0]) return rows[0];
+    return {
+      id: "default",
+      userId,
+      layoutKey: "default",
+      layout: { widgets: [] },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  },
+
+  async saveDashboardLayout(userId: string, layout: any, widgets?: any[]) {
+    const current = await this.getDashboardLayout(userId);
+    const data = {
+      userId,
+      layoutKey: "default",
+      layout: layout ?? { widgets: widgets ?? [] },
+      updatedAt: new Date(),
+    } as any;
+
+    let row;
+    if ((current as any)?.id && (current as any).id !== "default") {
+      [row] = await db
+        .update(dashboardLayouts)
+        .set(data)
+        .where(eq(dashboardLayouts.id, (current as any).id))
+        .returning();
+    } else {
+      const id = crypto.randomUUID();
+      [row] = await db
+        .insert(dashboardLayouts)
+        .values({ id, ...data, createdAt: new Date() })
+        .returning();
     }
-  }
-}
+    return row;
+  },
 
-export const storage = new DatabaseStorage();
+  /* ========== ACTIVITY LOGS ========== */
+
+  async logActivity(entry: {
+    userId: Maybe<string>;
+    action: string;
+    resourceType: string;
+    resourceId: string;
+    description: string;
+    ipAddress?: Maybe<string>;
+    userAgent?: Maybe<string>;
+    metadata?: Maybe<string>;
+  }) {
+    const id = crypto.randomUUID();
+    const details =
+      entry.metadata && typeof entry.metadata === "string"
+        ? (() => {
+            try {
+              return JSON.parse(entry.metadata);
+            } catch {
+              return { description: entry.description, metadata: entry.metadata };
+            }
+          })()
+        : { description: entry.description };
+
+    await db.insert(activityLog).values({
+      id,
+      actorId: entry.userId ?? null,
+      action: entry.action,
+      entity: entry.resourceType,
+      entityId: entry.resourceId,
+      details: details as any,
+    } as any);
+    return id;
+  },
+
+  // >>>>>>> ENRIQUECIDO (com actor e description como string) <<<<<<<
+  async getActivityLogs(params: {
+    action?: string;
+    date?: string;
+    search?: string;
+    limit?: number;
+    processOnly?: boolean;
+  }) {
+    const limit = params.limit && params.limit > 0 ? params.limit : 200;
+
+    const filters: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+
+    if (params.action) {
+      filters.push(`l.action = $${i++}`);
+      values.push(params.action);
+    }
+    if (params.processOnly) {
+      filters.push(`l.entity = 'CASE'`);
+    }
+    if (params.search && params.search.trim() !== "") {
+      filters.push(`(LOWER(l.entity) LIKE $${i} OR LOWER(l.action) LIKE $${i})`);
+      values.push(`%${params.search.toLowerCase()}%`);
+      i++;
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+    const q = `
+      SELECT
+        l.id,
+        l.entity,
+        l.entity_id,
+        l.action,
+        l.details,
+        l.created_at,
+        l.actor_id,
+        u.username,
+        u.first_name,
+        u.last_name
+      FROM activity_log l
+      LEFT JOIN users u ON u.id = l.actor_id
+      ${where}
+      ORDER BY l.created_at DESC
+      LIMIT ${limit}
+    `;
+
+    const result = await pool.query(q, values);
+
+    // Normaliza pra evitar objeto bruto no front (React não renderiza objetos)
+    return result.rows.map((r: any) => {
+      let description = "";
+      if (r.details && typeof r.details === "object") {
+        description = r.details.description ?? JSON.stringify(r.details);
+      } else if (typeof r.details === "string") {
+        description = r.details;
+      }
+      return {
+        id: r.id,
+        resourceType: r.entity,
+        resourceId: r.entity_id,
+        action: r.action,
+        description,
+        createdAt: r.created_at,
+        actor: {
+          id: r.actor_id ?? null,
+          username: r.username ?? null,
+          firstName: r.first_name ?? null,
+          lastName: r.last_name ?? null,
+        },
+      };
+    });
+  },
+};
