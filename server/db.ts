@@ -21,6 +21,10 @@ export const pool = new Pool({
   max: 1
 });
 
+pool.on('connect', (client) => {
+  client.query('set search_path to public');
+});
+
 // Helper function for raw queries
 export async function query<T = any>(text: string, params?: any[]) {
   const res = await pool.query<T>(text, params);

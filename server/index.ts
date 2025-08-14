@@ -75,49 +75,45 @@ app.use((req, res, next) => {
     });
   }
 
-  // Register routes FIRST before Vite middleware
-  const server = await registerRoutes(app);
-
-  // Error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
-
-  // Setup Vite AFTER routes are registered
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // Add health check endpoints
-  app.get('/health', (_, res) => res.status(200).send('ok'));
-  
-  // Database health check
+  // Debug/health routes (sem shell)
   app.get('/health/db', async (_req, res) => {
     try {
       const r = await pool.query('select now() as now');
       res.json({ ok: true, now: r.rows[0].now });
-    } catch (err: any) {
-      console.error('[HEALTH/DB] error:', err);
-      res.status(500).json({ ok: false, error: String(err?.message || err) });
+    } catch (e: any) {
+      console.error('[HEALTH/DB]', e);
+      res.status(500).json({ ok: false, error: String(e?.message || e) });
     }
   });
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  const PORT = Number(process.env.PORT) || 10000;
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Server listening on port ${PORT}`);
+  app.get('/debug/where', async (_req, res) => {
+    try {
+      const r = await pool.query(`
+        select current_database() as db,
+               current_user,
+               current_schema() as schema,
+               inet_server_addr()::text as host,
+               inet_server_port() as port
+      `);
+      res.json({ ok: true, info: r.rows[0] });
+    } catch (e: any) {
+      console.error('[DEBUG/WHERE]', e);
+      res.status(500).json({ ok: false, error: String(e?.message || e) });
+    }
   });
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-      console.log('HTTP server closed');
-      process.exit(0);
+  registerRoutes(app);
+  
+  if (process.env.NODE_ENV === "production") {
+    serveStatic(app);
+    
+    // Garantir único listen - porta do Render
+    const PORT = Number(process.env.PORT) || 10000;
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server listening on port ${PORT}`);
     });
-  });
+    process.on('SIGTERM', () => server.close(() => process.exit(0)));
+  } else {
+    const server = setupVite(app);
+  }
 })();

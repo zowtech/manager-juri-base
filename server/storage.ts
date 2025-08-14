@@ -186,13 +186,13 @@ export class DatabaseStorage implements IStorage {
           email: dbUser.email,
           username: dbUser.username,
           password: dbUser.password,
-          firstName: dbUser.firstName,
-          lastName: dbUser.lastName,
-          profileImageUrl: dbUser.profileImageUrl,
+          firstName: dbUser.first_name,
+          lastName: dbUser.last_name,
+          profileImageUrl: dbUser.profile_image_url,
           role: dbUser.role,
           permissions: dbUser.permissions || {},
-          createdAt: new Date(dbUser.createdAt),
-          updatedAt: new Date(dbUser.updatedAt)
+          createdAt: new Date(dbUser.created_at),
+          updatedAt: new Date(dbUser.updated_at)
         };
         
         // Adicionar ao cache para próximas consultas
@@ -641,7 +641,7 @@ export class DatabaseStorage implements IStorage {
       if (filters?.date) {
         const date = new Date(filters.date);
         const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-        whereConditions.push(`created_at >= $${paramIndex} AND created_at < $${paramIndex + 1}`);
+        whereConditions.push(`"createdAt" >= $${paramIndex} AND "createdAt" < $${paramIndex + 1}`);
         queryParams.push(date, nextDay);
         paramIndex += 2;
       }
@@ -659,7 +659,7 @@ export class DatabaseStorage implements IStorage {
       const query = `
         SELECT * FROM activity_log 
         ${whereClause}
-        ORDER BY created_at DESC 
+        ORDER BY "createdAt" DESC 
         LIMIT $${paramIndex}
       `;
       queryParams.push(limit);

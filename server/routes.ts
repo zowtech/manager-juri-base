@@ -708,12 +708,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      // Buscar usuários diretamente do Supabase incluindo Joyce
-      const result = await pool.query(`
+      // Buscar usuários com snake_case correto
+      const sql = `
         SELECT id, email, username, first_name, last_name, role, permissions, created_at, updated_at
-        FROM users 
+        FROM public.users 
         ORDER BY created_at DESC
-      `);
+      `;
+      const result = await pool.query(sql);
       
       const users = result.rows.map(user => ({
         id: user.id,
@@ -729,9 +730,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       
       res.json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
+    } catch (err: any) {
+      console.error('[USERS/LIST] DB error:', err);
+      return res.status(500).json({ message: 'DB error' });
     }
   });
 
