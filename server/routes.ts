@@ -5,7 +5,7 @@ import multer from "multer";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { z } from "zod";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
@@ -15,6 +15,7 @@ import { parseBRDate, parseBRMoney } from "./utils/normalize";
 import {
   users as usersTable,
   employees as employeesTable,
+  cases as casesTable,
   insertUserSchema,
   updateUserSchema,
   insertCaseSchema,
@@ -23,13 +24,16 @@ import {
 const scryptAsync = promisify(crypto.scrypt);
 const upload = multer({ dest: "uploads/" });
 
-interface AuthenticatedRequest extends Request {
-  user?: any;
-}
-
+/** ===== Helpers ===== */
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated && req.isAuthenticated()) return next();
   return res.status(401).json({ message: "Unauthorized" });
+}
+
+async function hashPasswordSaltHexColonHash(plain: string): Promise<string> {
+  const salt = crypto.randomBytes(16);
+  const key = (await scryptAsync(plain, salt, 64)) as Buffer;
+  return `${salt.toString("hex")}:${key.toString("hex")}`;
 }
 
 const logActivity = async (
@@ -60,10 +64,20 @@ const logActivity = async (
   }
 };
 
+/** ===== Tipos ===== */
+interface AuthenticatedRequest extends Request {
+  user?: any;
+}
+
+/** ===== Rotas ===== */
 export function registerRoutes(app: Express): void {
+  /** sanity */
   app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
+  /** auth & sessão */
   setupAuth(app);
 
+  /** usuário logado */
   app.get("/api/user", async (req: any, res) => {
     try {
       if (!req.isAuthenticated?.() || !req.user?.id) {
@@ -75,6 +89,133 @@ export function registerRoutes(app: Express): void {
     } catch (err) {
       console.error("Error fetching user:", err);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  /* ==================== USERS ==================== */
+
+  // Lista de usuários (para página "Usuários")
+  app.get("/api/users", isAuthenticated, async (req: any, res) => {
+    try {
+      const me = await storage.getUser(req.user.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
+
+      const q = `
+        SELECT id, email, username, first_name, last_name, role, permissions, created_at, updated_at
+        FROM public.users
+        ORDER BY created_at DESC
+        LIMIT 200
+      `;
+      const { rows } = await pool.query(q);
+      const users = rows.map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        firstName: u.first_name,
+        lastName: u.last_name,
+        role: u.role,
+        permissions: u.permissions,
+        createdAt: u.created_at,
+        updatedAt: u.updated_at,
+        password: null,
+      }));
+      res.json(users);
+    } catch (err) {
+      console.error("[USERS/LIST] error:", err);
+      res.status(500).json({ message: "DB error" });
+    }
+  });
+
+  // Criar usuário
+  app.post("/api/users", isAuthenticated, async (req: any, res) => {
+    try {
+      const me = await storage.getUser(req.user.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
+
+      const data = insertUserSchema.parse(req.body);
+      const username = data.username?.trim() || `user_${Date.now()}`;
+      const email = data.email?.trim() || null;
+
+      // Duplicates
+      if (await storage.getUserByUsername(username)) {
+        return res.status(400).json({ message: `Usuário "${username}" já existe` });
+      }
+      if (email) {
+        if (await storage.getUserByEmail(email)) {
+          return res.status(400).json({ message: `Email "${email}" já está em uso` });
+        }
+      }
+
+      const passwordPlain = (data.password || "").trim() || "temp123";
+      const password = await hashPasswordSaltHexColonHash(passwordPlain);
+
+      const newUser = await storage.createUser({
+        email,
+        username,
+        password,
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
+        role: data.role || "user",
+        permissions: data.permissions || null,
+      });
+
+      await logActivity(req, "CREATE_USER", "USER", newUser.id, `Criou usuário ${newUser.username}`);
+      res.status(201).json(newUser);
+    } catch (err) {
+      console.error("[USERS/CREATE] error:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: err.errors });
+      }
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Atualizar usuário
+  app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const me = await storage.getUser(req.user.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
+
+      const userId = req.params.id;
+      const body = updateUserSchema.parse(req.body);
+
+      const patch: any = {
+        email: body.email ?? undefined,
+        username: body.username ?? undefined,
+        firstName: body.firstName ?? undefined,
+        lastName: body.lastName ?? undefined,
+        role: body.role ?? undefined,
+        permissions: body.permissions ?? undefined,
+      };
+      if (body.password && body.password.trim() !== "") {
+        patch.password = await hashPasswordSaltHexColonHash(body.password.trim());
+      }
+      Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
+
+      const updated = await storage.updateUser(userId, patch);
+      await logActivity(req, "UPDATE_USER", "USER", userId, `Atualizou usuário ${updated.username}`);
+      res.json(updated);
+    } catch (err) {
+      console.error("[USERS/UPDATE] error:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: err.errors });
+      }
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Remover usuário
+  app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const me = await storage.getUser(req.user.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
+
+      await storage.deleteUser(req.params.id);
+      await logActivity(req, "DELETE_USER", "USER", req.params.id, `Excluiu usuário`);
+      res.status(204).send();
+    } catch (err) {
+      console.error("[USERS/DELETE] error:", err);
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
@@ -153,7 +294,10 @@ export function registerRoutes(app: Express): void {
       if (req.user?.role !== "admin") {
         const allowed = ["description", "dueDate", "assignedToId"];
         const bad = Object.keys(req.body).some((k) => !allowed.includes(k));
-        if (bad) return res.status(403).json({ message: "Insufficient permissions to edit these fields" });
+        if (bad)
+          return res
+            .status(403)
+            .json({ message: "Insufficient permissions to edit these fields" });
       }
 
       const patch = {
@@ -169,6 +313,7 @@ export function registerRoutes(app: Express): void {
       } as any;
 
       Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
+
       const updated = await storage.updateCase(id, patch);
 
       await logActivity(
@@ -231,7 +376,8 @@ export function registerRoutes(app: Express): void {
   app.delete("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
-      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
+      if (req.user?.role !== "admin")
+        return res.status(403).json({ message: "Insufficient permissions" });
       const c = await storage.getCaseById(id);
       if (!c) return res.status(404).json({ message: "Case not found" });
       await storage.deleteCase(id);
@@ -269,9 +415,14 @@ export function registerRoutes(app: Express): void {
     try {
       const { layout, widgets } = req.body;
       const saved = await storage.saveDashboardLayout(req.user!.id, layout, widgets);
-      await logActivity(req, "UPDATE_DASHBOARD", "DASHBOARD", saved.id, "Personalizou layout do dashboard", {
-        widgetCount: widgets?.length || 0,
-      });
+      await logActivity(
+        req,
+        "UPDATE_DASHBOARD",
+        "DASHBOARD",
+        saved.id,
+        "Personalizou layout do dashboard",
+        { widgetCount: widgets?.length || 0 }
+      );
       res.json(saved);
     } catch (err) {
       console.error("Error saving dashboard layout:", err);
@@ -281,7 +432,6 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== ACTIVITY LOG ==================== */
 
-  // >>> As duas rotas retornam a MESMA estrutura "achatada"
   const activityHandler = async (req: any, res: any) => {
     try {
       const { action, date, search, limit, processOnly } = req.query as any;
@@ -298,7 +448,6 @@ export function registerRoutes(app: Express): void {
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   };
-
   app.get("/api/activity-logs", isAuthenticated, activityHandler);
   app.get("/api/activity-log", isAuthenticated, activityHandler); // alias singular
 
@@ -472,6 +621,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // Export XLSX (dynamic import)
   app.get("/api/employees/export", isAuthenticated, async (_req, res) => {
     try {
       const mod: any = await import("xlsx");
@@ -503,7 +653,10 @@ export function registerRoutes(app: Express): void {
         "Content-Disposition",
         `attachment; filename="funcionarios_${new Date().toISOString().split("T")[0]}.xlsx"`
       );
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
       res.send(buffer);
     } catch (err) {
       console.error("Error exporting employees:", err);
@@ -511,6 +664,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // Import Excel + link-cases
   app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
       if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
@@ -538,6 +692,183 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  /* ==================== SEED DE DEMONSTRAÇÃO ==================== */
+
+  // POST /api/admin/seed-demo  (somente admin logado)
+  app.post("/api/admin/seed-demo", isAuthenticated, async (req: any, res) => {
+    try {
+      const me = await storage.getUser(req.user.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
+
+      const check = await pool.query(
+        `select count(*)::int as c from public.users where username in ('admin','editor','maria')`
+      );
+      if (check.rows[0]?.c > 0) {
+        return res.json({ ok: true, message: "Seed já aplicado (users já existem)." });
+      }
+
+      const mkPass = (plain: string) => {
+        const salt = crypto.randomBytes(16);
+        const key = crypto.scryptSync(plain, salt, 64);
+        return `${salt.toString("hex")}:${key.toString("hex")}`;
+      };
+
+      // Users
+      const usersData = [
+        {
+          id: crypto.randomUUID(),
+          email: "admin@example.com",
+          username: "admin",
+          password: mkPass("admin123"),
+          first_name: "System",
+          last_name: "Admin",
+          role: "admin",
+          permissions: JSON.stringify({ users: ["create", "update", "delete"] }),
+        },
+        {
+          id: crypto.randomUUID(),
+          email: "editor@example.com",
+          username: "editor",
+          password: mkPass("editor123"),
+          first_name: "Erica",
+          last_name: "Editor",
+          role: "editor",
+          permissions: JSON.stringify({ cases: ["create", "update"] }),
+        },
+        {
+          id: crypto.randomUUID(),
+          email: "maria@example.com",
+          username: "maria",
+          password: mkPass("user123"),
+          first_name: "Maria",
+          last_name: "Silva",
+          role: "user",
+          permissions: JSON.stringify({}),
+        },
+      ];
+      for (const u of usersData) {
+        await pool.query(
+          `insert into public.users
+            (id,email,username,password,first_name,last_name,role,permissions,created_at,updated_at)
+          values ($1,$2,$3,$4,$5,$6,$7,$8, now(), now())
+          on conflict (id) do nothing`,
+          [u.id, u.email, u.username, u.password, u.first_name, u.last_name, u.role, u.permissions]
+        );
+      }
+
+      // Employees
+      const employeesData = [
+        { name: "João Pereira",   registration: "BF-1001", rg: "12.345.678-9", companyId: 1, role: "Analista",   department: "Operações",  costCenter: "CC-01" },
+        { name: "Ana Souza",      registration: "BF-1002", rg: "98.765.432-1", companyId: 1, role: "Assistente", department: "Jurídico",   costCenter: "CC-02" },
+        { name: "Carlos Lima",    registration: "BF-1003", rg: "11.222.333-4", companyId: 1, role: "Coord.",     department: "RH",         costCenter: "CC-03" },
+        { name: "Beatriz Santos", registration: "BF-1004", rg: "55.666.777-8", companyId: 1, role: "Advogada",   department: "Jurídico",   costCenter: "CC-02" },
+        { name: "Rafaela Nunes",  registration: "BF-1005", rg: "99.888.777-6", companyId: 1, role: "Analista",   department: "Financeiro", costCenter: "CC-04" },
+        { name: "Lucas Almeida",  registration: "BF-1006", rg: "22.333.444-5", companyId: 1, role: "Técnico",    department: "TI",         costCenter: "CC-05" },
+      ];
+      const employeeIds: string[] = [];
+      for (const e of employeesData) {
+        const id = crypto.randomUUID();
+        employeeIds.push(id);
+        await pool.query(
+          `insert into public.employees
+            (id,company_id,name,registration,rg,pis,admission_date,termination_date,salary,role,department,cost_center,created_at,updated_at)
+          values ($1,$2,$3,$4,$5,null, now() - interval '300 days', null, 3500.00, $6, $7, $8, now(), now())
+          on conflict (id) do nothing`,
+          [id, e.companyId, e.name, e.registration, e.rg, e.role, e.department, e.costCenter]
+        );
+      }
+
+      // Cases
+      const sampleClients = ["Lucas Silva", "Carla Mendes", "Pedro Araujo", "Juliana Costa", "Marcos Dias"];
+      const sampleStatuses = ["novo", "pendente", "concluido", "atrasado"];
+      const casesToInsert: any[] = [];
+      for (let i = 1; i <= 10; i++) {
+        const id = crypto.randomUUID();
+        const empId = employeeIds[(i - 1) % employeeIds.length];
+        const status = sampleStatuses[(i - 1) % sampleStatuses.length];
+        const clientName = sampleClients[(i - 1) % sampleClients.length];
+        const processNumber = `000${i}/2025`;
+        casesToInsert.push({
+          id,
+          employee_id: empId,
+          client_name: clientName,
+          process_type: i % 2 === 0 ? "Trabalhista" : "Cível",
+          process_number: processNumber,
+          description: `Processo de ${clientName} (${processNumber})`,
+          due_date: new Date(Date.now() + i * 86400000),
+          hearing_date: new Date(Date.now() + (i + 7) * 86400000),
+          start_date: new Date(Date.now() - i * 86400000),
+          observacoes: i % 3 === 0 ? "Observação importante." : null,
+          company_id: 1,
+          status,
+          archived: false,
+          deleted: false,
+        });
+      }
+      for (const c of casesToInsert) {
+        await pool.query(
+          `insert into public.cases
+            (id, employee_id, client_name, process_type, process_number, description,
+             due_date, hearing_date, start_date, observacoes, company_id, status, archived, deleted,
+             created_at, updated_at)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now(), now())
+          on conflict (id) do nothing`,
+          [
+            c.id, c.employee_id, c.client_name, c.process_type, c.process_number, c.description,
+            c.due_date, c.hearing_date, c.start_date, c.observacoes, c.company_id, c.status, c.archived, c.deleted
+          ]
+        );
+      }
+
+      // Activity logs (exemplos)
+      for (const c of casesToInsert.slice(0, 6)) {
+        await pool.query(
+          `insert into public.activity_log
+            (id, actor_id, action, entity, entity_id, details, created_at)
+          values ($1,$2,$3,$4,$5,$6, now())`,
+          [
+            crypto.randomUUID(),
+            (await storage.getUserByUsername("admin"))?.id ?? null,
+            "CREATE_CASE",
+            "CASE",
+            c.id,
+            JSON.stringify({ description: `Criou processo ${c.process_number} - ${c.client_name}` }),
+          ]
+        );
+      }
+
+      // Dashboard layout (admin)
+      await pool.query(
+        `insert into public.dashboard_layouts 
+          (id, user_id, layout_key, layout, created_at, updated_at)
+        values ($1,$2,'default',$3, now(), now())
+        on conflict (user_id, layout_key) do update set layout = excluded.layout, updated_at = now()`,
+        [
+          crypto.randomUUID(),
+          (await storage.getUserByUsername("admin"))?.id ?? null,
+          JSON.stringify({
+            widgets: [
+              { id: "w1", type: "kpi", title: "Total Processos", source: "cases.total" },
+              { id: "w2", type: "chart", title: "Processos por Status", source: "cases.byStatus" },
+              { id: "w3", type: "table", title: "Últimos Logs", source: "activity.latest" }
+            ]
+          }),
+        ]
+      );
+
+      res.json({
+        ok: true,
+        message: "Seed aplicado com sucesso.",
+        hint: "Use admin/admin123 para entrar (se já não estiver logado).",
+        counts: { users: 3, employees: employeesData.length, cases: casesToInsert.length }
+      });
+    } catch (err) {
+      console.error("[SEED-DEMO] error:", err);
+      res.status(500).json({ message: "Seed failed", error: String(err) });
+    }
+  });
+
+  /* ===== 404 & error handler ===== */
   app.use("/api", (_req, res) => res.status(404).json({ message: "Not found" }));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
