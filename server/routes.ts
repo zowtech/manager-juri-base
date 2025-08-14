@@ -24,7 +24,7 @@ import {
 const scryptAsync = promisify(crypto.scrypt);
 const upload = multer({ dest: "uploads/" });
 
-/* ============ Helpers ============ */
+/* ---------------- Helpers ---------------- */
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated && req.isAuthenticated()) return next();
   return res.status(401).json({ message: "Unauthorized" });
@@ -64,20 +64,16 @@ const logActivity = async (
   }
 };
 
-/* ============ Tipos ============ */
 interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
-/* ============ Rotas ============ */
+/* ---------------- Rotas ---------------- */
 export function registerRoutes(app: Express): void {
-  /* sanidade */
   app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
-  /* auth & sessão */
   setupAuth(app);
 
-  /* usuário logado */
   app.get("/api/user", async (req: any, res) => {
     try {
       if (!req.isAuthenticated?.() || !req.user?.id) {
@@ -92,8 +88,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ==================== USERS ==================== */
-
+  /* =========== USERS =========== */
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -203,7 +198,7 @@ export function registerRoutes(app: Express): void {
       const me = await storage.getUser(req.user.id);
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-    await storage.deleteUser(req.params.id);
+      await storage.deleteUser(req.params.id);
       await logActivity(req, "DELETE_USER", "USER", req.params.id, `Excluiu usuário`);
       res.status(204).send();
     } catch (err) {
@@ -212,9 +207,9 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ==================== CASES ==================== */
+  /* =========== CASES =========== */
 
-  // LISTAR CASOS (JOIN para matrícula/nome do funcionário)
+  // LIST
   app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
       const { status, search, limit, orderBy } = req.query as any;
@@ -275,16 +270,13 @@ export function registerRoutes(app: Express): void {
         createdAt: r.created_at,
         updatedAt: r.updated_at,
 
-        // --- campos do funcionário ---
         employeeId: r.employee_id,
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
 
-        // --- aliases "flat" para compatibilidade com a UI ---
+        // aliases e objetos esperados pela UI
         matricula: r.employee_registration,
         registration: r.employee_registration,
-
-        // --- objetos aninhados que alguns cards procuram ---
         employee: {
           id: r.employee_id,
           name: r.employee_name,
@@ -302,7 +294,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // DETALHE DO CASO (JOIN para matrícula)
+  // DETAIL
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -359,7 +351,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // CRIAR CASO (aceita `matricula` e resolve para `employeeId`)
+  // CREATE
   app.post("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
       if (req.user?.role !== "admin") {
@@ -412,7 +404,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ATUALIZAR STATUS
+  // UPDATE STATUS
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -451,7 +443,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // EDITAR CASO
+  // PATCH
   app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -502,7 +494,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // REMOVER CASO
+  // DELETE
   app.delete("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -519,38 +511,40 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ==================== DASHBOARD ==================== */
+  /* =========== DASHBOARD =========== */
 
-  // Cards do dashboard (contagem por status)
+  // --- Cards (robusto a variações de status/acentos) ---
   app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
     try {
       const q = `
         select 
-          count(*)::int                                       as total,
-          sum((status = 'novo')::int)::int                    as novo,
-          sum((status = 'pendente')::int)::int               as pendente,
-          sum((status = 'concluido')::int)::int              as concluido,
-          sum((status = 'atrasado')::int)::int               as atrasado,
-          sum((due_date < now() and status <> 'concluido')::int)::int as vencidos
+          count(*)::int as total,
+          sum( (lower(coalesce(status,'')) like 'novo%')::int )::int      as novo,
+          sum( (lower(coalesce(status,'')) like 'pend%')::int )::int     as pendente,
+          sum( (lower(coalesce(status,'')) like 'atras%')::int )::int    as atrasado,
+          sum( (lower(coalesce(status,'')) like 'conclu%')::int )::int   as concluido,
+          sum( (due_date < now() and not (lower(coalesce(status,'')) like 'conclu%'))::int )::int as vencidos
         from public.cases
       `;
       const { rows: [r] } = await pool.query(q);
-
-      res.json({
-        total:      r?.total      ?? 0,
-        novo:       r?.novo       ?? 0,
-        pendente:   r?.pendente   ?? 0,
-        atrasado:   r?.atrasado   ?? 0,
-        concluido:  r?.concluido  ?? 0,
-        vencidos:   r?.vencidos   ?? 0,
-      });
+      const payload = {
+        total:     r?.total      ?? 0,
+        novo:      r?.novo       ?? 0,
+        pendente:  r?.pendente   ?? 0,
+        atrasado:  r?.atrasado   ?? 0,
+        concluido: r?.concluido  ?? 0,
+        vencidos:  r?.vencidos   ?? 0,
+      };
+      console.log("[DASH/STATS]", payload);
+      res.set("Cache-Control", "no-store");
+      res.json(payload);
     } catch (err) {
       console.error("Error fetching dashboard stats:", err);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
 
-  // Últimas Atualizações (top 10 por updated_at)
+  // --- Últimas Atualizações ---
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
       const q = `
@@ -574,7 +568,6 @@ export function registerRoutes(app: Express): void {
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
 
-        // aliases e objetos esperados pelo front
         matricula: r.employee_registration,
         registration: r.employee_registration,
         employee: {
@@ -590,8 +583,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ==================== ACTIVITY LOG ==================== */
-
+  /* =========== ACTIVITY LOG =========== */
   const activityHandler = async (req: any, res: any) => {
     try {
       const { action, date, search, limit, processOnly } = req.query as any;
@@ -609,10 +601,9 @@ export function registerRoutes(app: Express): void {
     }
   };
   app.get("/api/activity-logs", isAuthenticated, activityHandler);
-  app.get("/api/activity-log", isAuthenticated, activityHandler); // alias singular
+  app.get("/api/activity-log", isAuthenticated, activityHandler); // alias
 
-  /* ==================== EMPLOYEES ==================== */
-
+  /* =========== EMPLOYEES =========== */
   app.get("/api/employees", isAuthenticated, async (req, res) => {
     try {
       const term = String((req.query as any).search || "").toLowerCase();
@@ -852,8 +843,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ==================== SEED DE DEMONSTRAÇÃO ==================== */
-
+  /* =========== SEED DEMO =========== */
   app.post("/api/admin/seed-demo", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -872,38 +862,10 @@ export function registerRoutes(app: Express): void {
         return `${salt.toString("hex")}:${key.toString("hex")}`;
       };
 
-      // Users
       const usersData = [
-        {
-          id: crypto.randomUUID(),
-          email: "admin@example.com",
-          username: "admin",
-          password: mkPass("admin123"),
-          first_name: "System",
-          last_name: "Admin",
-          role: "admin",
-          permissions: JSON.stringify({ users: ["create", "update", "delete"] }),
-        },
-        {
-          id: crypto.randomUUID(),
-          email: "editor@example.com",
-          username: "editor",
-          password: mkPass("editor123"),
-          first_name: "Erica",
-          last_name: "Editor",
-          role: "editor",
-          permissions: JSON.stringify({ cases: ["create", "update"] }),
-        },
-        {
-          id: crypto.randomUUID(),
-          email: "maria@example.com",
-          username: "maria",
-          password: mkPass("user123"),
-          first_name: "Maria",
-          last_name: "Silva",
-          role: "user",
-          permissions: JSON.stringify({}),
-        },
+        { id: crypto.randomUUID(), email: "admin@example.com",  username: "admin",  password: mkPass("admin123"),  first_name: "System", last_name: "Admin", role: "admin",  permissions: JSON.stringify({ users: ["create","update","delete"] }) },
+        { id: crypto.randomUUID(), email: "editor@example.com", username: "editor", password: mkPass("editor123"), first_name: "Erica",  last_name: "Editor", role: "editor", permissions: JSON.stringify({ cases: ["create","update"] }) },
+        { id: crypto.randomUUID(), email: "maria@example.com",  username: "maria",  password: mkPass("user123"),   first_name: "Maria",  last_name: "Silva",  role: "user",   permissions: JSON.stringify({}) },
       ];
       for (const u of usersData) {
         await pool.query(
@@ -915,7 +877,6 @@ export function registerRoutes(app: Express): void {
         );
       }
 
-      // Employees
       const employeesData = [
         { name: "João Pereira",   registration: "BF-1001", rg: "12.345.678-9", companyId: 1, role: "Analista",   department: "Operações",  costCenter: "CC-01" },
         { name: "Ana Souza",      registration: "BF-1002", rg: "98.765.432-1", companyId: 1, role: "Assistente", department: "Jurídico",   costCenter: "CC-02" },
@@ -937,34 +898,14 @@ export function registerRoutes(app: Express): void {
         );
       }
 
-      // Cases
       const sampleClients = ["Lucas Silva", "Carla Mendes", "Pedro Araujo", "Juliana Costa", "Marcos Dias"];
       const sampleStatuses = ["novo", "pendente", "concluido", "atrasado"];
-      const casesToInsert: any[] = [];
       for (let i = 1; i <= 10; i++) {
         const id = crypto.randomUUID();
         const empId = employeeIds[(i - 1) % employeeIds.length];
         const status = sampleStatuses[(i - 1) % sampleStatuses.length];
         const clientName = sampleClients[(i - 1) % sampleClients.length];
         const processNumber = `000${i}/2025`;
-        casesToInsert.push({
-          id,
-          employee_id: empId,
-          client_name: clientName,
-          process_type: i % 2 === 0 ? "Trabalhista" : "Cível",
-          process_number: processNumber,
-          description: `Processo de ${clientName} (${processNumber})`,
-          due_date: new Date(Date.now() + i * 86400000),
-          hearing_date: new Date(Date.now() + (i + 7) * 86400000),
-          start_date: new Date(Date.now() - i * 86400000),
-          observacoes: i % 3 === 0 ? "Observação importante." : null,
-          company_id: 1,
-          status,
-          archived: false,
-          deleted: false,
-        });
-      }
-      for (const c of casesToInsert) {
         await pool.query(
           `insert into public.cases
             (id, employee_id, client_name, process_type, process_number, description,
@@ -973,62 +914,25 @@ export function registerRoutes(app: Express): void {
           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now(), now())
           on conflict (id) do nothing`,
           [
-            c.id, c.employee_id, c.client_name, c.process_type, c.process_number, c.description,
-            c.due_date, c.hearing_date, c.start_date, c.observacoes, c.company_id, c.status, c.archived, c.deleted
+            id, empId, clientName, i % 2 === 0 ? "Trabalhista" : "Cível", processNumber,
+            `Processo de ${clientName} (${processNumber})`,
+            new Date(Date.now() + i * 86400000),
+            new Date(Date.now() + (i + 7) * 86400000),
+            new Date(Date.now() - i * 86400000),
+            i % 3 === 0 ? "Observação importante." : null,
+            1, status, false, false
           ]
         );
       }
 
-      // Activity logs (exemplos)
-      const adminId = (await storage.getUserByUsername("admin"))?.id ?? null;
-      for (const c of casesToInsert.slice(0, 6)) {
-        await pool.query(
-          `insert into public.activity_log
-            (id, actor_id, action, entity, entity_id, details, created_at)
-          values ($1,$2,$3,$4,$5,$6, now())`,
-          [
-            crypto.randomUUID(),
-            adminId,
-            "CREATE_CASE",
-            "CASE",
-            c.id,
-            JSON.stringify({ description: `Criou processo ${c.process_number} - ${c.client_name}` }),
-          ]
-        );
-      }
-
-      // Dashboard layout (admin)
-      await pool.query(
-        `insert into public.dashboard_layouts 
-          (id, user_id, layout_key, layout, created_at, updated_at)
-        values ($1,$2,'default',$3, now(), now())
-        on conflict (user_id, layout_key) do update set layout = excluded.layout, updated_at = now()`,
-        [
-          crypto.randomUUID(),
-          adminId,
-          JSON.stringify({
-            widgets: [
-              { id: "w1", type: "kpi", title: "Total Processos", source: "cases.total" },
-              { id: "w2", type: "chart", title: "Processos por Status", source: "cases.byStatus" },
-              { id: "w3", type: "table", title: "Últimos Logs", source: "activity.latest" }
-            ]
-          }),
-        ]
-      );
-
-      res.json({
-        ok: true,
-        message: "Seed aplicado com sucesso.",
-        hint: "Use admin/admin123 para entrar (se já não estiver logado).",
-        counts: { users: 3, employees: employeesData.length, cases: casesToInsert.length }
-      });
+      res.json({ ok: true, message: "Seed aplicado." });
     } catch (err) {
       console.error("[SEED-DEMO] error:", err);
       res.status(500).json({ message: "Seed failed", error: String(err) });
     }
   });
 
-  /* ===== 404 & error handler ===== */
+  /* 404 & error */
   app.use("/api", (_req, res) => res.status(404).json({ message: "Not found" }));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
