@@ -1,54 +1,32 @@
-import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import * as schema from "@shared/schema";
+// server/db.ts
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as schema from "../shared/schema"; // ajuste o caminho se seu schema estiver noutro lugar
 
-// Force use of user's Supabase database
-const dbUrl = 'postgresql://postgres.fhalwugmppeswkvxnljn:BaseF@cilities2025!@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1';
-
-if (!dbUrl) {
-  throw new Error('DATABASE_URL is not set');
-}
-
-// Log database connection info for debugging
-try {
-  const u = new URL(dbUrl);
-  console.log('[DB] Using:', `${u.protocol}//${u.hostname}:${u.port}${u.pathname}`);
-} catch (e) {
-  console.log('[DB] DATABASE_URL inválida ou ausente');
-}
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) throw new Error("DATABASE_URL is not set");
 
 export const pool = new Pool({
   connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },
-  max: 1
+  max: 1, // recomendado para o Transaction Pooler do Supabase (pgbouncer)
 });
 
-pool.on('connect', (client) => {
-  client.query('set search_path to public');
-});
-
-// Helper function for raw queries
-export async function query(text: string, params?: any[]) {
-  const res = await pool.query(text, params);
-  return res;
-}
-
-// Handle connection errors
-pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle client:', err);
-});
-
-pool.on('connect', () => {
-  console.log('✅ Database connected successfully');
+// fixar o schema para evitar sumiços por search_path diferente
+pool.on("connect", (client) => {
+  client.query("set search_path to public");
 });
 
 export const db = drizzle(pool, { schema });
 
-// Test connection on startup
-pool.query('SELECT NOW() as server_time')
-  .then(result => {
-    console.log('🎉 Database ready! Server time:', result.rows[0].server_time);
-  })
-  .catch(err => {
-    console.error('❌ Database connection test failed:', err.message);
-  });
+// log seguro (sem senha)
+try {
+  const u = new URL(dbUrl);
+  console.log("[DB] Using:", `${u.protocol}//${u.hostname}:${u.port}${u.pathname}`);
+} catch {}
+
+// smoke test (não bloqueante)
+pool
+  .query("select now() as now")
+  .then((r) => console.log("🎉 Database ready:", r.rows[0].now))
+  .catch((e) => console.error("❌ Database test failed:", e.message));

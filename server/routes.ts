@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import * as fs from "fs";
 import multer from "multer";
-import { storage } from "./storage-supabase";
+import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
