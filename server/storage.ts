@@ -127,10 +127,39 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     console.log(`🔍 BUSCANDO USUÁRIO: ${id}`);
     
-    const user = DatabaseStorage.userCache.find(user => user.id === id);
+    // Primeiro tentar cache local
+    let user = DatabaseStorage.userCache.find(user => user.id === id);
     if (user) {
-      console.log(`✅ USUÁRIO ENCONTRADO: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
+      console.log(`✅ USUÁRIO ENCONTRADO NO CACHE: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
       return user;
+    }
+    
+    // Se não encontrar no cache, buscar no Supabase
+    try {
+      const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+      if (result.rows.length > 0) {
+        const dbUser = result.rows[0];
+        user = {
+          id: dbUser.id,
+          email: dbUser.email,
+          username: dbUser.username,
+          password: dbUser.password,
+          firstName: dbUser.first_name,
+          lastName: dbUser.last_name,
+          profileImageUrl: dbUser.profile_image_url,
+          role: dbUser.role,
+          permissions: dbUser.permissions || {},
+          createdAt: new Date(dbUser.created_at),
+          updatedAt: new Date(dbUser.updated_at)
+        };
+        
+        // Adicionar ao cache para próximas consultas
+        DatabaseStorage.userCache.push(user);
+        console.log(`✅ USUÁRIO ENCONTRADO NO SUPABASE: ${user.username} com permissões:`, JSON.stringify(user.permissions, null, 2));
+        return user;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário no Supabase:', error);
     }
     
     console.log(`❌ USUÁRIO NÃO ENCONTRADO: ${id}`);
@@ -140,9 +169,43 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     console.log(`🔍 SEARCHING USER: ${username}`);
     
-    const user = DatabaseStorage.userCache.find(user => user.username === username);
-    console.log(`✅ FOUND USER:`, user ? `${user.username} (${user.id})` : 'null');
-    return user;
+    // Primeiro tentar cache local
+    let user = DatabaseStorage.userCache.find(user => user.username === username);
+    if (user) {
+      console.log(`✅ FOUND USER IN CACHE: ${user.username} (${user.id})`);
+      return user;
+    }
+    
+    // Se não encontrar no cache, buscar no Supabase
+    try {
+      const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+      if (result.rows.length > 0) {
+        const dbUser = result.rows[0];
+        user = {
+          id: dbUser.id,
+          email: dbUser.email,
+          username: dbUser.username,
+          password: dbUser.password,
+          firstName: dbUser.first_name,
+          lastName: dbUser.last_name,
+          profileImageUrl: dbUser.profile_image_url,
+          role: dbUser.role,
+          permissions: dbUser.permissions || {},
+          createdAt: new Date(dbUser.created_at),
+          updatedAt: new Date(dbUser.updated_at)
+        };
+        
+        // Adicionar ao cache para próximas consultas
+        DatabaseStorage.userCache.push(user);
+        console.log(`✅ FOUND USER IN SUPABASE: ${user.username} (${user.id})`);
+        return user;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuário no Supabase:', error);
+    }
+    
+    console.log(`❌ USER NOT FOUND: ${username}`);
+    return undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {

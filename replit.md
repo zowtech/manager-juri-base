@@ -140,6 +140,10 @@ Preferred communication style: Simple, everyday language.
 - **Authentication**: Custom session-based with local strategy  
 - **Sessions**: Secure session management with TTL
 - **Independence**: Complete user independence achieved - no external dependencies
+- **Synchronization**: All environments (Replit + Render) unified on single Supabase database
+- **Current Status**: Replit connected to Supabase ✓, Render DATABASE_URL configured but not connecting
+- **Issue**: Fixed API synchronization - users, employees, cases now query Supabase directly
+- **Status**: APIs corrected, testing Render synchronization with Joyce user and all data
 
 ### Render Deployment Configuration (August 2025) - FULLY OPTIMIZED ✅
 - **Platform**: Render.com with automatic deployments and health checks

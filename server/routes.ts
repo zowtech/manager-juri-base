@@ -428,23 +428,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Employee routes
+  // Employee routes - corrigido para Supabase
   app.get('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const { search } = req.query;
-      let employeeList;
+      
+      // Usar query direta para Supabase com colunas corretas
+      let query = `
+        SELECT 
+          id, nome, matricula, rg, pis, 
+          "dataAdmissao", "dataDemissao", salario, 
+          cargo, departamento, "centroCusto", empresa
+        FROM employees 
+        WHERE 1=1
+      `;
+      
+      const queryParams: any[] = [];
       
       if (search) {
         const searchTerm = `%${search.toString().toLowerCase()}%`;
-        employeeList = await db.select()
-          .from(employees)
-          .where(sql`LOWER(nome) LIKE ${searchTerm} OR LOWER(matricula) LIKE ${searchTerm}`)
-          .limit(50);
-      } else {
-        employeeList = await db.select().from(employees).orderBy(employees.nome).limit(100);
+        query += ` AND (LOWER(nome) LIKE $1 OR LOWER(matricula) LIKE $2)`;
+        queryParams.push(searchTerm, searchTerm);
       }
       
-      res.json(employeeList);
+      query += ` ORDER BY nome LIMIT 100`;
+      
+      const result = await pool.query(query, queryParams);
+      res.json(result.rows);
     } catch (error) {
       console.error("Error fetching employees:", error);
       res.status(500).json({ message: "Failed to fetch employees" });
@@ -698,7 +708,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const users = await storage.getAllUsers();
+      // Buscar usuários diretamente do Supabase incluindo Joyce
+      const result = await pool.query(`
+        SELECT id, email, username, "firstName", "lastName", role, permissions, "createdAt", "updatedAt"
+        FROM users 
+        ORDER BY "createdAt" DESC
+      `);
+      
+      const users = result.rows.map(user => ({
+        ...user,
+        password: null // Não retornar senha
+      }));
+      
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
