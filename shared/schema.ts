@@ -32,9 +32,9 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   username: varchar("username").unique(),
   password: varchar("password"),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+  firstName: varchar("firstName"),
+  lastName: varchar("lastName"),
+  profileImageUrl: varchar("profileImageUrl"),
   role: varchar("role").notNull().default("viewer"), // admin, editor, or viewer
   permissions: jsonb("permissions").default(sql`'{
     "matricula": {"view": true, "edit": false},

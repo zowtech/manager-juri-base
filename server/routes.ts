@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import * as fs from "fs";
 import multer from "multer";
-import { storage } from "./storage";
+import { storage } from "./storage-supabase";
 import { setupAuth } from "./auth";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
@@ -501,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Matrícula já existe" });
       }
 
-      const [newEmployee] = await db.insert(employees).values(employeeData).returning();
+      const [newEmployee] = await db.insert(employees).values([employeeData]).returning();
 
       console.log('[EMPLOYEES/CREATE] Success:', newEmployee);
 
@@ -617,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           emp.email || '',
           emp.telefone || '',
           emp.dataAdmissao ? new Date(emp.dataAdmissao).toLocaleDateString('pt-BR') : '',
-          emp.status,
+          emp.status || 'ativo',
           emp.cargo || '',
           emp.departamento || '',
           emp.endereco || ''
@@ -676,7 +676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error importing employees:", error);
-      res.status(500).json({ success: false, error: "Failed to import employees: " + error.message });
+      res.status(500).json({ success: false, error: "Failed to import employees: " + String(error) });
     }
   });
 
@@ -710,7 +710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Buscar usuários com snake_case correto
       const sql = `
-        SELECT id, email, username, first_name, last_name, role, permissions, created_at, updated_at
+        SELECT id, email, username, "firstName", "lastName", role, permissions, created_at, updated_at
         FROM public.users 
         ORDER BY created_at DESC
       `;
@@ -720,8 +720,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         email: user.email,
         username: user.username,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         role: user.role,
         permissions: user.permissions,
         createdAt: user.created_at,
@@ -752,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('✅ Dados validados pelo schema:', userData);
       
       // Verificar duplicatas
-      const existingByUsername = await storage.getUserByUsername(userData.username);
+      const existingByUsername = await storage.getUserByUsername(userData.username || "");
       if (existingByUsername) {
         console.log('❌ Username já existe:', userData.username);
         return res.status(400).json({ message: `Usuário "${userData.username}" já existe` });
@@ -807,12 +807,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors: error.errors,
           details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
         });
-      } else if (error.message?.includes('já existe')) {
-        res.status(400).json({ message: error.message });
+      } else if (String(error).includes('já existe')) {
+        res.status(400).json({ message: String(error) });
       } else {
         res.status(500).json({ 
           message: "Falha ao criar usuário", 
-          error: error.message,
+          error: String(error),
           details: "Verifique a conexão com o banco de dados"
         });
       }

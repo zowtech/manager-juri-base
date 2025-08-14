@@ -2,7 +2,9 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-const dbUrl = process.env.DATABASE_URL;
+// Force use of user's Supabase database
+const dbUrl = 'postgresql://postgres.fhalwugmppeswkvxnljn:BaseF@cilities2025!@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1';
+
 if (!dbUrl) {
   throw new Error('DATABASE_URL is not set');
 }
@@ -26,8 +28,8 @@ pool.on('connect', (client) => {
 });
 
 // Helper function for raw queries
-export async function query<T = any>(text: string, params?: any[]) {
-  const res = await pool.query<T>(text, params);
+export async function query(text: string, params?: any[]) {
+  const res = await pool.query(text, params);
   return res;
 }
 
