@@ -304,6 +304,24 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+// Alias para singular: /api/activity-log -> usa o mesmo handler
+app.get("/api/activity-log", isAuthenticated, async (req, res) => {
+  try {
+    const { action, date, search, limit, processOnly } = req.query as any;
+    const logs = await storage.getActivityLogs({
+      action,
+      date,
+      search,
+      limit: limit ? Number(limit) : undefined,
+      processOnly: processOnly === "true",
+    });
+    res.json(logs);
+  } catch (err) {
+    console.error("❌ Erro ao buscar logs de atividade (alias):", err);
+    res.status(500).json({ message: "Failed to fetch activity logs" });
+  }
+});
+
   /* ==================== EMPLOYEES ==================== */
 
   app.get("/api/employees", isAuthenticated, async (req, res) => {
