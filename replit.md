@@ -141,15 +141,19 @@ Preferred communication style: Simple, everyday language.
 - **Sessions**: Secure session management with TTL
 - **Independence**: Complete user independence achieved - no external dependencies
 
-### Render Deployment Configuration (August 2025)
-- **Platform**: Render.com with automatic deployments
-- **Build System**: Custom build scripts (build-render.js) for optimized bundling
-- **Build Command**: `npm install && node build-render.js`
-- **Start Command**: `npm start` (serves bundled dist/index.js)
-- **Environment**: NODE_ENV=production, DATABASE_URL from Supabase
-- **Files**: render.yaml, build-render.js, start-render.js, INSTRUCOES-RENDER.md
-- **Port Configuration**: Dynamic PORT from Render (defaults to 5000)
-- **Static Assets**: Frontend served from dist/public/
-- **Database**: Supabase connection via DATABASE_URL environment variable
+### Render Deployment Configuration (August 2025) - FULLY OPTIMIZED ✅
+- **Platform**: Render.com with automatic deployments and health checks
+- **Build System**: Standard Vite + esbuild pipeline with proper dependency management
+- **Build Command**: `npm run render-build` (installs dev deps + builds frontend/backend)
+- **Start Command**: `node start-production.js` (lightweight loader, no server duplication)
+- **Environment**: NODE_ENV=production, DATABASE_URL from environment variables only
+- **Architecture**: Single server.listen() in server/index.ts, no hardcoded secrets
+- **Health Check**: `/health` endpoint for Render monitoring
+- **Port Configuration**: Uses process.env.PORT (defaults to 10000 for Render)
+- **Static Assets**: Frontend served from dist/public/ via Express static middleware
+- **Database**: Supabase PostgreSQL via environment variables (no hardcoded URLs)
+- **Graceful Shutdown**: SIGTERM handling for clean container stops
+- **Security**: All secrets via environment variables, SSL configured for Supabase
+- **Compatibility**: Solved EADDRINUSE and dependency issues completely
 
 The system follows a monorepo structure with clear separation between client, server, and shared code, making it maintainable and scalable for legal case management workflows.

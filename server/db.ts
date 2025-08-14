@@ -2,23 +2,20 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-// Force Supabase URL - override any environment variable
-const DATABASE_URL = 'postgresql://postgres.fhalwugmppeswkvxnljn:BaseF@cilities2025!@aws-0-us-east-2.pooler.supabase.com:6543/postgres';
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  throw new Error('DATABASE_URL is not set');
+}
 
 console.log('🔗 Database connection info:', {
   environment: process.env.NODE_ENV,
-  hasUrl: !!DATABASE_URL,
-  urlPreview: DATABASE_URL.substring(0, 30) + '...'
+  hasUrl: !!dbUrl
 });
 
-// Simplified configuration for Supabase reliability
 const connectionConfig = {
-  connectionString: DATABASE_URL,
+  connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },
-  max: 5,
-  min: 1,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  max: 1
 };
 
 export const pool = new Pool(connectionConfig);

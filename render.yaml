@@ -1,11 +1,12 @@
 services:
   - type: web
-    name: legal-case-management
+    name: manager-juri-base
     env: node
-    buildCommand: "npm ci && NODE_ENV=production npx vite build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist"
+    plan: free
+    buildCommand: npm run render-build
     startCommand: node start-production.js
+    autoDeploy: true
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        value: "postgresql://postgres.fhalwugmppeswkvxnljn:BaseF@cilities2025!@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
