@@ -1,873 +1,686 @@
-import type { Express, Request } from "express";
-import { createServer, type Server } from "http";
+// server/routes.ts
+import type { Express, Request, Response, NextFunction } from "express";
 import * as fs from "fs";
 import multer from "multer";
-import { storage } from "./storage";
-import { setupAuth } from "./auth";
-import { scrypt, randomBytes } from "crypto";
-import { promisify } from "util";
-
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-import { insertCaseSchema, insertUserSchema, updateUserSchema, User } from "@shared/schema";
-import { z } from "zod";
-import { db, pool } from "./db";
-import { employees } from "@shared/schema";
+import crypto from "node:crypto";
+import { promisify } from "node:util";
 import { sql, eq } from "drizzle-orm";
 
+import { setupAuth } from "./auth";
+import { storage } from "./storage"; // sua camada DB-backed
+import { db, pool } from "./db";
 
+// Schemas Drizzle (snake_case no banco, camelCase no código)
+import {
+  users as usersTable,
+  employees as employeesTable,
+} from "@shared/schema";
 
-// Extend Request type to include user
+// Se você tiver zod schemas no shared, mantenha estes imports
+import { z } from "zod";
+import {
+  insertCaseSchema,
+  insertUserSchema,
+  updateUserSchema,
+  // User // (se precisar do tipo)
+} from "@shared/schema";
+
+// Utilidades para data/moeda (se criadas em server/utils/normalize.ts)
+import { parseBRDate, parseBRMoney } from "./utils/normalize";
+
+// ===== helpers =====
+const scryptAsync = promisify(crypto.scrypt);
+
+async function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16);
+  const key = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt.toString("hex")}:${key.toString("hex")}`;
+}
+
 interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
-// Authentication middleware
-function isAuthenticated(req: any, res: any, next: any) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.status(401).json({ message: "Unauthorized" });
+function isAuthenticated(req: any, res: Response, next: NextFunction) {
+  if (req.isAuthenticated && req.isAuthenticated()) return next();
+  return res.status(401).json({ message: "Unauthorized" });
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Test route to verify API routing works
-  app.get('/api/test', (req, res) => {
-    console.log('🟢 TEST ROUTE HIT');
-    res.json({ message: 'API routing is working', timestamp: new Date().toISOString() });
+// Log de atividade (usa sua camada storage)
+const logActivity = async (
+  req: any,
+  action: string,
+  resourceType: string,
+  resourceId: string,
+  description: string,
+  metadata?: any
+) => {
+  try {
+    if (!req.user?.id) return;
+    const ipAddress =
+      req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("User-Agent") || "Unknown";
+    await storage.logActivity({
+      userId: req.user.id,
+      action,
+      resourceType,
+      resourceId,
+      description,
+      ipAddress,
+      userAgent,
+      metadata: metadata ? JSON.stringify(metadata) : undefined,
+    });
+  } catch (e) {
+    console.error("❌ Falha ao registrar log de atividade:", e);
+  }
+};
+
+// =====================================================
+// ================ REGISTER ROUTES ====================
+// =====================================================
+export function registerRoutes(app: Express): void {
+  // TEST
+  app.get("/api/test", (_req, res) => {
+    res.json({ message: "API routing is working", timestamp: new Date().toISOString() });
   });
 
-  // Auth middleware
+  // AUTH
   setupAuth(app);
 
-  // Auth routes
-  app.get('/api/user', async (req: any, res: any) => {
-    console.log('🔍 USER CHECK:', req.isAuthenticated(), req.user);
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    
+  // ------- Current user -------
+  app.get("/api/user", async (req: any, res) => {
     try {
-      // Usar storage para buscar o usuário com permissões
-      const user = await storage.getUser(req.user.id);
-      
-      if (!user) {
-        console.log('❌ USUÁRIO NÃO ENCONTRADO');
-        return res.status(404).json({ message: "User not found" });
+      if (!req.isAuthenticated?.() || !req.user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      
-      console.log('✅ USUÁRIO CARREGADO:', user.username, 'Permissões:', JSON.stringify(user.permissions, null, 2));
-      
+      const user = await storage.getUser(req.user.id);
+      if (!user) return res.status(404).json({ message: "User not found" });
       res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
+    } catch (err) {
+      console.error("Error fetching user:", err);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
-  // Enhanced activity logging middleware
-  const logActivity = async (req: any, action: string, resourceType: string, resourceId: string, description: string, metadata?: any) => {
+  // ================= CASES =================
+  // (mantidos como estavam, delegando ao storage)
+  app.get("/api/cases", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      if (!req.user || !req.user.id) {
-        console.log('⚠️ LOG ATIVIDADE: Usuário não encontrado, pulando log');
-        return;
-      }
-      
-      const timestamp = new Date().toISOString();
-      const userInfo = `${req.user.firstName} ${req.user.lastName} (${req.user.username})`;
-      const ipAddress = req.ip || req.socket.remoteAddress || req.connection?.remoteAddress || 'Unknown';
-      const userAgent = req.get('User-Agent') || 'Unknown';
-      
-      const detailedDescription = `${userInfo}: ${description}`;
-      
-      await storage.logActivity({
-        userId: req.user.id,
-        action,
-        resourceType,
-        resourceId,
-        description: detailedDescription,
-        ipAddress,
-        userAgent,
-        metadata: metadata ? JSON.stringify(metadata) : undefined,
-      });
-      
-      console.log(`📋 LOG ATIVIDADE: [${action}] ${resourceType} ${resourceId} - ${description} - Usuário: ${userInfo}`);
-    } catch (error) {
-      console.error('❌ Falha ao registrar log de atividade:', error);
-    }
-  };
-
-  // Case routes
-  app.get('/api/cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const { status, search, limit, orderBy } = req.query;
-      const cases = await storage.getCases({
-        status: status as string,
-        search: search as string,
-      });
-      
-      let sortedCases = cases;
-      if (orderBy === 'recent') {
-        sortedCases = cases.sort((a, b) => {
-          const dateA = new Date(a.updatedAt || a.createdAt || 0);
-          const dateB = new Date(b.updatedAt || b.createdAt || 0);
-          return dateB.getTime() - dateA.getTime();
+      const { status, search, limit, orderBy } = req.query as any;
+      const cases = await storage.getCases({ status, search });
+      let data = cases;
+      if (orderBy === "recent") {
+        data = cases.sort((a: any, b: any) => {
+          const da = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const dbb = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return dbb - da;
         });
       }
-      
-      const result = limit ? sortedCases.slice(0, parseInt(limit as string)) : sortedCases;
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching cases:", error);
+      res.json(limit ? data.slice(0, Number(limit)) : data);
+    } catch (err) {
+      console.error("Error fetching cases:", err);
       res.status(500).json({ message: "Failed to fetch cases" });
     }
   });
 
-  app.get('/api/cases/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
-      const { id } = req.params;
-      const caseData = await storage.getCaseById(id);
-      if (!caseData) {
-        return res.status(404).json({ message: "Case not found" });
-      }
-      
-      res.json(caseData);
-    } catch (error) {
-      console.error("Error fetching case:", error);
+      const c = await storage.getCaseById(req.params.id);
+      if (!c) return res.status(404).json({ message: "Case not found" });
+      res.json(c);
+    } catch (err) {
+      console.error("Error fetching case:", err);
       res.status(500).json({ message: "Failed to fetch case" });
     }
   });
 
-  app.post('/api/cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
-      console.log('🔍 Received case creation request:', req.body);
-      console.log('🔍 User info:', req.user);
-      
-      if (req.user?.role !== 'admin') {
+      if (req.user?.role !== "admin")
         return res.status(403).json({ message: "Insufficient permissions" });
-      }
 
-      // Add the authenticated user's ID to the request data
-      const requestData = {
+      // normaliza datas se vierem como dd/mm/aaaa
+      const withDates = {
         ...req.body,
-        createdById: req.user.id // Override with actual authenticated user ID
+        dueDate: parseBRDate(req.body?.dueDate) ?? req.body?.dueDate ?? null,
+        dataAudiencia: parseBRDate(req.body?.dataAudiencia) ?? req.body?.dataAudiencia ?? null,
+        startDate: parseBRDate(req.body?.startDate) ?? req.body?.startDate ?? null,
+        createdById: req.user.id,
       };
-      
-      // Convert date strings to Date objects before validation
-      const dataWithDates = {
-        ...requestData,
-        dueDate: requestData.dueDate ? new Date(requestData.dueDate) : undefined,
-        dataAudiencia: requestData.dataAudiencia ? new Date(requestData.dataAudiencia) : undefined,
-        startDate: requestData.startDate ? new Date(requestData.startDate) : undefined
-      };
-      
-      console.log('🔍 Data to validate:', dataWithDates);
-      const validatedData = insertCaseSchema.parse(dataWithDates);
-      console.log('✅ Validation passed:', validatedData);
-      
-      const newCase = await storage.createCase(validatedData);
-      console.log('✅ Case created:', newCase);
-      
+
+      const validated = insertCaseSchema.parse(withDates);
+      const created = await storage.createCase(validated);
+
       await logActivity(
         req,
-        'CREATE_CASE',
-        'CASE',
-        newCase.id,
-        `Criou novo processo ${newCase.processNumber} - Cliente: ${newCase.clientName}`,
-        { 
-          processNumber: newCase.processNumber,
-          clientName: newCase.clientName,
-          status: newCase.status,
-          dueDate: newCase.dueDate 
-        }
+        "CREATE_CASE",
+        "CASE",
+        created.id,
+        `Criou processo ${created.processNumber} - Cliente: ${created.clientName}`,
+        { processNumber: created.processNumber, clientName: created.clientName, status: created.status }
       );
 
-      res.status(201).json(newCase);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        console.error('❌ Validation error:', error.errors);
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      res.status(201).json(created);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: err.errors });
       }
-      console.error("❌ Error creating case:", error);
+      console.error("❌ Error creating case:", err);
       res.status(500).json({ message: "Failed to create case" });
     }
   });
 
-  app.patch('/api/cases/:id', isAuthenticated, async (req: any, res: any) => {
+  app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const { id } = req.params;
-      
-      console.log('🔧 DEBUG: Recebendo dados para atualização:', req.body);
+      const id = req.params.id;
+      const found = await storage.getCaseById(id);
+      if (!found) return res.status(404).json({ message: "Case not found" });
 
-      const caseData = await storage.getCaseById(id);
-      if (!caseData) {
-        return res.status(404).json({ message: "Case not found" });
+      if (req.user?.role !== "admin") {
+        const allowed = ["description", "dueDate", "assignedToId"];
+        const bad = Object.keys(req.body).some((k) => !allowed.includes(k));
+        if (bad) return res.status(403).json({ message: "Insufficient permissions to edit these fields" });
       }
 
-      // Check permissions - admin can edit everything, editor can only edit certain fields
-      if (req.user?.role !== 'admin') {
-        const allowedFields = ['description', 'dueDate', 'assignedToId'];
-        const requestedFields = Object.keys(req.body);
-        const hasRestrictedFields = requestedFields.some(field => !allowedFields.includes(field));
-        
-        if (hasRestrictedFields) {
-          return res.status(403).json({ message: "Insufficient permissions to edit these fields" });
-        }
-      }
-
-      // Validar apenas os campos permitidos para atualização
-      const allowedUpdateFields = {
+      const patch = {
         clientName: req.body.clientName,
         processNumber: req.body.processNumber,
         description: req.body.description,
         status: req.body.status,
-        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
-        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        dueDate: parseBRDate(req.body.dueDate) ?? req.body.dueDate,
+        startDate: parseBRDate(req.body.startDate) ?? req.body.startDate,
         observacoes: req.body.observacoes,
         employeeId: req.body.employeeId,
-        assignedToId: req.body.assignedToId
+        assignedToId: req.body.assignedToId,
       };
-      
-      // Remover campos undefined
-      const cleanData = Object.fromEntries(
-        Object.entries(allowedUpdateFields).filter(([_, value]) => value !== undefined)
-      );
-      
-      console.log('🔧 DEBUG: Dados limpos para atualização:', cleanData);
-      
-      const updatedCase = await storage.updateCase(id, cleanData);
-      
-      // Log atividade apenas se usuário estiver definido
-      if (req.user) {
-        try {
-          await logActivity(
-            req as any,
-            'UPDATE_CASE',
-            'CASE',
-            id,
-            `Editou processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
-            { 
-              originalData: { processNumber: caseData.processNumber, clientName: caseData.clientName },
-              updatedFields: Object.keys(cleanData),
-              newData: cleanData
-            }
-          );
-        } catch (logError) {
-          console.error('Erro ao fazer log da atividade:', logError);
-          // Continua mesmo se o log falhar
-        }
-      }
+      Object.keys(patch).forEach((k) => patch[k as keyof typeof patch] === undefined && delete (patch as any)[k]);
 
-      res.json(updatedCase);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      const updated = await storage.updateCase(id, patch);
+
+      await logActivity(
+        req,
+        "UPDATE_CASE",
+        "CASE",
+        id,
+        `Editou processo ${found.processNumber} - Cliente: ${found.clientName}`,
+        { updatedFields: Object.keys(patch) }
+      );
+
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: err.errors });
       }
-      console.error("Error updating case:", error);
+      console.error("Error updating case:", err);
       res.status(500).json({ message: "Failed to update case" });
     }
   });
 
-  app.patch('/api/cases/:id/status', isAuthenticated, async (req: any, res: any) => {
+  app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id;
       const { status } = req.body;
-      
-      if (!status || !['novo', 'pendente', 'concluido', 'atrasado'].includes(status)) {
+      if (!status || !["novo", "pendente", "concluido", "atrasado"].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
+      const c = await storage.getCaseById(id);
+      if (!c) return res.status(404).json({ message: "Case not found" });
 
-      const caseData = await storage.getCaseById(id);
-      if (!caseData) {
-        return res.status(404).json({ message: "Case not found" });
-      }
-
-      // Lógica da dataEntrega automática
-      let dataEntrega = caseData.dataEntrega;
-      let completedDate = caseData.completedDate;
-      
-      // Se mudou para "concluido", definir dataEntrega para agora
-      if (status === 'concluido' && caseData.status !== 'concluido') {
-        dataEntrega = new Date();
+      let completedDate = c.completedDate;
+      let dataEntrega = c.dataEntrega;
+      if (status === "concluido" && c.status !== "concluido") {
         completedDate = new Date();
-      }
-      // Se mudou de "concluido" para outro status, limpar dataEntrega
-      else if (status !== 'concluido' && caseData.status === 'concluido') {
-        dataEntrega = null;
+        dataEntrega = new Date();
+      } else if (status !== "concluido" && c.status === "concluido") {
         completedDate = null;
+        dataEntrega = null;
       }
-      
-      const updatedCase = await storage.updateCaseStatus(id, status, completedDate, dataEntrega);
-      
+
+      const updated = await storage.updateCaseStatus(id, status, completedDate, dataEntrega);
+
       await logActivity(
         req,
-        'UPDATE_STATUS',
-        'CASE',
+        "UPDATE_STATUS",
+        "CASE",
         id,
-        `Alterou status do processo ${caseData.processNumber} de "${caseData.status}" para "${status}" - Cliente: ${caseData.clientName}`,
-        { 
-          processNumber: caseData.processNumber,
-          clientName: caseData.clientName,
-          previousStatus: caseData.status,
-          newStatus: status,
-          completedDate: completedDate,
-          dataEntrega: dataEntrega
-        }
+        `Alterou status do processo ${c.processNumber} de "${c.status}" para "${status}"`,
+        { previousStatus: c.status, newStatus: status }
       );
 
-      res.json(updatedCase);
-    } catch (error) {
-      console.error("Error updating case status:", error);
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating case status:", err);
       res.status(500).json({ message: "Failed to update case status" });
     }
   });
 
-  app.delete('/api/cases/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const { id } = req.params;
-      
-      if (req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
-
-      const caseData = await storage.getCaseById(id);
-      if (!caseData) {
-        return res.status(404).json({ message: "Case not found" });
-      }
-
+      const id = req.params.id;
+      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
+      const c = await storage.getCaseById(id);
+      if (!c) return res.status(404).json({ message: "Case not found" });
       await storage.deleteCase(id);
-      
-      await logActivity(
-        req,
-        'DELETE_CASE',
-        'CASE',
-        id,
-        `Excluiu processo ${caseData.processNumber} - Cliente: ${caseData.clientName}`,
-        { 
-          deletedData: {
-            processNumber: caseData.processNumber,
-            clientName: caseData.clientName,
-            status: caseData.status,
-            description: caseData.description
-          }
-        }
-      );
-
+      await logActivity(req, "DELETE_CASE", "CASE", id, `Excluiu processo ${c.processNumber}`);
       res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting case:", error);
+    } catch (err) {
+      console.error("Error deleting case:", err);
       res.status(500).json({ message: "Failed to delete case" });
     }
   });
 
-  // Dashboard routes
-  app.get('/api/dashboard/stats', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // ================= DASHBOARD =================
+  app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
     try {
       const stats = await storage.getCaseStats();
       res.json(stats);
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+    } catch (err) {
+      console.error("Error fetching dashboard stats:", err);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
 
-  // Dashboard layout endpoints
-  app.get('/api/dashboard/layout', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
     try {
       const layout = await storage.getDashboardLayout(req.user!.id);
       res.json(layout);
-    } catch (error) {
-      console.error("Error fetching dashboard layout:", error);
+    } catch (err) {
+      console.error("Error fetching dashboard layout:", err);
       res.status(500).json({ message: "Failed to fetch dashboard layout" });
     }
   });
 
-  app.post('/api/dashboard/layout', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
     try {
       const { layout, widgets } = req.body;
-      const savedLayout = await storage.saveDashboardLayout(req.user!.id, layout, widgets);
-      
-      await logActivity(
-        req,
-        'UPDATE_DASHBOARD',
-        'DASHBOARD',
-        savedLayout.id,
-        'Personalizou layout do dashboard',
-        { widgetCount: widgets?.length || 0 }
-      );
-
-      res.json(savedLayout);
-    } catch (error) {
-      console.error("Error saving dashboard layout:", error);
+      const saved = await storage.saveDashboardLayout(req.user!.id, layout, widgets);
+      await logActivity(req, "UPDATE_DASHBOARD", "DASHBOARD", saved.id, "Personalizou layout do dashboard", {
+        widgetCount: widgets?.length || 0,
+      });
+      res.json(saved);
+    } catch (err) {
+      console.error("Error saving dashboard layout:", err);
       res.status(500).json({ message: "Failed to save dashboard layout" });
     }
   });
 
-  // Activity log routes
-  app.get('/api/activity-logs', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // ================= ACTIVITY LOG =================
+  app.get("/api/activity-logs", isAuthenticated, async (req, res) => {
     try {
-      const { action, date, search, limit, processOnly } = req.query;
-      
+      const { action, date, search, limit, processOnly } = req.query as any;
       const logs = await storage.getActivityLogs({
-        action: action as string,
-        date: date as string,
-        search: search as string,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        processOnly: processOnly === 'true',
+        action,
+        date,
+        search,
+        limit: limit ? Number(limit) : undefined,
+        processOnly: processOnly === "true",
       });
-      
       res.json(logs);
-    } catch (error) {
-      console.error("❌ Erro ao buscar logs de atividade:", error);
+    } catch (err) {
+      console.error("❌ Erro ao buscar logs de atividade:", err);
       res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 
-  // Employee routes - corrigido para Supabase
-  app.get('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // ================= EMPLOYEES =================
+  // GET (busca por nome/matrícula). Retorna **tanto** snake_case (inglês) quanto aliases PT.
+  app.get("/api/employees", isAuthenticated, async (req, res) => {
     try {
-      const { search } = req.query;
-      
-      // Usar query direta para Supabase com colunas corretas
-      let query = `
-        SELECT 
-          id, nome, matricula, rg, pis, 
-          "dataAdmissao", "dataDemissao", salario, 
-          cargo, departamento, "centroCusto", empresa
-        FROM employees 
-        WHERE 1=1
-      `;
-      
-      const queryParams: any[] = [];
-      
-      if (search) {
-        const searchTerm = `%${search.toString().toLowerCase()}%`;
-        query += ` AND (LOWER(nome) LIKE $1 OR LOWER(matricula) LIKE $2)`;
-        queryParams.push(searchTerm, searchTerm);
+      const term = (String((req.query as any).search || "") || "").toLowerCase();
+      let rows;
+      if (term) {
+        const like = `%${term}%`;
+        rows = await db
+          .select()
+          .from(employeesTable)
+          .where(
+            sql`LOWER(${employeesTable.name}) like ${like} OR LOWER(${employeesTable.registration}) like ${like}`
+          )
+          .orderBy(employeesTable.name);
+      } else {
+        rows = await db.select().from(employeesTable).orderBy(employeesTable.name);
       }
-      
-      query += ` ORDER BY nome LIMIT 100`;
-      
-      const result = await pool.query(query, queryParams);
-      res.json(result.rows);
-    } catch (error) {
-      console.error("Error fetching employees:", error);
+
+      // adiciona aliases PT para compatibilidade com o front
+      const mapped = rows.map((e: any) => ({
+        ...e,
+        empresa: e.companyId,
+        nome: e.name,
+        matricula: e.registration,
+        dataAdmissao: e.admissionDate,
+        dataDemissao: e.terminationDate,
+        centroCusto: e.costCenter,
+        cargo: e.role,
+        departamento: e.department,
+      }));
+
+      res.json(mapped);
+    } catch (err) {
+      console.error("Error fetching employees:", err);
       res.status(500).json({ message: "Failed to fetch employees" });
     }
   });
 
-  // Create employee with proper error handling
-  app.post('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // CREATE
+  app.post("/api/employees", isAuthenticated, async (req: any, res) => {
     try {
-      console.log('[EMPLOYEES/CREATE] Request body:', req.body);
-      
-      // Map camelCase to snake_case for database
-      const {
-        companyId, name, registration, rg, pis,
-        admissionDate, terminationDate, salary,
-        role, department, costCenter, empresa, nome, matricula
-      } = req.body;
+      // aceita tanto camelCase quanto PT no body
+      const body = req.body || {};
+      const companyId = body.companyId ?? body.empresa ?? 1;
+      const name = body.name ?? body.nome;
+      const registration = body.registration ?? body.matricula;
+      const rg = body.rg ?? null;
+      const pis = body.pis ?? null;
+      const admissionDate = parseBRDate(body.admissionDate ?? body.dataAdmissao);
+      const terminationDate = parseBRDate(body.terminationDate ?? body.dataDemissao);
+      const salary = parseBRMoney(body.salary ?? body.salario);
+      const role = body.role ?? body.cargo ?? null;
+      const department = body.department ?? body.departamento ?? null;
+      const costCenter = body.costCenter ?? body.centroCusto ?? null;
 
-      // Support both camelCase and Portuguese field names
-      const employeeData = {
-        empresa: empresa || companyId || '2',
-        nome: nome || name,
-        matricula: matricula || registration,
-        rg: rg || null,
-        pis: pis || null,
-        dataAdmissao: admissionDate ? new Date(admissionDate) : null,
-        dataDemissao: terminationDate ? new Date(terminationDate) : null,
-        salario: salary || null,
-        cargo: role || null,
-        departamento: department || null,
-        centroCusto: costCenter || null
-      };
-
-      console.log('[EMPLOYEES/CREATE] Mapped data:', employeeData);
-      
-      // Validar dados obrigatórios
-      if (!employeeData.matricula || !employeeData.nome) {
-        return res.status(400).json({ message: "Matrícula e nome são obrigatórios" });
+      if (!name || !registration) {
+        return res.status(400).json({ message: "Nome e matrícula são obrigatórios" });
       }
 
-      // Verificar se matrícula já existe
-      const existing = await db.select().from(employees).where(sql`matricula = ${employeeData.matricula}`);
-      if (existing.length > 0) {
-        return res.status(400).json({ message: "Matrícula já existe" });
-      }
+      const dup = await db
+        .select({ id: employeesTable.id })
+        .from(employeesTable)
+        .where(eq(employeesTable.registration, registration))
+        .limit(1);
 
-      const [newEmployee] = await db.insert(employees).values([employeeData]).returning();
+      if (dup.length) return res.status(400).json({ message: "Matrícula já existe" });
 
-      console.log('[EMPLOYEES/CREATE] Success:', newEmployee);
-
-      await logActivity(
-        req,
-        'CREATE_EMPLOYEE',
-        'EMPLOYEE',
-        newEmployee.id,
-        `Criou funcionário ${newEmployee.nome} - Matrícula: ${newEmployee.matricula}`,
-        { 
-          matricula: newEmployee.matricula,
-          nome: newEmployee.nome,
-          empresa: newEmployee.empresa
-        }
-      );
-
-      res.status(201).json(newEmployee);
-    } catch (error: any) {
-      console.error('[EMPLOYEES/CREATE] DB error:', error);
-      res.status(500).json({ message: 'Failed to create employee', error: error.message });
-    }
-  });
-
-  // Update employee
-  app.put('/api/employees/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const { id } = req.params;
-      const employeeData = req.body;
-
-      // Verificar se funcionário existe
-      const existing = await db.select().from(employees).where(eq(employees.id, id));
-      if (existing.length === 0) {
-        return res.status(404).json({ message: "Funcionário não encontrado" });
-      }
-
-      const [updatedEmployee] = await db.update(employees)
-        .set({
-          ...employeeData,
-          dataAdmissao: employeeData.dataAdmissao && employeeData.dataAdmissao !== '' ? new Date(employeeData.dataAdmissao) : null,
-          dataDemissao: employeeData.dataDemissao && employeeData.dataDemissao !== '' ? new Date(employeeData.dataDemissao) : null,
-          updatedAt: new Date(),
+      const [created] = await db
+        .insert(employeesTable)
+        .values({
+          id: crypto.randomUUID(),
+          companyId,
+          name,
+          registration,
+          rg,
+          pis,
+          admissionDate: admissionDate as any,
+          terminationDate: terminationDate as any,
+          salary: salary as any,
+          role,
+          department,
+          costCenter,
         })
-        .where(eq(employees.id, id))
         .returning();
 
       await logActivity(
         req,
-        'UPDATE_EMPLOYEE',
-        'EMPLOYEE',
-        id,
-        `Atualizou funcionário ${updatedEmployee.nome} (${updatedEmployee.matricula})`
+        "CREATE_EMPLOYEE",
+        "EMPLOYEE",
+        created.id,
+        `Criou funcionário ${created.name} - Matrícula: ${created.registration}`
       );
 
-      res.json(updatedEmployee);
-    } catch (error) {
-      console.error("Error updating employee:", error);
+      res.status(201).json({
+        ...created,
+        // aliases PT
+        empresa: created.companyId,
+        nome: created.name,
+        matricula: created.registration,
+        dataAdmissao: created.admissionDate,
+        dataDemissao: created.terminationDate,
+        centroCusto: created.costCenter,
+        cargo: created.role,
+        departamento: created.department,
+      });
+    } catch (err: any) {
+      console.error("[EMPLOYEES/CREATE] DB error:", err);
+      res.status(500).json({ message: "Failed to create employee" });
+    }
+  });
+
+  // UPDATE (PATCH)
+  app.patch("/api/employees/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const cur = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+      if (!cur.length) return res.status(404).json({ message: "Funcionário não encontrado" });
+
+      const body = req.body || {};
+      const patch: any = {
+        companyId: body.companyId ?? body.empresa,
+        name: body.name ?? body.nome,
+        registration: body.registration ?? body.matricula,
+        rg: body.rg,
+        pis: body.pis,
+        admissionDate: parseBRDate(body.admissionDate ?? body.dataAdmissao) ?? body.admissionDate,
+        terminationDate: parseBRDate(body.terminationDate ?? body.dataDemissao) ?? body.terminationDate,
+        salary: parseBRMoney(body.salary ?? body.salario) ?? body.salary,
+        role: body.role ?? body.cargo,
+        department: body.department ?? body.departamento,
+        costCenter: body.costCenter ?? body.centroCusto,
+      };
+      Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
+
+      const [updated] = await db.update(employeesTable).set(patch).where(eq(employeesTable.id, id)).returning();
+
+      await logActivity(req, "UPDATE_EMPLOYEE", "EMPLOYEE", id, `Atualizou funcionário ${updated.name}`);
+
+      res.json({
+        ...updated,
+        empresa: updated.companyId,
+        nome: updated.name,
+        matricula: updated.registration,
+        dataAdmissao: updated.admissionDate,
+        dataDemissao: updated.terminationDate,
+        centroCusto: updated.costCenter,
+        cargo: updated.role,
+        departamento: updated.department,
+      });
+    } catch (err) {
+      console.error("Error updating employee:", err);
       res.status(500).json({ message: "Failed to update employee" });
     }
   });
 
-  // Delete employee
-  app.delete('/api/employees/:id', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // DELETE (hard delete; remova se preferir soft delete)
+  app.delete("/api/employees/:id", isAuthenticated, async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id;
+      const cur = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+      if (!cur.length) return res.status(404).json({ message: "Funcionário não encontrado" });
 
-      // Verificar se funcionário existe
-      const existing = await db.select().from(employees).where(eq(employees.id, id));
-      if (existing.length === 0) {
-        return res.status(404).json({ message: "Funcionário não encontrado" });
-      }
+      await db.delete(employeesTable).where(eq(employeesTable.id, id));
+      await logActivity(req, "DELETE_EMPLOYEE", "EMPLOYEE", id, `Removeu funcionário ${cur[0].name}`);
 
-      const employee = existing[0];
-      
-      // Soft delete - marcar como deletado em vez de apagar
-      await db.update(employees).set({ 
-        status: 'deletado',
-        updatedAt: new Date()
-      }).where(eq(employees.id, id));
-
-      await logActivity(
-        req,
-        'DELETE_EMPLOYEE',
-        'EMPLOYEE',
-        id,
-        `Marcou funcionário como deletado: ${employee.nome} (${employee.matricula})`
-      );
-
-      res.json({ message: "Funcionário marcado como deletado", id });
-    } catch (error) {
-      console.error("Error deleting employee:", error);
+      res.json({ ok: true, id });
+    } catch (err) {
+      console.error("Error deleting employee:", err);
       res.status(500).json({ message: "Failed to delete employee" });
     }
   });
 
-  // Export employees
-  app.get('/api/employees/export', isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // IMPORT/EXPORT (mantidos; export usa XLSX se estiver no package.json)
+  const upload = multer({ dest: "uploads/" });
+  app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
-      const allEmployees = await db.select().from(employees).orderBy(employees.nome);
-      
-      const XLSX = require('xlsx');
-      const workbook = XLSX.utils.book_new();
-      
-      const worksheetData = [
-        ['Empresa', 'Nome do Funcionário', 'Código do Funcionário', 'Número do RG', 'Email', 'Telefone', 'Data Admissão', 'Status', 'Descrição do Cargo', 'Departamento', 'Endereço']
-      ];
+      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
+      if (!req.file) return res.status(400).json({ success: false, error: "Nenhum arquivo enviado" });
 
-      allEmployees.forEach(emp => {
+      const { importEmployeesFromExcel } = await import("./importEmployees");
+      const result = await importEmployeesFromExcel(req.file.path);
+      fs.unlinkSync(req.file.path);
+
+      await logActivity(req, "IMPORT_EMPLOYEES", "EMPLOYEE", "bulk", `Importou ${result.imported} funcionários do Excel`);
+      res.json(result);
+    } catch (err) {
+      console.error("Error importing employees:", err);
+      res.status(500).json({ success: false, error: "Failed to import employees" });
+    }
+  });
+
+  app.get("/api/employees/export", isAuthenticated, async (req, res) => {
+    try {
+      // cuidado: requer "xlsx" no package.json
+      // @ts-ignore
+      const XLSX = require("xlsx");
+      const all = await db.select().from(employeesTable).orderBy(employeesTable.name);
+
+      const worksheetData = [
+        [
+          "Empresa",
+          "Nome do Funcionário",
+          "Matrícula",
+          "RG",
+          "Data Admissão",
+          "Cargo",
+          "Departamento",
+          "Centro de Custo",
+        ],
+      ];
+      all.forEach((e: any) => {
         worksheetData.push([
-          'BASE FACILITIES',
-          emp.nome,
-          emp.matricula,
-          emp.rg || '',
-          emp.email || '',
-          emp.telefone || '',
-          emp.dataAdmissao ? new Date(emp.dataAdmissao).toLocaleDateString('pt-BR') : '',
-          emp.status || 'ativo',
-          emp.cargo || '',
-          emp.departamento || '',
-          emp.endereco || ''
+          e.companyId,
+          e.name,
+          e.registration,
+          e.rg || "",
+          e.admissionDate ? new Date(e.admissionDate).toLocaleDateString("pt-BR") : "",
+          e.role || "",
+          e.department || "",
+          e.costCenter || "",
         ]);
       });
 
-      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Funcionários');
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+      XLSX.utils.book_append_sheet(wb, ws, "Funcionarios");
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-      res.setHeader('Content-Disposition', `attachment; filename="funcionarios_${new Date().toISOString().split('T')[0]}.xlsx"`);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="funcionarios_${new Date().toISOString().split("T")[0]}.xlsx"`
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
       res.send(buffer);
 
-      await logActivity(
-        req,
-        'EXPORT_EMPLOYEES',
-        'EMPLOYEE',
-        'all',
-        `Exportou ${allEmployees.length} funcionários`
-      );
-
-    } catch (error) {
-      console.error("Error exporting employees:", error);
+      await logActivity(req, "EXPORT_EMPLOYEES", "EMPLOYEE", "all", `Exportou ${all.length} funcionários`);
+    } catch (err) {
+      console.error("Error exporting employees:", err);
       res.status(500).json({ message: "Failed to export employees" });
     }
   });
 
-  // Setup multer for file uploads
-  const upload = multer({ dest: 'uploads/' });
-  app.post('/api/employees/import', isAuthenticated, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+  // ================= USERS (gestão via API) =================
+  // LIST
+  app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
+      const me = await storage.getUser(req.user?.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-      if (!req.file) {
-        return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
-      }
+      // snake_case no banco
+      const result = await pool.query(`
+        select id, email, username, first_name, last_name, role, permissions, created_at, updated_at
+        from public.users
+        order by created_at desc
+      `);
 
-      const { importEmployeesFromExcel } = await import('./importEmployees');
-      const result = await importEmployeesFromExcel(req.file.path);
-      
-      // Limpar arquivo temporário
-      fs.unlinkSync(req.file.path);
-      
-      await logActivity(
-        req,
-        'IMPORT_EMPLOYEES',
-        'EMPLOYEE',
-        'bulk',
-        `Importou ${result.imported} funcionários do Excel`
-      );
-      
-      res.json(result);
-    } catch (error) {
-      console.error("Error importing employees:", error);
-      res.status(500).json({ success: false, error: "Failed to import employees: " + String(error) });
-    }
-  });
-
-  app.post('/api/employees/link-cases', isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
-
-      const { linkCasesToEmployees } = await import('./importEmployees');
-      const result = await linkCasesToEmployees();
-      res.json(result);
-    } catch (error) {
-      console.error("Error linking cases:", error);
-      res.status(500).json({ message: "Failed to link cases" });
-    }
-  });
-
-
-
-  // User management routes
-  app.get("/api/users", isAuthenticated, async (req: AuthenticatedRequest, res) => {
-    try {
-      const currentUser = await storage.getUser(req.user?.id);
-      
-      // Only admins can manage users
-      if (currentUser?.role !== 'admin') {
-        await logActivity(req, 'DENIED_ACCESS', 'USER_MANAGEMENT', 'access', `Tentativa de acesso negada ao gerenciamento de usuários`);
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Buscar usuários com snake_case correto
-      const sql = `
-        SELECT id, email, username, "firstName", "lastName", role, permissions, created_at, updated_at
-        FROM public.users 
-        ORDER BY created_at DESC
-      `;
-      const result = await pool.query(sql);
-      
-      const users = result.rows.map(user => ({
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        permissions: user.permissions,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at,
-        password: null // Não retornar senha
+      const out = result.rows.map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        firstName: u.first_name,
+        lastName: u.last_name,
+        role: u.role,
+        permissions: u.permissions,
+        createdAt: u.created_at,
+        updatedAt: u.updated_at,
+        password: null,
       }));
-      
-      res.json(users);
+      res.json(out);
     } catch (err: any) {
-      console.error('[USERS/LIST] DB error:', err);
-      return res.status(500).json({ message: 'DB error' });
+      console.error("[USERS/LIST] DB error:", err);
+      res.status(500).json({ message: "DB error" });
     }
   });
 
-  app.post("/api/users", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // CREATE
+  app.post("/api/users", isAuthenticated, async (req: any, res) => {
     try {
-      console.log('🔄 POST /api/users - Criando usuário:', req.body);
-      
-      const currentUser = await storage.getUser(req.user?.id);
-      
-      // Only admins can create users
-      if (currentUser?.role !== 'admin') {
-        console.log('❌ Acesso negado - usuário não é admin:', currentUser?.role);
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      const userData = insertUserSchema.parse(req.body);
-      console.log('✅ Dados validados pelo schema:', userData);
-      
-      // Verificar duplicatas
-      const existingByUsername = await storage.getUserByUsername(userData.username || "");
-      if (existingByUsername) {
-        console.log('❌ Username já existe:', userData.username);
-        return res.status(400).json({ message: `Usuário "${userData.username}" já existe` });
-      }
+      const me = await storage.getUser(req.user?.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
-      if (userData.email) {
-        const existingByEmail = await storage.getUserByEmail(userData.email);
-        if (existingByEmail) {
-          console.log('❌ Email já existe:', userData.email);
-          return res.status(400).json({ message: `Email "${userData.email}" já está em uso` });
-        }
-      }
-      
-      // Se a senha estiver vazia ou undefined, gerar uma senha padrão temporária
-      const password = userData.password && userData.password.trim() !== "" 
-        ? userData.password 
-        : "temp123"; // Senha temporária padrão
-      
-      console.log('🔐 Hash da senha...');
-      const hashedPassword = await hashPassword(password);
-      
-      console.log('💾 Criando usuário no banco...');
-      const newUser = await storage.createUser({
+      const userData = insertUserSchema.parse(req.body);
+      // dup checks
+      if (userData.username && (await storage.getUserByUsername(userData.username)))
+        return res.status(400).json({ message: `Usuário "${userData.username}" já existe` });
+      if (userData.email && (await storage.getUserByEmail(userData.email)))
+        return res.status(400).json({ message: `Email "${userData.email}" já está em uso` });
+
+      const passwordPlain =
+        userData.password && userData.password.trim() !== "" ? userData.password : "temp123";
+      const hashed = await hashPassword(passwordPlain);
+
+      const created = await storage.createUser({
         ...userData,
-        password: hashedPassword,
-        // Garantir que campos opcionais tenham valores padrão apropriados
+        password: hashed,
         email: userData.email || null,
         username: userData.username || `user_${Date.now()}`,
         firstName: userData.firstName || null,
         lastName: userData.lastName || null,
       });
-      
-      console.log('✅ Usuário criado com sucesso:', newUser.username);
-      
-      await logActivity(
-        req,
-        'CREATE_USER',
-        'USER',
-        newUser.id,
-        `Criou usuário ${newUser.username}`,
-        { username: newUser.username, email: newUser.email }
-      );
-      
-      res.status(201).json(newUser);
-    } catch (error) {
-      console.error("❌ ERRO COMPLETO AO CRIAR USUÁRIO:", error);
-      
-      if (error instanceof z.ZodError) {
-        console.log('❌ Erro de validação Zod:', error.errors);
-        res.status(400).json({ 
-          message: "Dados inválidos", 
-          errors: error.errors,
-          details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
-        });
-      } else if (String(error).includes('já existe')) {
-        res.status(400).json({ message: String(error) });
-      } else {
-        res.status(500).json({ 
-          message: "Falha ao criar usuário", 
-          error: String(error),
-          details: "Verifique a conexão com o banco de dados"
-        });
+
+      await logActivity(req, "CREATE_USER", "USER", created.id, `Criou usuário ${created.username}`);
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error("❌ ERRO COMPLETO AO CRIAR USUÁRIO:", err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: err.errors });
       }
+      res.status(500).json({ message: "Falha ao criar usuário" });
     }
   });
 
-  app.put("/api/users/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // UPDATE
+  app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user?.id);
-      
-      // Only admins can update users
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
+      const me = await storage.getUser(req.user?.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
+
       const userData = updateUserSchema.parse(req.body);
-      
-      // Se há uma nova senha, hash ela. Caso contrário, não atualizar a senha
-      let updateData = { ...userData };
+      const patch: any = { ...userData };
       if (userData.password && userData.password.trim() !== "") {
-        updateData.password = await hashPassword(userData.password);
+        patch.password = await hashPassword(userData.password);
       } else {
-        // Remove o campo password para não atualizar
-        delete updateData.password;
+        delete patch.password;
       }
-      
-      const updatedUser = await storage.updateUser(req.params.id, updateData);
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error updating user:", error);
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Dados inválidos", errors: error.errors });
-      } else {
-        res.status(500).json({ message: "Failed to update user" });
+
+      const updated = await storage.updateUser(req.params.id, patch);
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: err.errors });
       }
+      console.error("Error updating user:", err);
+      res.status(500).json({ message: "Failed to update user" });
     }
   });
 
-  app.delete("/api/users/:id", isAuthenticated, async (req: AuthenticatedRequest, res) => {
+  // DELETE
+  app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const currentUser = await storage.getUser(req.user?.id);
-      
-      // Only admins can delete users
-      if (currentUser?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
+      const me = await storage.getUser(req.user?.id);
+      if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
       await storage.deleteUser(req.params.id);
       res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting user:", error);
+    } catch (err) {
+      console.error("Error deleting user:", err);
       res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // 404 e error handler para API
+  app.use("/api", (_req, res) => res.status(404).json({ message: "Not found" }));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("Unhandled error:", err);
+    res.status(typeof err?.status === "number" ? err.status : 500).json({ message: "Internal server error" });
+  });
 }
