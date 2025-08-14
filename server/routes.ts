@@ -451,10 +451,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create employee
+  // Create employee with proper error handling
   app.post('/api/employees', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const employeeData = req.body;
+      console.log('[EMPLOYEES/CREATE] Request body:', req.body);
+      
+      // Map camelCase to snake_case for database
+      const {
+        companyId, name, registration, rg, pis,
+        admissionDate, terminationDate, salary,
+        role, department, costCenter, empresa, nome, matricula
+      } = req.body;
+
+      // Support both camelCase and Portuguese field names
+      const employeeData = {
+        empresa: empresa || companyId || '2',
+        nome: nome || name,
+        matricula: matricula || registration,
+        rg: rg || null,
+        pis: pis || null,
+        dataAdmissao: admissionDate ? new Date(admissionDate) : null,
+        dataDemissao: terminationDate ? new Date(terminationDate) : null,
+        salario: salary || null,
+        cargo: role || null,
+        departamento: department || null,
+        centroCusto: costCenter || null
+      };
+
+      console.log('[EMPLOYEES/CREATE] Mapped data:', employeeData);
       
       // Validar dados obrigatórios
       if (!employeeData.matricula || !employeeData.nome) {
@@ -467,32 +491,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Matrícula já existe" });
       }
 
-      const [newEmployee] = await db.insert(employees).values({
-        empresa: employeeData.empresa || '2',
-        nome: employeeData.nome,
-        matricula: employeeData.matricula,
-        rg: employeeData.rg || null,
-        pis: employeeData.pis || null,
-        dataAdmissao: employeeData.dataAdmissao || null,
-        dataDemissao: employeeData.dataDemissao || null,
-        salario: employeeData.salario || null,
-        cargo: employeeData.cargo || null,
-        centroCusto: employeeData.centroCusto || null,
-        departamento: employeeData.departamento || null
-      }).returning();
+      const [newEmployee] = await db.insert(employees).values(employeeData).returning();
+
+      console.log('[EMPLOYEES/CREATE] Success:', newEmployee);
 
       await logActivity(
         req,
         'CREATE_EMPLOYEE',
         'EMPLOYEE',
         newEmployee.id,
-        `Criou funcionário ${newEmployee.nome} (${newEmployee.matricula})`
+        `Criou funcionário ${newEmployee.nome} - Matrícula: ${newEmployee.matricula}`,
+        { 
+          matricula: newEmployee.matricula,
+          nome: newEmployee.nome,
+          empresa: newEmployee.empresa
+        }
       );
 
       res.status(201).json(newEmployee);
-    } catch (error) {
-      console.error("Error creating employee:", error);
-      res.status(500).json({ message: "Failed to create employee" });
+    } catch (error: any) {
+      console.error('[EMPLOYEES/CREATE] DB error:', error);
+      res.status(500).json({ message: 'Failed to create employee', error: error.message });
     }
   });
 

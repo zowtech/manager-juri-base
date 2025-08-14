@@ -4,7 +4,7 @@
 
 **Build Command:**
 ```bash
-npm run render-build
+npm install --include=dev && npx vite build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
 ```
 
 **Start Command:**
@@ -56,6 +56,24 @@ O Render usa este endpoint para verificar se a aplicação está saudável.
 - Certificado que há apenas um `server.listen()` no código
 - O `start-production.js` não deve fazer listen
 
+### Erro 500 "Failed to create employee"
+- Verifique os logs do servidor para detalhes: `[EMPLOYEES/CREATE] DB error:`
+- Confirme que a tabela `employees` existe no Supabase
+- Use `RUN_MIGRATIONS_ON_BOOT=true` na primeira subida para criar tabelas
+
 ### Build falha
 - Verifique se todas as dependências estão em `dependencies` (não só `devDependencies`)
-- O comando `npm run render-build` deve executar sem erros
+- O comando de build deve executar sem erros
+
+## Endpoints de Diagnóstico
+
+- `GET /health` → retorna `ok` se o servidor estiver funcionando
+- `GET /health/db` → retorna `{"ok": true, "now": "timestamp"}` se o banco estiver conectado
+
+## Migração Automática (Opcional)
+
+Para criar as tabelas automaticamente na primeira subida:
+
+1. Configure no Render: `RUN_MIGRATIONS_ON_BOOT=true`
+2. Faça o primeiro deploy
+3. Remova a variável após sucesso

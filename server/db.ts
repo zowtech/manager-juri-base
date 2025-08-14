@@ -7,18 +7,25 @@ if (!dbUrl) {
   throw new Error('DATABASE_URL is not set');
 }
 
-console.log('🔗 Database connection info:', {
-  environment: process.env.NODE_ENV,
-  hasUrl: !!dbUrl
-});
+// Log database connection info for debugging
+try {
+  const u = new URL(dbUrl);
+  console.log('[DB] Using:', `${u.protocol}//${u.hostname}:${u.port}${u.pathname}`);
+} catch (e) {
+  console.log('[DB] DATABASE_URL inválida ou ausente');
+}
 
-const connectionConfig = {
+export const pool = new Pool({
   connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },
   max: 1
-};
+});
 
-export const pool = new Pool(connectionConfig);
+// Helper function for raw queries
+export async function query<T = any>(text: string, params?: any[]) {
+  const res = await pool.query<T>(text, params);
+  return res;
+}
 
 // Handle connection errors
 pool.on('error', (err) => {

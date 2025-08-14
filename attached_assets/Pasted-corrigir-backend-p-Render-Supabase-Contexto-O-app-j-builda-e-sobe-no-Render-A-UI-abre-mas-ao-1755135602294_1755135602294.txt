@@ -1,0 +1,241 @@
+corrigir backend p/ Render + Supabase
+
+Contexto:
+O app já builda e sobe no Render. A UI abre, mas ao criar funcionário recebo 500: {"message":"Failed to create employee"}.
+O banco em produção é um Supabase Postgres com Transaction Pooler 6543.
+No Render eu configuro a env DATABASE_URL com:
+postgresql://postgres.fhalwugmppeswkvxnljn:[PASSWORD]@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+
+Objetivo:
+
+Garantir que o backend usa exatamente process.env.DATABASE_URL (pooler 6543), com SSL e sem hardcode.
+
+Adicionar diagnósticos para ver o erro real de insert.
+
+Garantir que schema/colunas batem com o insert do endpoint /employees.
+
+Opcional: rodar migração automática no boot se faltar tabela/coluna.
+
+1) Conexão com DB (db.ts)
+
+Remover qualquer fallback/hardcode de URL.
+
+Usar pg Pool (ou Drizzle + pg) com SSL (rejectUnauthorized:false).
+
+Configurar para pooler (máx. 1 conexão é aceitável com pgbouncer):
+
+// server/db.ts
+import { Pool } from 'pg';
+
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) throw new Error('DATABASE_URL is not set');
+
+export const pool = new Pool({
+  connectionString: dbUrl,
+  ssl: { rejectUnauthorized: false },
+  max: 1
+});
+
+// helper opcional:
+export async function query<T = any>(text: string, params?: any[]) {
+  const res = await pool.query<T>(text, params);
+  return res;
+}
+
+
+Se usar Drizzle, plugar o Pool acima no Drizzle e não criar cliente paralelo.
+
+2) Diagnóstico visível nos Logs (sem shell)
+2.1 Logar o host/porta do DB no start
+
+Logo após criar o app em server/index.ts:
+
+try {
+  const u = new URL(process.env.DATABASE_URL!);
+  console.log('[DB] Using:', `${u.protocol}//${u.hostname}:${u.port}${u.pathname}`);
+} catch (e) {
+  console.log('[DB] DATABASE_URL inválida ou ausente');
+}
+
+2.2 Rota de health do DB
+
+Em server/index.ts:
+
+import { pool } from './db';
+
+app.get('/health/db', async (_req, res) => {
+  try {
+    const r = await pool.query('select now() as now');
+    res.json({ ok: true, now: r.rows[0].now });
+  } catch (err:any) {
+    console.error('[HEALTH/DB] error:', err);
+    res.status(500).json({ ok: false, error: String(err?.message || err) });
+  }
+});
+
+3) Corrigir o POST /employees
+
+No handler do endpoint de criação (ex.: server/routes/employees.ts ou onde estiver), logar o erro real:
+
+try {
+  // mapeie o body para as colunas REAIS do DB (snake_case):
+  const {
+    companyId, name, registration, rg, pis,
+    admissionDate, terminationDate, salary,
+    role, department, costCenter
+  } = req.body;
+
+  // ajuste nomes snake_case conforme tabela:
+  const sql = `
+    insert into employees
+      (company_id, name, registration, rg, pis, admission_date, termination_date, salary, role, department, cost_center)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    returning id
+  `;
+  const params = [
+    companyId, name, registration, rg || null, pis || null,
+    admissionDate || null, terminationDate || null, salary || null,
+    role || null, department || null, costCenter || null
+  ];
+
+  const r = await pool.query(sql, params);
+  res.status(201).json({ id: r.rows[0].id });
+} catch (err:any) {
+  console.error('[EMPLOYEES/CREATE] DB error:', err); // <— ESSENCIAL
+  res.status(500).json({ message: 'Failed to create employee' });
+}
+
+
+Garanta que a tabela employees tem essas colunas exatamente (snake_case).
+
+Se existir FK company_id → garantir que a tabela companies exista e que o id passado (ex.: 2) exista.
+
+4) Schema/Migração
+
+Criar (ou atualizar) uma migração para garantir que o schema de produção bate com o código.
+Se preferir SQL direto (compatível com o que a UI coleta), crie/ajuste algo como:
+
+-- migrations/2025-ensure-employees.sql
+create table if not exists employees (
+  id text primary key default gen_random_uuid(),
+  company_id int not null,
+  name text not null,
+  registration text not null,
+  rg text,
+  pis text,
+  admission_date date,
+  termination_date date,
+  salary numeric,
+  role text,
+  department text,
+  cost_center text,
+  created_at timestamptz default now()
+);
+-- se houver tabela companies, opcional:
+-- alter table employees add constraint employees_company_fk
+--   foreign key (company_id) references companies(id);
+
+Rodar migração automaticamente no boot (opcional)
+
+No server/index.ts, apenas em produção, antes de iniciar o servidor:
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { pool } from './db';
+
+async function runMigrations() {
+  const migDir = path.resolve(process.cwd(), 'migrations');
+  if (!fs.existsSync(migDir)) return;
+
+  const files = fs.readdirSync(migDir).filter(f => f.endsWith('.sql')).sort();
+  for (const f of files) {
+    const sql = fs.readFileSync(path.join(migDir, f), 'utf8');
+    console.log('[MIGRATION] applying', f);
+    await pool.query(sql);
+  }
+  console.log('[MIGRATION] done');
+}
+
+if (process.env.RUN_MIGRATIONS_ON_BOOT === 'true') {
+  runMigrations().catch(e => {
+    console.error('[MIGRATION] failed:', e);
+    process.exit(1);
+  });
+}
+
+
+Assim eu posso ligar RUN_MIGRATIONS_ON_BOOT=true no Render uma vez, ele ajusta o schema e eu desligo depois.
+
+5) CORS e body parser (garantia)
+
+Certificar que app.use(express.json()) está antes das rotas.
+
+Se a UI roda no mesmo domínio (Render), CORS default serve; se não, liberar o origin da UI.
+
+6) Scripts e start (Render)
+
+package.json precisa ter:
+
+{
+  "type": "module",
+  "scripts": {
+    "build": "npx vite build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "render-build": "npm ci --include=dev && npm run build",
+    "start": "NODE_ENV=production node dist/index.js"
+  },
+  "engines": { "node": ">=22 <23" }
+}
+
+
+start-production.js deve ser apenas loader (sem listen):
+
+#!/usr/bin/env node
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+import('./dist/index.js').catch(err => {
+  console.error('Falha ao iniciar a app:', err);
+  process.exit(1);
+});
+
+
+No Render eu uso:
+
+Build Command: npm run render-build
+
+Start Command: node start-production.js ou npm start
+
+Env:
+
+NODE_ENV=production
+
+DATABASE_URL=postgresql://postgres.fhalwugmppeswkvxnljn:[PASSWORD]@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
+
+(opcional) RUN_MIGRATIONS_ON_BOOT=true para a primeira subida
+
+7) Testes
+
+Acessar GET /health → ok
+
+Acessar GET /health/db → { ok: true, now: ... }
+
+Tentar POST /employees com JSON mínimo:
+
+{ "companyId": 2, "name": "Teste API", "registration": "T001" }
+
+
+Se 500, o log deve mostrar a mensagem detalhada do Postgres em [EMPLOYEES/CREATE] DB error:. Corrigir schema/nomes conforme o log.
+
+Entregáveis esperados num PR:
+
+server/db.ts ajustado conforme acima.
+
+Logs de diagnóstico ([DB] Using:, /health/db, [EMPLOYEES/CREATE] DB error:).
+
+Endpoint /employees mapeando corretamente camelCase → snake_case.
+
+Migração SQL (ou Drizzle) para garantir a estrutura de employees e afins.
+
+package.json com render-build e start.
+
+start-production.js sem listen.
+
+README com instruções de env e Render.

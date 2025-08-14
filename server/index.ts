@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import cors from "cors";
 import { setupVite, serveStatic, log } from "./vite";
+import { pool } from "./db";
 
 const app = express();
 // CORS middleware
@@ -46,6 +47,34 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run migrations on boot if enabled
+  async function runMigrations() {
+    const migDir = './migrations';
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      
+      if (!fs.existsSync(migDir)) return;
+
+      const files = fs.readdirSync(migDir).filter(f => f.endsWith('.sql')).sort();
+      for (const f of files) {
+        const sql = fs.readFileSync(path.join(migDir, f), 'utf8');
+        console.log('[MIGRATION] applying', f);
+        await pool.query(sql);
+      }
+      console.log('[MIGRATION] done');
+    } catch (e) {
+      console.log('[MIGRATION] directory not found or migration failed:', e);
+    }
+  }
+
+  if (process.env.RUN_MIGRATIONS_ON_BOOT === 'true') {
+    await runMigrations().catch(e => {
+      console.error('[MIGRATION] failed:', e);
+      process.exit(1);
+    });
+  }
+
   // Register routes FIRST before Vite middleware
   const server = await registerRoutes(app);
 
@@ -63,8 +92,19 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Add health check endpoint
+  // Add health check endpoints
   app.get('/health', (_, res) => res.status(200).send('ok'));
+  
+  // Database health check
+  app.get('/health/db', async (_req, res) => {
+    try {
+      const r = await pool.query('select now() as now');
+      res.json({ ok: true, now: r.rows[0].now });
+    } catch (err: any) {
+      console.error('[HEALTH/DB] error:', err);
+      res.status(500).json({ ok: false, error: String(err?.message || err) });
+    }
+  });
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   const PORT = Number(process.env.PORT) || 10000;

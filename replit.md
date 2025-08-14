@@ -144,16 +144,18 @@ Preferred communication style: Simple, everyday language.
 ### Render Deployment Configuration (August 2025) - FULLY OPTIMIZED ✅
 - **Platform**: Render.com with automatic deployments and health checks
 - **Build System**: Standard Vite + esbuild pipeline with proper dependency management
-- **Build Command**: `npm run render-build` (installs dev deps + builds frontend/backend)
+- **Build Command**: `npm install --include=dev && npx vite build && npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist`
 - **Start Command**: `node start-production.js` (lightweight loader, no server duplication)
 - **Environment**: NODE_ENV=production, DATABASE_URL from environment variables only
 - **Architecture**: Single server.listen() in server/index.ts, no hardcoded secrets
-- **Health Check**: `/health` endpoint for Render monitoring
+- **Health Check**: `/health` and `/health/db` endpoints for Render monitoring
 - **Port Configuration**: Uses process.env.PORT (defaults to 10000 for Render)
 - **Static Assets**: Frontend served from dist/public/ via Express static middleware
 - **Database**: Supabase PostgreSQL via environment variables (no hardcoded URLs)
 - **Graceful Shutdown**: SIGTERM handling for clean container stops
 - **Security**: All secrets via environment variables, SSL configured for Supabase
 - **Compatibility**: Solved EADDRINUSE and dependency issues completely
+- **Auto Migration**: Optional RUN_MIGRATIONS_ON_BOOT for table creation
+- **Error Handling**: Comprehensive logging for backend debugging ([EMPLOYEES/CREATE] etc.)
 
 The system follows a monorepo structure with clear separation between client, server, and shared code, making it maintainable and scalable for legal case management workflows.
