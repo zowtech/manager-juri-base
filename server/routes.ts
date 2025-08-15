@@ -10,30 +10,58 @@ import { sql, eq } from "drizzle-orm";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { db, pool } from "./db";
-import { parseBRDate, parseBRMoney } from "./utils/normalize";
 
 import {
   users as usersTable,
   employees as employeesTable,
-  cases as casesTable, // caso você use em algum ponto
+  cases as casesTable,
   insertUserSchema,
   updateUserSchema,
   insertCaseSchema,
 } from "@shared/schema";
 
+/* =========================================================
+   Helpers locais (para não depender de outros imports)
+   ========================================================= */
+
 const scryptAsync = promisify(crypto.scrypt);
 const upload = multer({ dest: "uploads/" });
 
-/* ============ Helpers ============ */
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated && req.isAuthenticated()) return next();
   return res.status(401).json({ message: "Unauthorized" });
 }
 
+// senha no formato "saltHex:hashHex"
 async function hashPasswordSaltHexColonHash(plain: string): Promise<string> {
   const salt = crypto.randomBytes(16);
   const key = (await scryptAsync(plain, salt, 64)) as Buffer;
   return `${salt.toString("hex")}:${key.toString("hex")}`;
+}
+
+// parse "pt-BR" dd/mm/yyyy para Date
+function parseBRDate(v: any): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const s = String(v).trim();
+  if (!s) return null;
+  // tenta ISO primeiro
+  const iso = new Date(s);
+  if (!Number.isNaN(iso.getTime())) return iso;
+  const m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  if (!m) return null;
+  const [_, dd, mm, yyyy] = m;
+  const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// parse "R$ 1.234,56" ou "1234,56"
+function parseBRMoney(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return v;
+  const s = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d\.]/g, "");
+  const n = Number(s);
+  return Number.isNaN(n) ? null : n;
 }
 
 const logActivity = async (
@@ -64,9 +92,12 @@ const logActivity = async (
   }
 };
 
-/* ============ Rotas ============ */
+/* =========================================================
+   Registro de rotas
+   ========================================================= */
+
 export function registerRoutes(app: Express): void {
-  /* sanidade */
+  /* health/test */
   app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
   /* auth & sessão */
@@ -89,7 +120,6 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== USERS ==================== */
 
-  // Lista de usuários (para a página "Usuários")
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -121,7 +151,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Criar usuário
   app.post("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -162,7 +191,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Atualizar usuário
   app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -196,7 +224,6 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Remover usuário
   app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -211,28 +238,39 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ==================== CASES ==================== */
+  /* ==================== CASES (BUCKET SEM SOBREPOSIÇÃO) ==================== */
 
-  // LISTAR CASOS (JOIN em employees + bucket normalizado + aliases)
+  // GET /api/cases -> interpreta ?status= como BUCKET (novo | pendente | atrasado | concluido)
   app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
       const { status, search, limit, orderBy } = req.query as any;
-
+      const bucket = (status || "").toString().toLowerCase().trim();
       const params: any[] = [];
-      let where = "WHERE 1=1";
 
-      if (status) {
-        params.push(status);
-        where += ` AND c.status = $${params.length}`;
+      let where = "WHERE 1=1";
+      if (bucket === "concluido") {
+        where += " AND c.status = 'concluido'";
+      } else if (bucket === "atrasado") {
+        where += " AND c.status <> 'concluido' AND c.due_date IS NOT NULL AND c.due_date < now()";
+      } else if (bucket === "novo") {
+        where += " AND c.status = 'novo'";
+      } else if (bucket === "pendente") {
+        where += `
+          AND c.status <> 'concluido'
+          AND (c.due_date IS NULL OR c.due_date >= now())
+          AND (c.status IS NULL OR c.status <> 'novo')
+        `;
       }
 
       if (search) {
         const like = `%${String(search).toLowerCase()}%`;
         params.push(like, like, like, like);
-        where += ` AND (LOWER(c.client_name)   LIKE $${params.length - 3}
-                    OR LOWER(c.process_number) LIKE $${params.length - 2}
-                    OR LOWER(e.name)           LIKE $${params.length - 1}
-                    OR LOWER(e.registration)   LIKE $${params.length})`;
+        where += ` AND (
+          LOWER(c.client_name)    LIKE $${params.length - 3} OR
+          LOWER(c.process_number) LIKE $${params.length - 2} OR
+          LOWER(e.name)           LIKE $${params.length - 1} OR
+          LOWER(e.registration)   LIKE $${params.length}
+        )`;
       }
 
       const ord =
@@ -275,24 +313,22 @@ export function registerRoutes(app: Express): void {
           observacoes: r.observacoes,
           companyId: r.company_id,
 
-          // <-- status normalizado para evitar duplicidade de buckets
           status: statusForUI,
+          bucket: statusForUI,
+          isOverdue,
 
           archived: r.archived,
           deleted: r.deleted,
           createdAt: r.created_at,
           updatedAt: r.updated_at,
 
-          // funcionário
           employeeId: r.employee_id,
           employeeName: r.employee_name,
           employeeRegistration: r.employee_registration,
 
-          // aliases
           matricula: r.employee_registration,
           registration: r.employee_registration,
 
-          // objetos aninhados usados por alguns cards
           employee: {
             id: r.employee_id,
             name: r.employee_name,
@@ -301,10 +337,6 @@ export function registerRoutes(app: Express): void {
           process: {
             number: r.process_number,
           },
-
-          // flags extras (se a UI quiser mostrar badge)
-          isOverdue,
-          bucket: statusForUI,
         };
       });
 
@@ -315,7 +347,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // DETALHE DO CASO (JOIN para matrícula + status normalizado)
+  // detalhe
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -351,6 +383,8 @@ export function registerRoutes(app: Express): void {
         observacoes: r.observacoes,
         companyId: r.company_id,
         status: statusForUI,
+        bucket: statusForUI,
+        isOverdue,
         archived: r.archived,
         deleted: r.deleted,
         createdAt: r.created_at,
@@ -369,9 +403,6 @@ export function registerRoutes(app: Express): void {
           registration: r.employee_registration,
         },
         process: { number: r.process_number },
-
-        isOverdue,
-        bucket: statusForUI,
       };
 
       res.json(caseData);
@@ -381,7 +412,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // CRIAR CASO (aceita `matricula` e resolve para `employeeId`)
+  // criar
   app.post("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
       if (req.user?.role !== "admin") {
@@ -402,7 +433,7 @@ export function registerRoutes(app: Express): void {
         }
       }
 
-      const toDate = (v: any) => (v ? new Date(v) : null);
+      const toDate = (v: any) => parseBRDate(v) ?? (v ? new Date(v) : null);
 
       const data = {
         ...body,
@@ -434,7 +465,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ATUALIZAR STATUS
+  // atualizar status
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -446,7 +477,7 @@ export function registerRoutes(app: Express): void {
       if (!c) return res.status(404).json({ message: "Case not found" });
 
       let completedDate = c.completedDate;
-      let dataEntrega = c.dataEntrega;
+      let dataEntrega = (c as any).dataEntrega ?? null;
       if (status === "concluido" && c.status !== "concluido") {
         completedDate = new Date();
         dataEntrega = new Date();
@@ -473,7 +504,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // EDITAR CASO (dados gerais)
+  // editar
   app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -524,7 +555,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // REMOVER CASO
+  // deletar
   app.delete("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -543,7 +574,7 @@ export function registerRoutes(app: Express): void {
 
   /* ==================== DASHBOARD ==================== */
 
-  // Contadores com bucket normalizado (sem dupla contagem)
+  // Contadores (normalizados) + chaves no singular e plural
   app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
     try {
       const q = `
@@ -565,20 +596,36 @@ export function registerRoutes(app: Express): void {
         from buckets
       `;
       const { rows: [r] } = await pool.query(q);
-      res.json({
+
+      const resp = {
+        // singular
         total:     r?.total ?? 0,
         novo:      r?.novo ?? 0,
         pendente:  r?.pendente ?? 0,
         atrasado:  r?.atrasado ?? 0,
         concluido: r?.concluido ?? 0,
-      });
+        // plural (compat UI antiga)
+        novos:       r?.novo ?? 0,
+        pendentes:   r?.pendente ?? 0,
+        atrasados:   r?.atrasado ?? 0,
+        concluidos:  r?.concluido ?? 0,
+        // agrupado
+        cards: {
+          novo:       r?.novo ?? 0,
+          pendente:   r?.pendente ?? 0,
+          atrasado:   r?.atrasado ?? 0,
+          concluido:  r?.concluido ?? 0,
+        },
+      };
+
+      res.json(resp);
     } catch (err) {
       console.error("Error fetching dashboard stats:", err);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
 
-  // Últimas atualizações (opcional, para o card verde)
+  // Últimas atualizações (opcional, caso o card use esta rota)
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
       const q = `
@@ -608,11 +655,7 @@ export function registerRoutes(app: Express): void {
           employeeRegistration: r.employee_registration,
           matricula: r.employee_registration,
           registration: r.employee_registration,
-          employee: {
-            id: r.employee_id,
-            name: r.employee_name,
-            registration: r.employee_registration,
-          },
+          employee: { id: r.employee_id, name: r.employee_name, registration: r.employee_registration },
           process: { number: r.process_number },
           isOverdue,
           bucket: statusForUI,
@@ -622,36 +665,6 @@ export function registerRoutes(app: Express): void {
     } catch (err) {
       console.error("Error fetching dashboard updates:", err);
       res.status(500).json({ message: "Failed to fetch updates" });
-    }
-  });
-
-  // Layout do dashboard
-  app.get("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
-    try {
-      const layout = await storage.getDashboardLayout(req.user!.id);
-      res.json(layout);
-    } catch (err) {
-      console.error("Error fetching dashboard layout:", err);
-      res.status(500).json({ message: "Failed to fetch dashboard layout" });
-    }
-  });
-
-  app.post("/api/dashboard/layout", isAuthenticated, async (req: any, res) => {
-    try {
-      const { layout, widgets } = req.body;
-      const saved = await storage.saveDashboardLayout(req.user!.id, layout, widgets);
-      await logActivity(
-        req,
-        "UPDATE_DASHBOARD",
-        "DASHBOARD",
-        saved.id,
-        "Personalizou layout do dashboard",
-        { widgetCount: widgets?.length || 0 }
-      );
-      res.json(saved);
-    } catch (err) {
-      console.error("Error saving dashboard layout:", err);
-      res.status(500).json({ message: "Failed to save dashboard layout" });
     }
   });
 
@@ -674,7 +687,7 @@ export function registerRoutes(app: Express): void {
     }
   };
   app.get("/api/activity-logs", isAuthenticated, activityHandler);
-  app.get("/api/activity-log", isAuthenticated, activityHandler); // alias singular
+  app.get("/api/activity-log", isAuthenticated, activityHandler); // alias
 
   /* ==================== EMPLOYEES ==================== */
 
@@ -980,7 +993,7 @@ export function registerRoutes(app: Express): void {
         );
       }
 
-      // Employees (amostras)
+      // Employees
       const employeesData = [
         { name: "João Pereira",   registration: "BF-1001", rg: "12.345.678-9", companyId: 1, role: "Analista",   department: "Operações",  costCenter: "CC-01" },
         { name: "Ana Souza",      registration: "BF-1002", rg: "98.765.432-1", companyId: 1, role: "Assistente", department: "Jurídico",   costCenter: "CC-02" },
@@ -1005,31 +1018,13 @@ export function registerRoutes(app: Express): void {
       // Cases
       const sampleClients = ["Lucas Silva", "Carla Mendes", "Pedro Araujo", "Juliana Costa", "Marcos Dias"];
       const sampleStatuses = ["novo", "pendente", "concluido", "atrasado"];
-      const casesToInsert: any[] = [];
       for (let i = 1; i <= 10; i++) {
         const id = crypto.randomUUID();
         const empId = employeeIds[(i - 1) % employeeIds.length];
         const status = sampleStatuses[(i - 1) % sampleStatuses.length];
         const clientName = sampleClients[(i - 1) % sampleClients.length];
         const processNumber = `000${i}/2025`;
-        casesToInsert.push({
-          id,
-          employee_id: empId,
-          client_name: clientName,
-          process_type: i % 2 === 0 ? "Trabalhista" : "Cível",
-          process_number: processNumber,
-          description: `Processo de ${clientName} (${processNumber})`,
-          due_date: new Date(Date.now() + i * 86400000),
-          hearing_date: new Date(Date.now() + (i + 7) * 86400000),
-          start_date: new Date(Date.now() - i * 86400000),
-          observacoes: i % 3 === 0 ? "Observação importante." : null,
-          company_id: 1,
-          status,
-          archived: false,
-          deleted: false,
-        });
-      }
-      for (const c of casesToInsert) {
+
         await pool.query(
           `insert into public.cases
             (id, employee_id, client_name, process_type, process_number, description,
@@ -1038,8 +1033,15 @@ export function registerRoutes(app: Express): void {
           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now(), now())
           on conflict (id) do nothing`,
           [
-            c.id, c.employee_id, c.client_name, c.process_type, c.process_number, c.description,
-            c.due_date, c.hearing_date, c.start_date, c.observacoes, c.company_id, c.status, c.archived, c.deleted
+            id, empId, clientName,
+            i % 2 === 0 ? "Trabalhista" : "Cível",
+            processNumber,
+            `Processo de ${clientName} (${processNumber})`,
+            new Date(Date.now() + i * 86400000),
+            new Date(Date.now() + (i + 7) * 86400000),
+            new Date(Date.now() - i * 86400000),
+            i % 3 === 0 ? "Observação importante." : null,
+            1, status, false, false
           ]
         );
       }
