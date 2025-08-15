@@ -24,7 +24,55 @@ import {
 const scryptAsync = promisify(crypto.scrypt);
 const upload = multer({ dest: "uploads/" });
 
-/* ---------------- Helpers ---------------- */
+/* ------------------------------------------------------------------
+   DASHBOARD HELPERS
+-------------------------------------------------------------------*/
+function normalizeStatusText(s: any): string {
+  if (!s) return "";
+  const plain = String(s)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "") // remove acentos
+    .toLowerCase()
+    .trim();
+  if (plain.startsWith("novo"))   return "novo";
+  if (plain.startsWith("pend"))   return "pendente";
+  if (plain.startsWith("atras"))  return "atrasado";
+  if (plain.startsWith("conclu")) return "concluido";
+  return "outros";
+}
+
+async function computeDashboardStatsFromDB() {
+  const q = `
+    select
+      lower(coalesce(status,'')) as s,
+      count(*)::int as c,
+      sum( (due_date < now() and not (lower(coalesce(status,'')) like 'conclu%'))::int )::int as vencidos_part
+    from public.cases
+    group by 1
+  `;
+  const { rows } = await pool.query(q);
+
+  const counters = {
+    total: 0,
+    novo: 0,
+    pendente: 0,
+    atrasado: 0,
+    concluido: 0,
+    vencidos: 0,
+  };
+
+  for (const r of rows) {
+    counters.total += r.c || 0;
+    const bucket = normalizeStatusText(r.s);
+    if (bucket in counters) (counters as any)[bucket] += r.c || 0;
+    counters.vencidos += r.vencidos_part || 0;
+  }
+  return counters;
+}
+
+/* ------------------------------------------------------------------
+   MIDDLEWARES / HELPERS GERAIS
+-------------------------------------------------------------------*/
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated && req.isAuthenticated()) return next();
   return res.status(401).json({ message: "Unauthorized" });
@@ -68,7 +116,9 @@ interface AuthenticatedRequest extends Request {
   user?: any;
 }
 
-/* ---------------- Rotas ---------------- */
+/* ------------------------------------------------------------------
+   ROTAS
+-------------------------------------------------------------------*/
 export function registerRoutes(app: Express): void {
   app.get("/api/test", (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
@@ -88,7 +138,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* =========== USERS =========== */
+  /* ================= USERS ================= */
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -207,7 +257,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* =========== CASES =========== */
+  /* ================= CASES ================= */
 
   // LIST
   app.get("/api/cases", isAuthenticated, async (req, res) => {
@@ -274,7 +324,7 @@ export function registerRoutes(app: Express): void {
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
 
-        // aliases e objetos esperados pela UI
+        // aliases esperados pela UI
         matricula: r.employee_registration,
         registration: r.employee_registration,
         employee: {
@@ -511,40 +561,38 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* =========== DASHBOARD =========== */
+  /* ================= DASHBOARD ================= */
 
-  // --- Cards (robusto a variações de status/acentos) ---
+  // Cards (tolerante + 3 aliases)
+  async function sendStats(res: Response) {
+    const payload = await computeDashboardStatsFromDB();
+    console.log("[DASH/STATS]", payload);
+    res.set("Cache-Control", "no-store");
+    res.json(payload);
+  }
+
   app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
-    try {
-      const q = `
-        select 
-          count(*)::int as total,
-          sum( (lower(coalesce(status,'')) like 'novo%')::int )::int      as novo,
-          sum( (lower(coalesce(status,'')) like 'pend%')::int )::int     as pendente,
-          sum( (lower(coalesce(status,'')) like 'atras%')::int )::int    as atrasado,
-          sum( (lower(coalesce(status,'')) like 'conclu%')::int )::int   as concluido,
-          sum( (due_date < now() and not (lower(coalesce(status,'')) like 'conclu%'))::int )::int as vencidos
-        from public.cases
-      `;
-      const { rows: [r] } = await pool.query(q);
-      const payload = {
-        total:     r?.total      ?? 0,
-        novo:      r?.novo       ?? 0,
-        pendente:  r?.pendente   ?? 0,
-        atrasado:  r?.atrasado   ?? 0,
-        concluido: r?.concluido  ?? 0,
-        vencidos:  r?.vencidos   ?? 0,
-      };
-      console.log("[DASH/STATS]", payload);
-      res.set("Cache-Control", "no-store");
-      res.json(payload);
-    } catch (err) {
-      console.error("Error fetching dashboard stats:", err);
+    try { await sendStats(res); } catch (err) {
+      console.error("Error fetching /api/dashboard/stats:", err);
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
 
-  // --- Últimas Atualizações ---
+  app.get("/api/stats", isAuthenticated, async (_req, res) => {
+    try { await sendStats(res); } catch (err) {
+      console.error("Error fetching /api/stats:", err);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/dashboard", isAuthenticated, async (_req, res) => {
+    try { await sendStats(res); } catch (err) {
+      console.error("Error fetching /api/dashboard:", err);
+      res.status(500).json({ message: "Failed to fetch dashboard" });
+    }
+  });
+
+  // Últimas Atualizações (lista)
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
       const q = `
@@ -583,7 +631,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* =========== ACTIVITY LOG =========== */
+  /* ================= ACTIVITY LOG ================= */
   const activityHandler = async (req: any, res: any) => {
     try {
       const { action, date, search, limit, processOnly } = req.query as any;
@@ -603,7 +651,7 @@ export function registerRoutes(app: Express): void {
   app.get("/api/activity-logs", isAuthenticated, activityHandler);
   app.get("/api/activity-log", isAuthenticated, activityHandler); // alias
 
-  /* =========== EMPLOYEES =========== */
+  /* ================= EMPLOYEES ================= */
   app.get("/api/employees", isAuthenticated, async (req, res) => {
     try {
       const term = String((req.query as any).search || "").toLowerCase();
@@ -843,7 +891,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* =========== SEED DEMO =========== */
+  /* ================= SEED DEMO ================= */
   app.post("/api/admin/seed-demo", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
