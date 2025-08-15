@@ -3,7 +3,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { z } from "zod";
-import { sql, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
@@ -93,11 +93,40 @@ function normalizeStatusText(
   return "outros";
 }
 
+const CONCLUDED_DB_VALUES = new Set([
+  "concluido",
+  "completed",
+  "done",
+  "closed",
+  "finalizado",
+  "finalizada",
+  "fechado",
+  "fechada",
+]);
+
+function isRowConcludedText(status: any) {
+  const s = String(status || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+  return CONCLUDED_DB_VALUES.has(s);
+}
+
+function deriveDisplayStatusFromRow(row: { status: any; due_date?: any }) {
+  const sNorm = normalizeStatusText(row.status);
+  const due = row.due_date ? new Date(row.due_date) : null;
+  if (due && due.getTime() < Date.now() && sNorm !== "concluido") {
+    return "atrasado";
+  }
+  return sNorm;
+}
+
 /* =================================================================== */
 /* Dashboard Stats (Atrasados por prazo vencido)                       */
 /* =================================================================== */
 
-// Atrasados = due_date < now() e NÃO concluído (independente do texto do status)
+// Atrasados = due_date < now() e NÃO concluído
 const STATS_SQL = `
   WITH base AS (
     SELECT LOWER(COALESCE(status,'')) AS s, due_date
@@ -130,7 +159,7 @@ async function sendStats(res: Response) {
     pendentes: r.pendentes,
     atrasados: r.atrasados,
     concluidos: r.concluidos,
-    // EN aliases (para qualquer UI)
+    // EN aliases
     new: r.novos,
     newCount: r.novos,
     pending: r.pendentes,
@@ -283,7 +312,7 @@ export function registerRoutes(app: Express): void {
 
   /* ---------- Cases ---------- */
 
-  // Lista estável usada na tela /cases
+  // Lista para a tela /cases — agora "atrasado" é derivado por prazo vencido
   app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
       const { status, search, limit, orderBy } = req.query as any;
@@ -293,27 +322,32 @@ export function registerRoutes(app: Express): void {
 
       if (status) {
         const norm = normalizeStatusText(status);
-        const variants =
-          norm === "novo"
-            ? ["novo", "new"]
-            : norm === "pendente"
-            ? ["pendente", "open", "pending", "in progress", "em aberto", "aberto"]
-            : norm === "atrasado"
-            ? ["atrasado", "overdue", "late", "delayed", "vencido"]
-            : norm === "concluido"
-            ? [
-                "concluido",
-                "completed",
-                "done",
-                "closed",
-                "finalizado",
-                "finalizada",
-                "fechado",
-                "fechada",
-              ]
-            : [String(status)];
-        params.push(variants);
-        where += ` AND LOWER(c.status) = ANY($${params.length})`;
+
+        if (norm === "atrasado") {
+          // igual ao dashboard: prazo vencido + não concluído
+          where += ` AND (c.due_date < now()
+                     AND NOT (LOWER(COALESCE(c.status,'')) IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')))`;
+        } else {
+          const variants =
+            norm === "novo"
+              ? ["novo", "new"]
+              : norm === "pendente"
+              ? ["pendente", "open", "pending", "in progress", "em aberto", "aberto"]
+              : norm === "concluido"
+              ? [
+                  "concluido",
+                  "completed",
+                  "done",
+                  "closed",
+                  "finalizado",
+                  "finalizada",
+                  "fechado",
+                  "fechada",
+                ]
+              : [String(status)];
+          params.push(variants);
+          where += ` AND LOWER(c.status) = ANY($${params.length})`;
+        }
       }
 
       if (search) {
@@ -359,35 +393,42 @@ export function registerRoutes(app: Express): void {
       `;
       const { rows } = await pool.query(q, params);
 
-      const data = rows.map((r: any) => ({
-        id: r.id,
-        matricula: r.employee_registration || "N/A",
-        clientName: r.client_name || "",
-        processType: r.process_type || "",
-        processNumber: r.process_number || "",
-        dueDate: r.due_date || null,
-        hearingDate: r.hearing_date || null,
-        observacoes: r.observacoes || "",
-        status: normalizeStatusText(r.status),
-        description: r.description || "",
-        companyId: r.company_id || null,
-        startDate: r.start_date || null,
-        createdAt: r.created_at || null,
-        updatedAt: r.updated_at || null,
-        employeeId: r.employee_id || null,
-        employeeName: r.employee_name || null,
-        registration: r.employee_registration || "N/A",
-        originalStatus: r.status || null,
-      }));
+      const data = rows.map((r: any) => {
+        const status = deriveDisplayStatusFromRow(r);
+        return {
+          id: r.id,
+          matricula: r.employee_registration || "N/A",
+          clientName: r.client_name || "",
+          processType: r.process_type || "",
+          processNumber: r.process_number || "",
+          dueDate: r.due_date || null,
+          hearingDate: r.hearing_date || null,
+          observacoes: r.observacoes || "",
+          status, // <- pode virar "atrasado" por prazo vencido
+          description: r.description || "",
+          companyId: r.company_id || null,
+          startDate: r.start_date || null,
+          createdAt: r.created_at || null,
+          updatedAt: r.updated_at || null,
+          employeeId: r.employee_id || null,
+          employeeName: r.employee_name || null,
+          registration: r.employee_registration || "N/A",
+          originalStatus: r.status || null,
+          isOverdue:
+            !!r.due_date &&
+            new Date(r.due_date).getTime() < Date.now() &&
+            !isRowConcludedText(r.status),
+        };
+      });
 
       res.json(data);
     } catch (e) {
       console.error("GET /api/cases", e);
-      res.status(200).json([]); // nunca derrube a UI
+      res.status(200).json([]); // não derrubar a UI
     }
   });
 
-  // Detalhe
+  // Detalhe — também deriva "atrasado" por prazo vencido
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -406,6 +447,8 @@ export function registerRoutes(app: Express): void {
       if (!rows.length) return res.status(404).json({ message: "Case not found" });
 
       const r = rows[0];
+      const status = deriveDisplayStatusFromRow({ status: r.status, due_date: r.due_date });
+
       res.json({
         id: r.id,
         clientName: r.client_name || "",
@@ -417,7 +460,7 @@ export function registerRoutes(app: Express): void {
         startDate: r.start_date || null,
         observacoes: r.observacoes || "",
         companyId: r.company_id || null,
-        status: normalizeStatusText(r.status),
+        status, // <- derivado
         originalStatus: r.status,
         archived: r.archived,
         deleted: r.deleted,
@@ -428,6 +471,10 @@ export function registerRoutes(app: Express): void {
         employeeRegistration: r.employee_registration,
         matricula: r.employee_registration || "N/A",
         registration: r.employee_registration || "N/A",
+        isOverdue:
+          !!r.due_date &&
+          new Date(r.due_date).getTime() < Date.now() &&
+          !isRowConcludedText(r.status),
       });
     } catch (e) {
       console.error("GET /api/cases/:id", e);
@@ -569,7 +616,7 @@ export function registerRoutes(app: Express): void {
       const id = req.params.id;
       if (req.user?.role !== "admin")
         return res.status(403).json({ message: "Insufficient permissions" });
-    const c = await storage.getCaseById(id);
+      const c = await storage.getCaseById(id);
       if (!c) return res.status(404).json({ message: "Case not found" });
       await storage.deleteCase(id);
       await logActivity(req, "DELETE_CASE", "CASE", id, `Excluiu processo ${c.processNumber}`);
@@ -623,7 +670,7 @@ export function registerRoutes(app: Express): void {
           id: r.id,
           clientName: r.client_name || "",
           processNumber: r.process_number || "",
-          status: normalizeStatusText(r.status),
+          status: deriveDisplayStatusFromRow({ status: r.status, due_date: r.updated_at ? r.due_date : r.due_date }),
           originalStatus: r.status,
           updatedAt: r.updated_at,
           employeeId: r.employee_id,
