@@ -1,40 +1,36 @@
-// server/index.ts
 import express from "express";
+import path from "path";
 import compression from "compression";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { registerRoutes } from "./routes";
+import helmet from "helmet";
+import morgan from "morgan";
+import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.disable("x-powered-by");
 
-// JSON body
-app.use(express.json({ limit: "2mb" }));
-
-// compressão
+// middlewares seguros e leves
+app.use(helmet());
 app.use(compression());
+app.use(morgan("tiny"));
+app.use(express.json());
 
-// Rotas de API
-registerRoutes(app);
+// healthcheck para o Render
+app.get("/health", (_req, res) => res.status(200).send("ok"));
 
-// Static do front (Vite -> dist/public)
-const publicDir = path.resolve(__dirname, "public");
-app.use(express.static(publicDir, { etag: true, maxAge: "1h" }));
+// arquivos estáticos do frontend (Vite)
+const publicDir = path.join(process.cwd(), "dist", "public");
+app.use(express.static(publicDir));
 
-// Healthcheck para Render
-app.get("/health", (_req, res) => res.type("text").send("ok"));
+// 👉 suas rotas de API continuam aqui
+// registerRoutes(app);  // (o seu arquivo atual que já registra /api/...)
 
-// SPA fallback: qualquer rota que NÃO comece com /api devolve index.html
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api")) return next();
+// fallback SPA
+app.get("*", (_req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
 
-// Start
-const port = Number(process.env.PORT || 10000);
-app.listen(port, () => {
-  console.log("✅ Server listening on port", port);
+// start único
+const PORT = Number(process.env.PORT || 10000);
+app.listen(PORT, () => {
+  console.log("✅ Server listening on port", PORT);
 });
