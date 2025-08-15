@@ -8,10 +8,9 @@ import { sql } from "drizzle-orm";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { db, pool } from "./db";
-import { parseBRDate, parseBRMoney } from "./utils/normalize";
+import { parseBRDate } from "./utils/normalize";
 
 import {
-  users as usersTable,
   employees as employeesTable,
   insertUserSchema,
   updateUserSchema,
@@ -63,89 +62,41 @@ const logActivity = async (
   }
 };
 
-function normalizeStatusText(
-  s: any
-): "novo" | "pendente" | "atrasado" | "concluido" | "outros" {
-  if (!s) return "outros";
-  const p = String(s)
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-
-  if (p.startsWith("novo") || p === "new") return "novo";
-
-  if (
-    p.startsWith("pend") ||
-    ["open", "pending", "in progress", "em aberto", "aberto"].includes(p)
-  )
-    return "pendente";
-
-  if (p.startsWith("atras") || ["overdue", "late", "delayed", "vencido"].includes(p))
-    return "atrasado";
-
-  if (
-    p.startsWith("conclu") ||
-    ["completed", "done", "closed", "finalizado", "finalizada", "fechado", "fechada"].includes(p)
-  )
-    return "concluido";
-
-  return "outros";
-}
-
-const CONCLUDED_DB_VALUES = new Set([
-  "concluido",
-  "completed",
-  "done",
-  "closed",
-  "finalizado",
-  "finalizada",
-  "fechado",
-  "fechada",
-]);
-
-function isRowConcludedText(status: any) {
-  const s = String(status || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-  return CONCLUDED_DB_VALUES.has(s);
-}
-
-function deriveDisplayStatusFromRow(row: { status: any; due_date?: any }) {
-  const sNorm = normalizeStatusText(row.status);
-  const due = row.due_date ? new Date(row.due_date) : null;
-  if (due && due.getTime() < Date.now() && sNorm !== "concluido") {
-    return "atrasado";
-  }
-  return sNorm;
-}
+/* =================================================================== */
+/* Normalização de status derivado no SQL                              */
+/* =================================================================== */
+/** Normaliza status no DB e deriva "atrasado" por prazo vencido (date-only). */
+const STATUS_CASE_SQL = `
+  CASE
+    WHEN c.due_date::date < CURRENT_DATE
+         AND NOT (LOWER(COALESCE(c.status,'')) IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada'))
+      THEN 'atrasado'
+    WHEN LOWER(COALESCE(c.status,'')) IN ('novo','new')
+      THEN 'novo'
+    WHEN LOWER(COALESCE(c.status,'')) IN ('pendente','open','pending','in progress','em aberto','aberto')
+      THEN 'pendente'
+    WHEN LOWER(COALESCE(c.status,'')) IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')
+      THEN 'concluido'
+    ELSE 'outros'
+  END
+`;
 
 /* =================================================================== */
-/* Dashboard Stats (Atrasados por prazo vencido)                       */
+/* Dashboard Stats (Atrasados por prazo vencido, alinhado ao list)     */
 /* =================================================================== */
 
-// Atrasados = due_date < now() e NÃO concluído
 const STATS_SQL = `
-  WITH base AS (
-    SELECT LOWER(COALESCE(status,'')) AS s, due_date
-    FROM public.cases
-  ),
-  flags AS (
+  WITH flags AS (
     SELECT
-      (s IN ('novo','new')) AS is_novo,
-      (s IN ('pendente','open','pending','in progress','em aberto','aberto')) AS is_pendente,
-      (s IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')) AS is_concluido,
-      (due_date < now() AND NOT (s IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada'))) AS is_atrasado
-    FROM base
+      ${STATUS_CASE_SQL} AS s
+    FROM public.cases c
   )
   SELECT
-    SUM(CASE WHEN is_novo THEN 1 ELSE 0 END)::int       AS novos,
-    SUM(CASE WHEN is_pendente THEN 1 ELSE 0 END)::int   AS pendentes,
-    SUM(CASE WHEN is_concluido THEN 1 ELSE 0 END)::int  AS concluidos,
-    SUM(CASE WHEN is_atrasado THEN 1 ELSE 0 END)::int   AS atrasados,
-    (SELECT COUNT(*) FROM public.cases)::int             AS total
+    SUM(CASE WHEN s = 'novo' THEN 1 ELSE 0 END)::int       AS novos,
+    SUM(CASE WHEN s = 'pendente' THEN 1 ELSE 0 END)::int   AS pendentes,
+    SUM(CASE WHEN s = 'concluido' THEN 1 ELSE 0 END)::int  AS concluidos,
+    SUM(CASE WHEN s = 'atrasado' THEN 1 ELSE 0 END)::int   AS atrasados,
+    (SELECT COUNT(*) FROM public.cases)::int                AS total
   FROM flags;
 `;
 
@@ -174,6 +125,67 @@ async function sendStats(res: Response) {
   };
   res.set("Cache-Control", "no-store");
   res.json(payload);
+}
+
+/* =================================================================== */
+/* Activity Logs - resolução dinâmica de colunas                        */
+/* =================================================================== */
+
+type ActivityCols = {
+  table: string;
+  id: string;
+  userId?: string;
+  action?: string;
+  resourceType?: string;
+  resourceId?: string;
+  description?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: string;
+  createdAt?: string;
+};
+
+async function resolveActivityTableAndCols(): Promise<ActivityCols> {
+  // tenta activity_log, depois activity_logs
+  const candidates = ["activity_log", "activity_logs"];
+
+  for (const t of candidates) {
+    // existe?
+    const rel = await pool.query(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1 LIMIT 1`,
+      [t]
+    );
+    if (rel.rowCount === 0) continue;
+
+    // pega colunas
+    const colsRes = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`,
+      [t]
+    );
+    const cols = colsRes.rows.map((r: any) => String(r.column_name));
+
+    const pick = (options: string[]): string | undefined =>
+      options.find((c) => cols.includes(c));
+
+    const cfg: ActivityCols = {
+      table: `public.${t}`,
+      id: pick(["id"]) || "id",
+      userId: pick(["user_id", "userId", "actor_id", "created_by"]),
+      action: pick(["action", "acao"]),
+      resourceType: pick(["resource_type", "resourceType", "entity_type", "tipo_recurso"]),
+      resourceId: pick(["resource_id", "resourceId", "entity_id", "target_id", "recurso_id"]),
+      description: pick(["description", "descricao", "message", "detail", "details"]),
+      ipAddress: pick(["ip_address", "ipAddress"]),
+      userAgent: pick(["user_agent", "userAgent"]),
+      metadata: pick(["metadata", "meta", "extra"]),
+      createdAt: pick(["created_at", "createdAt", "timestamp", "created_on"]),
+    };
+
+    return cfg;
+  }
+
+  // fallback: não existe tabela conhecida
+  throw new Error("Nenhuma tabela de activity log encontrada (public.activity_log[s])");
 }
 
 /* =================================================================== */
@@ -310,9 +322,9 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ---------- Cases ---------- */
+  /* ---------- Cases (100% alinhado com o dashboard) ---------- */
 
-  // Lista para a tela /cases — agora "atrasado" é derivado por prazo vencido
+  // Lista /cases — status_display derivado no SQL com mesma regra dos cards
   app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
       const { status, search, limit, orderBy } = req.query as any;
@@ -321,32 +333,16 @@ export function registerRoutes(app: Express): void {
       let where = "WHERE 1=1";
 
       if (status) {
-        const norm = normalizeStatusText(status);
-
-        if (norm === "atrasado") {
-          // igual ao dashboard: prazo vencido + não concluído
-          where += ` AND (c.due_date < now()
+        const s = String(status).toLowerCase().trim();
+        if (s === "atrasado" || s === "overdue" || s.startsWith("atra")) {
+          where += ` AND (c.due_date::date < CURRENT_DATE
                      AND NOT (LOWER(COALESCE(c.status,'')) IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')))`;
-        } else {
-          const variants =
-            norm === "novo"
-              ? ["novo", "new"]
-              : norm === "pendente"
-              ? ["pendente", "open", "pending", "in progress", "em aberto", "aberto"]
-              : norm === "concluido"
-              ? [
-                  "concluido",
-                  "completed",
-                  "done",
-                  "closed",
-                  "finalizado",
-                  "finalizada",
-                  "fechado",
-                  "fechada",
-                ]
-              : [String(status)];
-          params.push(variants);
-          where += ` AND LOWER(c.status) = ANY($${params.length})`;
+        } else if (s === "novo" || s === "new") {
+          where += ` AND LOWER(COALESCE(c.status,'')) IN ('novo','new')`;
+        } else if (s === "pendente" || s === "open" || s === "pending") {
+          where += ` AND LOWER(COALESCE(c.status,'')) IN ('pendente','open','pending','in progress','em aberto','aberto')`;
+        } else if (s === "concluido" || s === "completed" || s === "done" || s === "closed") {
+          where += ` AND LOWER(COALESCE(c.status,'')) IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')`;
         }
       }
 
@@ -374,6 +370,7 @@ export function registerRoutes(app: Express): void {
           c.process_type,
           c.process_number,
           c.status,
+          ${STATUS_CASE_SQL} AS status_display,
           c.description,
           c.observacoes,
           c.company_id,
@@ -393,48 +390,43 @@ export function registerRoutes(app: Express): void {
       `;
       const { rows } = await pool.query(q, params);
 
-      const data = rows.map((r: any) => {
-        const status = deriveDisplayStatusFromRow(r);
-        return {
-          id: r.id,
-          matricula: r.employee_registration || "N/A",
-          clientName: r.client_name || "",
-          processType: r.process_type || "",
-          processNumber: r.process_number || "",
-          dueDate: r.due_date || null,
-          hearingDate: r.hearing_date || null,
-          observacoes: r.observacoes || "",
-          status, // <- pode virar "atrasado" por prazo vencido
-          description: r.description || "",
-          companyId: r.company_id || null,
-          startDate: r.start_date || null,
-          createdAt: r.created_at || null,
-          updatedAt: r.updated_at || null,
-          employeeId: r.employee_id || null,
-          employeeName: r.employee_name || null,
-          registration: r.employee_registration || "N/A",
-          originalStatus: r.status || null,
-          isOverdue:
-            !!r.due_date &&
-            new Date(r.due_date).getTime() < Date.now() &&
-            !isRowConcludedText(r.status),
-        };
-      });
+      const data = rows.map((r: any) => ({
+        id: r.id,
+        matricula: r.employee_registration || "N/A",
+        clientName: r.client_name || "",
+        processType: r.process_type || "",
+        processNumber: r.process_number || "",
+        dueDate: r.due_date || null,
+        hearingDate: r.hearing_date || null,
+        observacoes: r.observacoes || "",
+        status: r.status_display, // <– derivado no SQL
+        description: r.description || "",
+        companyId: r.company_id || null,
+        startDate: r.start_date || null,
+        createdAt: r.created_at || null,
+        updatedAt: r.updated_at || null,
+        employeeId: r.employee_id || null,
+        employeeName: r.employee_name || null,
+        registration: r.employee_registration || "N/A",
+        originalStatus: r.status || null,
+        isOverdue: r.status_display === "atrasado",
+      }));
 
       res.json(data);
     } catch (e) {
       console.error("GET /api/cases", e);
-      res.status(200).json([]); // não derrubar a UI
+      res.status(200).json([]); // não derruba a UI
     }
   });
 
-  // Detalhe — também deriva "atrasado" por prazo vencido
+  // Detalhe — mesma derivação no SQL
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
       const q = `
         SELECT
           c.*,
+          ${STATUS_CASE_SQL} AS status_display,
           e.id           AS employee_id,
           e.name         AS employee_name,
           e.registration AS employee_registration
@@ -447,8 +439,6 @@ export function registerRoutes(app: Express): void {
       if (!rows.length) return res.status(404).json({ message: "Case not found" });
 
       const r = rows[0];
-      const status = deriveDisplayStatusFromRow({ status: r.status, due_date: r.due_date });
-
       res.json({
         id: r.id,
         clientName: r.client_name || "",
@@ -460,7 +450,7 @@ export function registerRoutes(app: Express): void {
         startDate: r.start_date || null,
         observacoes: r.observacoes || "",
         companyId: r.company_id || null,
-        status, // <- derivado
+        status: r.status_display, // <– derivado no SQL
         originalStatus: r.status,
         archived: r.archived,
         deleted: r.deleted,
@@ -471,10 +461,7 @@ export function registerRoutes(app: Express): void {
         employeeRegistration: r.employee_registration,
         matricula: r.employee_registration || "N/A",
         registration: r.employee_registration || "N/A",
-        isOverdue:
-          !!r.due_date &&
-          new Date(r.due_date).getTime() < Date.now() &&
-          !isRowConcludedText(r.status),
+        isOverdue: r.status_display === "atrasado",
       });
     } catch (e) {
       console.error("GET /api/cases/:id", e);
@@ -508,7 +495,8 @@ export function registerRoutes(app: Express): void {
         dueDate: toDate(b.dueDate || b.prazoEntrega),
         hearingDate: toDate(b.hearingDate || b.dataAudiencia),
         startDate: toDate(b.startDate || b.dataInicio),
-        status: normalizeStatusText(b.status || "pendente"),
+        // status textual de entrada normalizado; a derivação de "atrasado" é no SQL
+        status: String(b.status || "pendente"),
         createdById: req.user.id,
       };
 
@@ -531,41 +519,36 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Atualizar status
+  // Atualizar status (mantém completedDate/dataEntrega) — a exibição “atrasado” continua derivada no SQL
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
-      const statusNorm = normalizeStatusText(req.body?.status);
-      if (!["novo", "pendente", "concluido", "atrasado"].includes(statusNorm))
-        return res.status(400).json({ message: "Invalid status" });
+      const newStatus = String(req.body?.status || "").trim();
+      if (!newStatus) return res.status(400).json({ message: "Invalid status" });
 
       const c = await storage.getCaseById(id);
       if (!c) return res.status(404).json({ message: "Case not found" });
 
+      const wasConcluded = /^(concluido|completed|done|closed|finalizado|finalizada|fechado|fechada)$/i.test(
+        String(c.status || "")
+      );
+      const willBeConcluded = /^(concluido|completed|done|closed|finalizado|finalizada|fechado|fechada)$/i.test(
+        newStatus
+      );
+
       let completedDate = c.completedDate;
       let dataEntrega = c.dataEntrega;
-      if (statusNorm === "concluido" && c.status !== "concluido") {
+      if (!wasConcluded && willBeConcluded) {
         completedDate = new Date();
         dataEntrega = new Date();
-      } else if (statusNorm !== "concluido" && c.status === "concluido") {
+      } else if (wasConcluded && !willBeConcluded) {
         completedDate = null;
         dataEntrega = null;
       }
 
-      const updated = await storage.updateCaseStatus(
-        id,
-        statusNorm,
-        completedDate,
-        dataEntrega
-      );
+      const updated = await storage.updateCaseStatus(id, newStatus, completedDate, dataEntrega);
 
-      await logActivity(
-        req,
-        "UPDATE_STATUS",
-        "CASE",
-        id,
-        `Status ${c.status} -> ${statusNorm}`
-      );
+      await logActivity(req, "UPDATE_STATUS", "CASE", id, `Status ${c.status} -> ${newStatus}`);
       res.json(updated);
     } catch (e) {
       console.error("PATCH /api/cases/:id/status", e);
@@ -590,7 +573,7 @@ export function registerRoutes(app: Express): void {
         clientName: req.body.clientName,
         processNumber: req.body.processNumber,
         description: req.body.description,
-        status: req.body.status ? normalizeStatusText(req.body.status) : undefined,
+        status: req.body.status, // armazenamos como veio; derivação de “atrasado” é no SQL
         dueDate: parseBRDate(req.body.dueDate) ?? req.body.dueDate,
         startDate: parseBRDate(req.body.startDate) ?? req.body.startDate,
         observacoes: req.body.observacoes,
@@ -657,8 +640,16 @@ export function registerRoutes(app: Express): void {
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
       const q = `
-        SELECT c.id, c.client_name, c.process_number, c.status, c.updated_at,
-               e.id AS employee_id, e.name AS employee_name, e.registration AS employee_registration
+        SELECT
+          c.id,
+          c.client_name,
+          c.process_number,
+          ${STATUS_CASE_SQL} AS status_display,
+          c.status AS original_status,
+          c.updated_at,
+          e.id           AS employee_id,
+          e.name         AS employee_name,
+          e.registration AS employee_registration
         FROM public.cases c
         LEFT JOIN public.employees e ON e.id = c.employee_id
         ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC
@@ -670,8 +661,8 @@ export function registerRoutes(app: Express): void {
           id: r.id,
           clientName: r.client_name || "",
           processNumber: r.process_number || "",
-          status: deriveDisplayStatusFromRow({ status: r.status, due_date: r.updated_at ? r.due_date : r.due_date }),
-          originalStatus: r.status,
+          status: r.status_display,
+          originalStatus: r.original_status,
           updatedAt: r.updated_at,
           employeeId: r.employee_id,
           employeeName: r.employee_name,
@@ -686,66 +677,69 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ---------- Activity Log (direto no DB, com fallback e limite) ---------- */
+  /* ---------- Activity Log (descoberta de colunas + limite) ---------- */
 
   const activityHandler = async (req: any, res: any) => {
     try {
+      const cfg = await resolveActivityTableAndCols();
+
       const { action, date, search } = req.query as any;
       const limit = Math.min(Number(req.query?.limit) || 500, 10000);
 
       const params: any[] = [];
       const where: string[] = [];
 
-      if (action) {
+      if (action && cfg.action) {
         params.push(String(action).toUpperCase());
-        where.push(`UPPER(a.action) = $${params.length}`);
+        where.push(`UPPER(a.${cfg.action}) = $${params.length}`);
       }
-      if (date) {
+      if (date && cfg.createdAt) {
         params.push(String(date));
-        where.push(`a.created_at::date = $${params.length}::date`);
+        where.push(`a.${cfg.createdAt}::date = $${params.length}::date`);
       }
       if (search) {
         const like = `%${String(search).toLowerCase()}%`;
-        params.push(like, like, like);
-        where.push(`(
-          LOWER(a.description) LIKE $${params.length - 2}
-          OR LOWER(a.resource_type) LIKE $${params.length - 1}
-          OR LOWER(a.resource_id) LIKE $${params.length}
-        )`);
+        const parts: string[] = [];
+        if (cfg.description) {
+          params.push(like);
+          parts.push(`LOWER(a.${cfg.description}) LIKE $${params.length}`);
+        }
+        if (cfg.resourceType) {
+          params.push(like);
+          parts.push(`LOWER(a.${cfg.resourceType}) LIKE $${params.length}`);
+        }
+        if (cfg.resourceId) {
+          params.push(like);
+          parts.push(`LOWER(a.${cfg.resourceId}::text) LIKE $${params.length}`);
+        }
+        if (parts.length) where.push(`(${parts.join(" OR ")})`);
       }
 
       const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-      const baseQuery = (tableName: string) => `
+      const sel = [
+        `${cfg.id}                      AS id`,
+        cfg.userId ? `${cfg.userId}     AS user_id` : `NULL::text AS user_id`,
+        cfg.action ? `${cfg.action}     AS action` : `NULL::text AS action`,
+        cfg.resourceType ? `${cfg.resourceType} AS resource_type` : `NULL::text AS resource_type`,
+        cfg.resourceId ? `${cfg.resourceId} AS resource_id` : `NULL::text AS resource_id`,
+        cfg.description ? `${cfg.description} AS description` : `NULL::text AS description`,
+        cfg.ipAddress ? `${cfg.ipAddress} AS ip_address` : `NULL::text AS ip_address`,
+        cfg.userAgent ? `${cfg.userAgent} AS user_agent` : `NULL::text AS user_agent`,
+        cfg.metadata ? `${cfg.metadata} AS metadata` : `NULL::text AS metadata`,
+        cfg.createdAt ? `${cfg.createdAt} AS created_at` : `NOW() AS created_at`,
+      ].join(",\n          ");
+
+      const q = `
         SELECT
-          a.id,
-          a.user_id,
-          a.action,
-          a.resource_type,
-          a.resource_id,
-          a.description,
-          a.ip_address,
-          a.user_agent,
-          a.metadata,
-          a.created_at
-        FROM ${tableName} a
+          ${sel}
+        FROM ${cfg.table} a
         ${whereSql}
-        ORDER BY a.created_at DESC
+        ORDER BY created_at DESC
         LIMIT ${limit}
       `;
 
-      let rows: any[] = [];
-      try {
-        const { rows: r1 } = await pool.query(baseQuery("public.activity_log"), params);
-        rows = r1;
-      } catch (err: any) {
-        if (String(err?.code) === "42P01" || /relation .* does not exist/i.test(String(err?.message))) {
-          const { rows: r2 } = await pool.query(baseQuery("public.activity_logs"), params);
-          rows = r2;
-        } else {
-          throw err;
-        }
-      }
+      const { rows } = await pool.query(q, params);
 
       const mapped = rows.map((r: any) => ({
         id: r.id,
