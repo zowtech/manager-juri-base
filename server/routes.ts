@@ -2,7 +2,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
-import multer from "multer";
 import { z } from "zod";
 import { sql, eq } from "drizzle-orm";
 
@@ -14,20 +13,21 @@ import { parseBRDate, parseBRMoney } from "./utils/normalize";
 import {
   users as usersTable,
   employees as employeesTable,
-  cases as casesTable, // apenas por consistência de tipos
   insertUserSchema,
   updateUserSchema,
   insertCaseSchema,
 } from "@shared/schema";
 
-const scryptAsync = promisify(crypto.scrypt);
-const upload = multer({ dest: "uploads/" });
+/* =================================================================== */
+/* Helpers                                                             */
+/* =================================================================== */
 
-/* ---------------------- helpers ---------------------- */
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated?.()) return next();
   res.status(401).json({ message: "Unauthorized" });
 }
+
+const scryptAsync = promisify(crypto.scrypt);
 
 async function hashPasswordSaltHexColonHash(plain: string): Promise<string> {
   const salt = crypto.randomBytes(16);
@@ -63,39 +63,102 @@ const logActivity = async (
   }
 };
 
-function normalizeStatusText(s: any): "novo" | "pendente" | "atrasado" | "concluido" | "outros" {
+function normalizeStatusText(
+  s: any
+): "novo" | "pendente" | "atrasado" | "concluido" | "outros" {
   if (!s) return "outros";
   const p = String(s)
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .trim();
+
   if (p.startsWith("novo") || p === "new") return "novo";
+
   if (
     p.startsWith("pend") ||
     ["open", "pending", "in progress", "em aberto", "aberto"].includes(p)
   )
     return "pendente";
+
   if (p.startsWith("atras") || ["overdue", "late", "delayed", "vencido"].includes(p))
     return "atrasado";
+
   if (
     p.startsWith("conclu") ||
     ["completed", "done", "closed", "finalizado", "finalizada", "fechado", "fechada"].includes(p)
   )
     return "concluido";
+
   return "outros";
 }
 
-/* ======================================================
-   registerRoutes
-====================================================== */
+/* =================================================================== */
+/* Dashboard Stats (Atrasados por prazo vencido)                       */
+/* =================================================================== */
+
+// Atrasados = due_date < now() e NÃO concluído (independente do texto do status)
+const STATS_SQL = `
+  WITH base AS (
+    SELECT LOWER(COALESCE(status,'')) AS s, due_date
+    FROM public.cases
+  ),
+  flags AS (
+    SELECT
+      (s IN ('novo','new')) AS is_novo,
+      (s IN ('pendente','open','pending','in progress','em aberto','aberto')) AS is_pendente,
+      (s IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')) AS is_concluido,
+      (due_date < now() AND NOT (s IN ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada'))) AS is_atrasado
+    FROM base
+  )
+  SELECT
+    SUM(CASE WHEN is_novo THEN 1 ELSE 0 END)::int       AS novos,
+    SUM(CASE WHEN is_pendente THEN 1 ELSE 0 END)::int   AS pendentes,
+    SUM(CASE WHEN is_concluido THEN 1 ELSE 0 END)::int  AS concluidos,
+    SUM(CASE WHEN is_atrasado THEN 1 ELSE 0 END)::int   AS atrasados,
+    (SELECT COUNT(*) FROM public.cases)::int             AS total
+  FROM flags;
+`;
+
+async function sendStats(res: Response) {
+  const { rows } = await pool.query(STATS_SQL);
+  const r = rows[0] || { novos: 0, pendentes: 0, atrasados: 0, concluidos: 0, total: 0 };
+  const payload = {
+    total: r.total,
+    // PT
+    novos: r.novos,
+    pendentes: r.pendentes,
+    atrasados: r.atrasados,
+    concluidos: r.concluidos,
+    // EN aliases (para qualquer UI)
+    new: r.novos,
+    newCount: r.novos,
+    pending: r.pendentes,
+    pendingCount: r.pendentes,
+    open: r.pendentes,
+    openCount: r.pendentes,
+    overdue: r.atrasados,
+    late: r.atrasados,
+    completed: r.concluidos,
+    done: r.concluidos,
+    closed: r.concluidos,
+  };
+  res.set("Cache-Control", "no-store");
+  res.json(payload);
+}
+
+/* =================================================================== */
+/* Rotas                                                                */
+/* =================================================================== */
+
 export function registerRoutes(app: Express): void {
+  /* ---------- Sessão ---------- */
   setupAuth(app);
 
-  /* ------------ user (sessão) ------------ */
   app.get("/api/user", async (req: any, res) => {
     try {
-      if (!req.isAuthenticated?.() || !req.user?.id) return res.status(401).json({ message: "Unauthorized" });
+      if (!req.isAuthenticated?.() || !req.user?.id)
+        return res.status(401).json({ message: "Unauthorized" });
       const user = await storage.getUser(req.user.id);
       if (!user) return res.status(404).json({ message: "User not found" });
       res.json(user);
@@ -105,7 +168,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ------------ users (admin) ------------ */
+  /* ---------- Users (admin) ---------- */
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       const me = await storage.getUser(req.user.id);
@@ -218,9 +281,9 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ------------ CASES ------------ */
+  /* ---------- Cases ---------- */
 
-  // LISTA estável para a tela /cases
+  // Lista estável usada na tela /cases
   app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
       const { status, search, limit, orderBy } = req.query as any;
@@ -229,7 +292,6 @@ export function registerRoutes(app: Express): void {
       let where = "WHERE 1=1";
 
       if (status) {
-        // aceita open/pending/... e PT
         const norm = normalizeStatusText(status);
         const variants =
           norm === "novo"
@@ -239,7 +301,16 @@ export function registerRoutes(app: Express): void {
             : norm === "atrasado"
             ? ["atrasado", "overdue", "late", "delayed", "vencido"]
             : norm === "concluido"
-            ? ["concluido", "completed", "done", "closed", "finalizado", "finalizada", "fechado", "fechada"]
+            ? [
+                "concluido",
+                "completed",
+                "done",
+                "closed",
+                "finalizado",
+                "finalizada",
+                "fechado",
+                "fechada",
+              ]
             : [String(status)];
         params.push(variants);
         where += ` AND LOWER(c.status) = ANY($${params.length})`;
@@ -290,7 +361,6 @@ export function registerRoutes(app: Express): void {
 
       const data = rows.map((r: any) => ({
         id: r.id,
-        // campos que a tabela precisa
         matricula: r.employee_registration || "N/A",
         clientName: r.client_name || "",
         processType: r.process_type || "",
@@ -298,8 +368,7 @@ export function registerRoutes(app: Express): void {
         dueDate: r.due_date || null,
         hearingDate: r.hearing_date || null,
         observacoes: r.observacoes || "",
-        status: normalizeStatusText(r.status), // novo|pendente|atrasado|concluido
-        // extras
+        status: normalizeStatusText(r.status),
         description: r.description || "",
         companyId: r.company_id || null,
         startDate: r.start_date || null,
@@ -314,12 +383,11 @@ export function registerRoutes(app: Express): void {
       res.json(data);
     } catch (e) {
       console.error("GET /api/cases", e);
-      // nunca quebre a tela: devolve array vazio
-      res.status(200).json([]);
+      res.status(200).json([]); // nunca derrube a UI
     }
   });
 
-  // DETALHE
+  // Detalhe
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -367,7 +435,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // CRIAR
+  // Criar
   app.post("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
       if (req.user?.role !== "admin")
@@ -416,7 +484,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ATUALIZAR STATUS
+  // Atualizar status
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -458,7 +526,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // ATUALIZAÇÃO GERAL
+  // Atualização geral
   app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -495,12 +563,13 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  // Delete
   app.delete("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
       if (req.user?.role !== "admin")
         return res.status(403).json({ message: "Insufficient permissions" });
-      const c = await storage.getCaseById(id);
+    const c = await storage.getCaseById(id);
       if (!c) return res.status(404).json({ message: "Case not found" });
       await storage.deleteCase(id);
       await logActivity(req, "DELETE_CASE", "CASE", id, `Excluiu processo ${c.processNumber}`);
@@ -511,62 +580,31 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ------------ DASHBOARD (contadores + updates) ------------ */
-
-  // SQL direto mapeando todos os sinônimos
-  const STATS_SQL = `
-    SELECT
-      SUM(CASE
-            WHEN lower(coalesce(status,'')) in ('novo','new')
-            THEN 1 ELSE 0 END)::int AS novos,
-      SUM(CASE
-            WHEN lower(coalesce(status,'')) in ('pendente','open','pending','in progress','em aberto','aberto')
-            THEN 1 ELSE 0 END)::int AS pendentes,
-      SUM(CASE
-            WHEN lower(coalesce(status,'')) in ('atrasado','overdue','late','delayed','vencido')
-            THEN 1 ELSE 0 END)::int AS atrasados,
-      SUM(CASE
-            WHEN lower(coalesce(status,'')) in ('concluido','completed','done','closed','finalizado','finalizada','fechado','fechada')
-            THEN 1 ELSE 0 END)::int AS concluidos,
-      COUNT(*)::int AS total
-    FROM public.cases;
-  `;
-
-  async function sendStats(res: Response) {
-    const { rows } = await pool.query(STATS_SQL);
-    const r = rows[0] || { novos: 0, pendentes: 0, atrasados: 0, concluidos: 0, total: 0 };
-    const payload = {
-      total: r.total,
-      // PT
-      novos: r.novos,
-      pendentes: r.pendentes,
-      atrasados: r.atrasados,
-      concluidos: r.concluidos,
-      // EN aliases (o front pode usar qualquer um)
-      new: r.novos,
-      newCount: r.novos,
-      pending: r.pendentes,
-      pendingCount: r.pendentes,
-      open: r.pendentes,
-      openCount: r.pendentes,
-      overdue: r.atrasados,
-      late: r.atrasados,
-      completed: r.concluidos,
-      done: r.concluidos,
-      closed: r.concluidos,
-    };
-    res.set("Cache-Control", "no-store");
-    res.json(payload);
-  }
+  /* ---------- Dashboard (stats + updates) ---------- */
 
   app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
-    try { await sendStats(res); } catch (e) { console.error("/api/dashboard/stats", e); res.status(500).json({ message: "Failed to fetch dashboard stats" }); }
+    try {
+      await sendStats(res);
+    } catch (e) {
+      console.error("/api/dashboard/stats", e);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
   });
   app.get("/api/stats", isAuthenticated, async (_req, res) => {
-    try { await sendStats(res); } catch (e) { console.error("/api/stats", e); res.status(500).json({ message: "Failed to fetch stats" }); }
+    try {
+      await sendStats(res);
+    } catch (e) {
+      console.error("/api/stats", e);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
   });
   app.get("/api/dashboard", isAuthenticated, async (_req, res) => {
-    try { await sendStats(res); } catch (e) { console.error("/api/dashboard", e); res.status(500).json({ message: "Failed to fetch dashboard" }); }
+    try {
+      await sendStats(res);
+    } catch (e) {
+      console.error("/api/dashboard", e);
+      res.status(500).json({ message: "Failed to fetch dashboard" });
+    }
   });
 
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
@@ -601,7 +639,92 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ------------ employees resumo ------------ */
+  /* ---------- Activity Log (direto no DB, com fallback e limite) ---------- */
+
+  const activityHandler = async (req: any, res: any) => {
+    try {
+      const { action, date, search } = req.query as any;
+      const limit = Math.min(Number(req.query?.limit) || 500, 10000);
+
+      const params: any[] = [];
+      const where: string[] = [];
+
+      if (action) {
+        params.push(String(action).toUpperCase());
+        where.push(`UPPER(a.action) = $${params.length}`);
+      }
+      if (date) {
+        params.push(String(date));
+        where.push(`a.created_at::date = $${params.length}::date`);
+      }
+      if (search) {
+        const like = `%${String(search).toLowerCase()}%`;
+        params.push(like, like, like);
+        where.push(`(
+          LOWER(a.description) LIKE $${params.length - 2}
+          OR LOWER(a.resource_type) LIKE $${params.length - 1}
+          OR LOWER(a.resource_id) LIKE $${params.length}
+        )`);
+      }
+
+      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+      const baseQuery = (tableName: string) => `
+        SELECT
+          a.id,
+          a.user_id,
+          a.action,
+          a.resource_type,
+          a.resource_id,
+          a.description,
+          a.ip_address,
+          a.user_agent,
+          a.metadata,
+          a.created_at
+        FROM ${tableName} a
+        ${whereSql}
+        ORDER BY a.created_at DESC
+        LIMIT ${limit}
+      `;
+
+      let rows: any[] = [];
+      try {
+        const { rows: r1 } = await pool.query(baseQuery("public.activity_log"), params);
+        rows = r1;
+      } catch (err: any) {
+        if (String(err?.code) === "42P01" || /relation .* does not exist/i.test(String(err?.message))) {
+          const { rows: r2 } = await pool.query(baseQuery("public.activity_logs"), params);
+          rows = r2;
+        } else {
+          throw err;
+        }
+      }
+
+      const mapped = rows.map((r: any) => ({
+        id: r.id,
+        userId: r.user_id,
+        action: r.action,
+        resourceType: r.resource_type,
+        resourceId: r.resource_id,
+        description: r.description,
+        ipAddress: r.ip_address,
+        userAgent: r.user_agent,
+        metadata: r.metadata,
+        createdAt: r.created_at,
+      }));
+
+      res.json(mapped);
+    } catch (err) {
+      console.error("GET /api/activity-logs (db)", err);
+      res.status(200).json([]);
+    }
+  };
+
+  app.get("/api/activity-logs", isAuthenticated, activityHandler);
+  app.get("/api/activity-log", isAuthenticated, activityHandler); // alias
+
+  /* ---------- Employees (resumo) ---------- */
+
   app.get("/api/employees", isAuthenticated, async (req, res) => {
     try {
       const term = String((req.query as any).search || "").toLowerCase();
@@ -637,7 +760,8 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  /* ------------ 404 & error ------------ */
+  /* ---------- 404 e erro global ---------- */
+
   app.use("/api", (_req, res) => res.status(404).json({ message: "Not found" }));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
