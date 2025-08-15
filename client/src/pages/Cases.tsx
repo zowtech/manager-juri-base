@@ -22,6 +22,9 @@ import { getUserPermissions, canChangeStatus } from "@/lib/permissions";
 import ConfirmStatusDialog from "@/components/ConfirmStatusDialog";
 import { Link } from "wouter";
 import "@/styles/responsive-cases.css";
+import { normalizeCases, countByBucket } from "@/lib/bucket";
+// ajuste o alias "@/lib/..." para o seu path real se necessário
+
 
 export default function Cases() {
   const { user } = useAuth();
