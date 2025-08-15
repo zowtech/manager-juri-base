@@ -1,6 +1,5 @@
 // server/routes.ts
 import type { Express, Request, Response, NextFunction } from "express";
-import * as fs from "fs";
 import multer from "multer";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
@@ -15,14 +14,14 @@ import { parseBRDate, parseBRMoney } from "./utils/normalize";
 import {
   users as usersTable,
   employees as employeesTable,
-  cases as casesTable,
+  cases as casesTable, // (não usado diretamente aqui, mas mantido para consistência)
   insertUserSchema,
   updateUserSchema,
   insertCaseSchema,
 } from "@shared/schema";
 
 const scryptAsync = promisify(crypto.scrypt);
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: "uploads/" }); // pronto p/ usos futuros
 
 /* ------------------------------------------------------------------
    NORMALIZAÇÃO DE STATUS / DASHBOARD
@@ -236,14 +235,16 @@ export function registerRoutes(app: Express): void {
 
   /* ================= CASES ================= */
 
-  // LIST
+  // LISTAR PROCESSOS (defensivo p/ UI)
   app.get("/api/cases", isAuthenticated, async (req, res) => {
     try {
       const { status, search, limit, orderBy } = req.query as any;
 
+      // Filtros
       const params: any[] = [];
       let where = "WHERE 1=1";
 
+      // Se a UI enviar status, aceitar sinônimos (open/pending/etc.)
       if (status) {
         const norm = normalizeStatusText(status);
         const variants = statusDbVariants(norm).map(v => v.toLowerCase());
@@ -254,23 +255,39 @@ export function registerRoutes(app: Express): void {
       if (search) {
         const like = `%${String(search).toLowerCase()}%`;
         params.push(like, like, like, like);
-        where += ` AND (LOWER(c.client_name)   LIKE $${params.length - 3}
-                    OR LOWER(c.process_number) LIKE $${params.length - 2}
-                    OR LOWER(e.name)           LIKE $${params.length - 1}
-                    OR LOWER(e.registration)   LIKE $${params.length})`;
+        where += ` AND (
+          LOWER(c.client_name)   LIKE $${params.length - 3}
+          OR LOWER(c.process_number) LIKE $${params.length - 2}
+          OR LOWER(e.name)           LIKE $${params.length - 1}
+          OR LOWER(e.registration)   LIKE $${params.length}
+        )`;
       }
 
       const ord = orderBy === "recent"
         ? "ORDER BY c.updated_at DESC NULLS LAST, c.created_at DESC"
         : "ORDER BY c.created_at DESC";
+
       const lim = Number(limit) > 0 ? `LIMIT ${Number(limit)}` : "LIMIT 500";
 
+      // Pegamos tudo o que a UI usa e já renomeamos algumas colunas
       const q = `
         SELECT
-          c.*,
-          e.id           AS employee_id,
-          e.name         AS employee_name,
-          e.registration AS employee_registration
+          c.id,
+          c.client_name,
+          c.process_type,
+          c.process_number,
+          c.status,
+          c.description,
+          c.observacoes,
+          c.company_id,
+          c.due_date      AS due_date,
+          c.hearing_date  AS hearing_date,
+          c.start_date    AS start_date,
+          c.created_at,
+          c.updated_at,
+          e.id            AS employee_id,
+          e.name          AS employee_name,
+          e.registration  AS employee_registration
         FROM public.cases c
         LEFT JOIN public.employees e ON e.id = c.employee_id
         ${where}
@@ -280,46 +297,43 @@ export function registerRoutes(app: Express): void {
 
       const { rows } = await pool.query(q, params);
 
-      const mapped = rows.map((r: any) => {
+      // Mapeamos para o formato que o front espera (sem aninhar objetos)
+      const data = rows.map((r: any) => {
         const statusNorm = normalizeStatusText(r.status);
         return {
           id: r.id,
-          clientName: r.client_name,
-          processType: r.process_type,
-          processNumber: r.process_number,
-          description: r.description,
-          dueDate: r.due_date,
-          hearingDate: r.hearing_date,
-          startDate: r.start_date,
-          observacoes: r.observacoes,
-          companyId: r.company_id,
-          status: statusNorm,           // <- **UI recebe normalizado**
-          originalStatus: r.status,     // <- opcional: auditoria
-          archived: r.archived,
-          deleted: r.deleted,
-          createdAt: r.created_at,
-          updatedAt: r.updated_at,
-
-          employeeId: r.employee_id,
-          employeeName: r.employee_name,
-          employeeRegistration: r.employee_registration,
-
-          // aliases esperados pela UI
-          matricula: r.employee_registration,
-          registration: r.employee_registration,
-          employee: { id: r.employee_id, name: r.employee_name, registration: r.employee_registration },
-          process:  { number: r.process_number },
+          // ——— campos usados na tabela ———
+          matricula: r.employee_registration || "N/A",
+          clientName: r.client_name || "",
+          processType: r.process_type || "",
+          processNumber: r.process_number || "",
+          dueDate: r.due_date || null,          // Prazo de Entrega
+          hearingDate: r.hearing_date || null,  // Data Audiência
+          observacoes: r.observacoes || "",
+          status: statusNorm,                   // novo | pendente | atrasado | concluido
+          // ——— extras mantidos para outras telas ———
+          description: r.description || "",
+          companyId: r.company_id || null,
+          startDate: r.start_date || null,
+          createdAt: r.created_at || null,
+          updatedAt: r.updated_at || null,
+          employeeId: r.employee_id || null,
+          employeeName: r.employee_name || null,
+          // aliases que algumas partes do front usam
+          registration: r.employee_registration || "N/A",
+          originalStatus: r.status || null,
         };
       });
 
-      res.json(mapped);
+      res.json(data);
     } catch (error) {
-      console.error("GET /api/cases", error);
-      res.status(500).json({ message: "Failed to fetch cases" });
+      console.error("GET /api/cases (defensive) error:", error);
+      // Se algo der errado, nunca derrube a UI: devolve lista vazia
+      res.status(200).json([]);
     }
   });
 
-  // DETAIL
+  // DETALHE
   app.get("/api/cases/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -341,15 +355,15 @@ export function registerRoutes(app: Express): void {
       const statusNorm = normalizeStatusText(r.status);
       res.json({
         id: r.id,
-        clientName: r.client_name,
-        processType: r.process_type,
-        processNumber: r.process_number,
-        description: r.description,
-        dueDate: r.due_date,
-        hearingDate: r.hearing_date,
-        startDate: r.start_date,
-        observacoes: r.observacoes,
-        companyId: r.company_id,
+        clientName: r.client_name || "",
+        processType: r.process_type || "",
+        processNumber: r.process_number || "",
+        description: r.description || "",
+        dueDate: r.due_date || null,
+        hearingDate: r.hearing_date || null,
+        startDate: r.start_date || null,
+        observacoes: r.observacoes || "",
+        companyId: r.company_id || null,
         status: statusNorm,
         originalStatus: r.status,
         archived: r.archived,
@@ -360,11 +374,8 @@ export function registerRoutes(app: Express): void {
         employeeId: r.employee_id,
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
-        matricula: r.employee_registration,
-        registration: r.employee_registration,
-
-        employee: { id: r.employee_id, name: r.employee_name, registration: r.employee_registration },
-        process:  { number: r.process_number },
+        matricula: r.employee_registration || "N/A",
+        registration: r.employee_registration || "N/A",
       });
     } catch (error) {
       console.error("GET /api/cases/:id", error);
@@ -372,7 +383,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // CREATE
+  // CRIAR
   app.post("/api/cases", isAuthenticated, async (req: any, res) => {
     try {
       if (req.user?.role !== "admin")
@@ -413,7 +424,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // UPDATE STATUS
+  // ATUALIZAR STATUS
   app.patch("/api/cases/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -439,7 +450,7 @@ export function registerRoutes(app: Express): void {
     } catch (err) { console.error("PATCH /api/cases/:id/status", err); res.status(500).json({ message: "Failed to update case status" }); }
   });
 
-  // PATCH (geral)
+  // ATUALIZAÇÃO GERAL
   app.patch("/api/cases/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = req.params.id;
@@ -508,7 +519,6 @@ export function registerRoutes(app: Express): void {
       overdue: base.atrasado, late: base.atrasado,
       completed: base.concluido, done: base.concluido, closed: base.concluido,
     };
-    console.log("[DASH/STATS]", payload);
     res.set("Cache-Control", "no-store");
     res.json(payload);
   }
@@ -536,18 +546,16 @@ export function registerRoutes(app: Express): void {
       const { rows } = await pool.query(q);
       const mapped = rows.map((r: any) => ({
         id: r.id,
-        clientName: r.client_name,
-        processNumber: r.process_number,
+        clientName: r.client_name || "",
+        processNumber: r.process_number || "",
         status: normalizeStatusText(r.status),
         originalStatus: r.status,
         updatedAt: r.updated_at,
         employeeId: r.employee_id,
         employeeName: r.employee_name,
         employeeRegistration: r.employee_registration,
-        matricula: r.employee_registration,
-        registration: r.employee_registration,
-        employee: { id: r.employee_id, name: r.employee_name, registration: r.employee_registration },
-        process: { number: r.process_number },
+        matricula: r.employee_registration || "N/A",
+        registration: r.employee_registration || "N/A",
       }));
       res.json(mapped);
     } catch (err) { console.error("GET /api/dashboard/updates", err); res.status(500).json({ message: "Failed to fetch updates" }); }
@@ -568,7 +576,7 @@ export function registerRoutes(app: Express): void {
   app.get("/api/activity-logs", isAuthenticated, activityHandler);
   app.get("/api/activity-log",  isAuthenticated, activityHandler); // alias
 
-  /* ================= EMPLOYEES (resumo) ================= */
+  /* ================= EMPLOYEES (RESUMO) ================= */
   app.get("/api/employees", isAuthenticated, async (req, res) => {
     try {
       const term = String((req.query as any).search || "").toLowerCase();
