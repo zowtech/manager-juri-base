@@ -1,97 +1,106 @@
-// server/auth.ts (trecho relevante)
-// certifique-se que estes imports existem no topo do arquivo:
-// import passport from "passport";
-// import { Strategy as LocalStrategy } from "passport-local";
-// import session from "express-session";
-// import MemoryStore from "memorystore";
-// import { storage } from "./storage"; // seu storage atual
-// import type { Express } from "express";
+// server/auth.ts
+import type { Express, Request, Response } from "express";
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import { scrypt, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+import { storage } from "./storage";
+
+const scryptAsync = promisify(scrypt);
+
+type DBUser = {
+  id: string;
+  email: string | null;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string | null;
+  permissions?: any;
+  password?: string | null; // no DB
+};
+
+function sanitizeUser(u: any): DBUser {
+  if (!u) return u;
+  const { password, ...rest } = u;
+  return rest;
+}
+
+// ---- Estratégia Local (usuario/senha) ----
+passport.use(
+  new LocalStrategy(
+    { usernameField: "username", passwordField: "password", session: true },
+    async (username, password, done) => {
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user || !user.password) {
+          return done(null, false);
+        }
+
+        // senha no formato <hash_hex>.<salt_hex>
+        const [hashHex, salt] = String(user.password).split(".");
+        if (!hashHex || !salt) return done(null, false);
+
+        const derived = (await scryptAsync(password, salt, 64)) as Buffer;
+        const stored = Buffer.from(hashHex, "hex");
+
+        if (!timingSafeEqual(derived, stored)) {
+          return done(null, false);
+        }
+
+        return done(null, sanitizeUser(user));
+      } catch (err) {
+        return done(err as Error);
+      }
+    }
+  )
+);
+
+// ---- sessão ----
+passport.serializeUser((user: any, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    const user = await storage.getUser(id);
+    done(null, sanitizeUser(user));
+  } catch (err) {
+    done(err as Error);
+  }
+});
 
 export function setupAuth(app: Express) {
-  // ORDEM IMPORTANTE:
-  // 1) body parser
-  app.use((await import("express")).json());
-  app.use((await import("express")).urlencoded({ extended: true }));
+  // IMPORTANTE: garanta que o express-session já foi configurado
+  // em server/index.ts antes de chamar setupAuth(app).
 
-  // 2) sessão
-  const MemStore = MemoryStore(session);
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "change-me",
-      resave: false,
-      saveUninitialized: false,
-      store: new MemStore({ checkPeriod: 86400000 }),
-      cookie: {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: true, // Render usa HTTPS -> ok
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
-      },
-    })
-  );
-
-  // 3) passport
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // strategy local
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user) return done(null, false);
+  const loginOk = (req: Request, res: Response) => {
+    // devolve o usuário “sanitizado” já na sessão
+    res.json({ ok: true, user: (req as any).user });
+  };
 
-        const ok = await storage.verifyPassword(user.password ?? "", password);
-        if (!ok) return done(null, false);
-        return done(null, { id: user.id });
-      } catch (err) {
-        return done(err as any);
-      }
-    })
-  );
+  // Alias das rotas de login — ambas funcionam:
+  app.post("/api/login", passport.authenticate("local"), loginOk);
+  app.post("/api/auth/login", passport.authenticate("local"), loginOk);
 
-  passport.serializeUser((user: any, done) => done(null, user.id));
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user ? { id: user.id } : false);
-    } catch (e) {
-      done(e as any);
+  app.post("/api/logout", (req, res) => {
+    (req as any).logout?.(() => {});
+    res.json({ ok: true });
+  });
+
+  // Quem sou eu (verifica sessão)
+  app.get("/api/user", (req: any, res) => {
+    if (!req.isAuthenticated?.()) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-  });
-
-  // ====== ROTA DE LOGIN EM JSON ======
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user) => {
-      if (err) {
-        console.error("AUTH ERROR:", err);
-        return res.status(500).json({ message: "Auth error" });
-      }
-      if (!user) {
-        return res.status(401).json({ message: "Credenciais inválidas" });
-      }
-      req.logIn(user, async (err2) => {
-        if (err2) {
-          console.error("LOGIN ERROR:", err2);
-          return res.status(500).json({ message: "Login error" });
-        }
-        // retorna também os dados básicos do usuário atual
-        const fullUser = await storage.getUser((user as any).id);
-        return res.json({ ok: true, user: fullUser });
-      });
-    })(req, res, next);
-  });
-
-  // rota para obter usuário logado
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     res.json(req.user);
   });
+}
 
-  // rota de logout
-  app.post("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.json({ ok: true });
-    });
-  });
+// Middleware simples para proteger rotas (se quiser usar):
+export function ensureAuth(req: any, res: any, next: any) {
+  if (req.isAuthenticated?.()) return next();
+  return res.status(401).json({ message: "Unauthorized" });
 }
