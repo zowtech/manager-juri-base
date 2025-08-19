@@ -65,7 +65,7 @@ function parseBRMoney(v: any): number | null {
 }
 
 /* =========================================================
-   Logger enriquecido: inclui matrícula/nome quando possível
+   Logger enriquecido: formata descrição com matrícula/nome
    ========================================================= */
 const logActivity = async (
   req: any,
@@ -85,47 +85,35 @@ const logActivity = async (
       (req as any).connection?.remoteAddress ||
       "Unknown";
     const userAgent = req.get?.("User-Agent") || "Unknown";
-    const userInfo = `${req.user?.firstName ?? ""} ${req.user?.lastName ?? ""} (${req.user?.username})`.trim();
 
-    let enriched = baseDescription || "";
-    const meta: Record<string, any> = { ...(metadata || {}) };
+    // Quem fez a ação (prefixo na descrição)
+    const actor =
+      `${req.user?.firstName ?? ""} ${req.user?.lastName ?? ""}`.trim() ||
+      req.user?.username ||
+      "Usuário";
 
-    if (resourceType === "CASE" && resourceId) {
-      // Dados do processo + funcionário vinculado (se houver)
-      const caseRes = await pool.query(
-        `select id, process_number, client_name, employee_id
-           from public.cases
-          where id = $1`,
-        [resourceId]
-      );
-      const c = caseRes.rows?.[0];
+    // Verbos padrões por ação/recurso (para a descrição “bonita”)
+    const verbMap: Record<string, string> = {
+      CREATE_EMPLOYEE: "Criou",
+      UPDATE_EMPLOYEE: "Atualizou",
+      DELETE_EMPLOYEE: "Removeu",
 
-      if (c) {
-        if (!enriched) {
-          enriched = `Processo ${c.process_number ?? "s/ nº"} - Cliente: ${c.client_name ?? "N/I"}`;
-        }
-        // Se existir funcionário vinculado, traz matrícula e nome
-        if (c.employee_id) {
-          const empRes = await pool.query(
-            `select 
-               coalesce(registration, matricula) as matricula,
-               coalesce(name, nome)             as nome
-             from public.employees
-            where id = $1`,
-            [c.employee_id]
-          );
-          const e = empRes.rows?.[0];
-          if (e) {
-            enriched += ` | Funcionário: ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
-            meta.employeeMatricula = e.matricula ?? null;
-            meta.employeeNome = e.nome ?? null;
-          }
-        }
-        meta.processNumber = c.process_number ?? meta.processNumber ?? null;
-        meta.clientName = c.client_name ?? meta.clientName ?? null;
-      }
-    } else if (resourceType === "EMPLOYEE" && resourceId) {
-      // Logs diretos do funcionário
+      CREATE_CASE: "Criou",
+      UPDATE_CASE: "Editou",
+      UPDATE_STATUS: "Alterou status",
+      DELETE_CASE: "Excluiu",
+
+      CREATE_USER: "Criou",
+      UPDATE_USER: "Atualizou",
+      DELETE_USER: "Removeu",
+    };
+    const verbo = verbMap[action] ?? "Executou";
+
+    let descCore = baseDescription || "";
+    let meta: Record<string, any> = { ...(metadata || {}) };
+
+    if (resourceType === "EMPLOYEE" && resourceId) {
+      // Sempre busca matrícula/nome para padronizar a descrição
       const empRes = await pool.query(
         `select 
            coalesce(registration, matricula) as matricula,
@@ -136,17 +124,45 @@ const logActivity = async (
       );
       const e = empRes.rows?.[0];
       if (e) {
-        if (!enriched) {
-          enriched = `Funcionário ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
-        } else {
-          enriched += ` | Funcionário: ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
-        }
+        descCore = `${verbo} funcionário ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
         meta.employeeMatricula = e.matricula ?? null;
         meta.employeeNome = e.nome ?? null;
       }
+    } else if (resourceType === "CASE" && resourceId) {
+      // Enriquecer com número do processo / cliente e funcionário vinculado (se houver)
+      const caseRes = await pool.query(
+        `select 
+           c.process_number, c.client_name, c.status, c.employee_id,
+           e.registration as matricula, e.name as nome
+         from public.cases c
+         left join public.employees e on e.id = c.employee_id
+        where c.id = $1`,
+        [resourceId]
+      );
+      const c = caseRes.rows?.[0];
+      if (c) {
+        descCore = `${verbo} processo ${c.process_number ?? "s/ nº"} - Cliente: ${c.client_name ?? "N/I"}`;
+        if (c.matricula || c.nome) {
+          descCore += ` | Funcionário: ${c.matricula ?? "N/A"} - ${c.nome ?? "N/I"}`;
+        }
+        // Se for mudança de status, acrescenta o delta
+        if (action === "UPDATE_STATUS" && (meta.previousStatus || meta.newStatus)) {
+          descCore += ` | Status: ${meta.previousStatus ?? "?"} -> ${meta.newStatus ?? "?"}`;
+        }
+        meta = {
+          ...meta,
+          processNumber: c.process_number ?? null,
+          clientName: c.client_name ?? null,
+          employeeMatricula: c.matricula ?? null,
+          employeeNome: c.nome ?? null,
+        };
+      }
     }
 
-    const finalDescription = `${userInfo}: ${enriched}`.trim();
+    // Fallback
+    if (!descCore) descCore = baseDescription || `${verbo} ${resourceType.toLowerCase()}`;
+
+    const finalDescription = `${actor}: ${descCore}`.trim();
 
     await storage.logActivity({
       userId: req.user.id,
@@ -159,9 +175,8 @@ const logActivity = async (
       metadata: Object.keys(meta).length ? JSON.stringify(meta) : undefined,
     });
 
-    console.log(
-      `📋 LOG ATIVIDADE: [${action}] ${resourceType} ${resourceId} - ${finalDescription}`
-    );
+    // Log no console (útil na Render)
+    console.log(`📋 LOG ATIVIDADE: [${action}] ${resourceType} ${resourceId} - ${finalDescription}`);
   } catch (e) {
     console.error("❌ Falha ao registrar log de atividade:", e);
   }
@@ -305,7 +320,7 @@ export function registerRoutes(app: Express): void {
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
       await storage.deleteUser(req.params.id);
-      await logActivity(req, "DELETE_USER", "USER", req.params.id, `Excluiu usuário`);
+      await logActivity(req, "DELETE_USER", "USER", req.params.id, `Removeu usuário`);
       res.status(204).send();
     } catch (err) {
       console.error("[USERS/DELETE] error:", err);
@@ -373,9 +388,6 @@ export function registerRoutes(app: Express): void {
       const mapped = rows.map((r: any) => {
         const now = new Date();
         const due = r.due_date ? new Date(r.due_date) : null;
-        the_isOverdue: {
-          /* keep name readable */ 
-        }
         const isOverdue = !!(due && r.status !== "concluido" && due < now);
         const statusForUI = isOverdue ? "atrasado" : (r.status || "pendente");
 
@@ -703,7 +715,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Últimas atualizações (opcional, caso o card use esta rota)
+  // Últimas atualizações (para o card de "Últimas Atualizações")
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
       const q = `
@@ -854,7 +866,7 @@ export function registerRoutes(app: Express): void {
         "CREATE_EMPLOYEE",
         "EMPLOYEE",
         created.id,
-        `Criou funcionário ${created.name} - Matrícula: ${created.registration}`
+        `Criou funcionário ${created.registration} - ${created.name}`
       );
 
       res.status(201).json({
@@ -902,7 +914,13 @@ export function registerRoutes(app: Express): void {
         .where(eq(employeesTable.id, id))
         .returning();
 
-      await logActivity(req, "UPDATE_EMPLOYEE", "EMPLOYEE", id, `Atualizou funcionário ${updated.name}`);
+      await logActivity(
+        req,
+        "UPDATE_EMPLOYEE",
+        "EMPLOYEE",
+        id,
+        `Atualizou funcionário ${updated.registration} - ${updated.name}`
+      );
 
       res.json({
         ...updated,
@@ -928,7 +946,14 @@ export function registerRoutes(app: Express): void {
       if (!cur.length) return res.status(404).json({ message: "Funcionário não encontrado" });
 
       await db.delete(employeesTable).where(eq(employeesTable.id, id));
-      await logActivity(req, "DELETE_EMPLOYEE", "EMPLOYEE", id, `Removeu funcionário ${cur[0].name}`);
+
+      await logActivity(
+        req,
+        "DELETE_EMPLOYEE",
+        "EMPLOYEE",
+        id,
+        `Removeu funcionário ${cur[0].registration} - ${cur[0].name}`
+      );
 
       res.json({ ok: true, id });
     } catch (err) {
