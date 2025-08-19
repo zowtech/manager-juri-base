@@ -64,29 +64,104 @@ function parseBRMoney(v: any): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/* =========================================================
+   Logger enriquecido: inclui matrícula/nome quando possível
+   ========================================================= */
 const logActivity = async (
   req: any,
   action: string,
   resourceType: string,
   resourceId: string,
-  description: string,
+  baseDescription: string,
   metadata?: any
 ) => {
   try {
-    if (!req.user?.id) return;
+    if (!req?.user?.id) return;
+
     const ipAddress =
-      req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || "Unknown";
-    const userAgent = req.get("User-Agent") || "Unknown";
+      req.headers?.["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      (req as any).connection?.remoteAddress ||
+      "Unknown";
+    const userAgent = req.get?.("User-Agent") || "Unknown";
+    const userInfo = `${req.user?.firstName ?? ""} ${req.user?.lastName ?? ""} (${req.user?.username})`.trim();
+
+    let enriched = baseDescription || "";
+    const meta: Record<string, any> = { ...(metadata || {}) };
+
+    if (resourceType === "CASE" && resourceId) {
+      // Dados do processo + funcionário vinculado (se houver)
+      const caseRes = await pool.query(
+        `select id, process_number, client_name, employee_id
+           from public.cases
+          where id = $1`,
+        [resourceId]
+      );
+      const c = caseRes.rows?.[0];
+
+      if (c) {
+        if (!enriched) {
+          enriched = `Processo ${c.process_number ?? "s/ nº"} - Cliente: ${c.client_name ?? "N/I"}`;
+        }
+        // Se existir funcionário vinculado, traz matrícula e nome
+        if (c.employee_id) {
+          const empRes = await pool.query(
+            `select 
+               coalesce(registration, matricula) as matricula,
+               coalesce(name, nome)             as nome
+             from public.employees
+            where id = $1`,
+            [c.employee_id]
+          );
+          const e = empRes.rows?.[0];
+          if (e) {
+            enriched += ` | Funcionário: ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
+            meta.employeeMatricula = e.matricula ?? null;
+            meta.employeeNome = e.nome ?? null;
+          }
+        }
+        meta.processNumber = c.process_number ?? meta.processNumber ?? null;
+        meta.clientName = c.client_name ?? meta.clientName ?? null;
+      }
+    } else if (resourceType === "EMPLOYEE" && resourceId) {
+      // Logs diretos do funcionário
+      const empRes = await pool.query(
+        `select 
+           coalesce(registration, matricula) as matricula,
+           coalesce(name, nome)             as nome
+         from public.employees
+        where id = $1`,
+        [resourceId]
+      );
+      const e = empRes.rows?.[0];
+      if (e) {
+        if (!enriched) {
+          enriched = `Funcionário ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
+        } else {
+          enriched += ` | Funcionário: ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
+        }
+        meta.employeeMatricula = e.matricula ?? null;
+        meta.employeeNome = e.nome ?? null;
+      }
+    }
+
+    const finalDescription = `${userInfo}: ${enriched}`.trim();
+
     await storage.logActivity({
       userId: req.user.id,
       action,
       resourceType,
       resourceId,
-      description,
-      ipAddress,
+      description: finalDescription,
+      ipAddress: String(ipAddress),
       userAgent,
-      metadata: metadata ? JSON.stringify(metadata) : undefined,
+      metadata: Object.keys(meta).length ? JSON.stringify(meta) : undefined,
     });
+
+    console.log(
+      `📋 LOG ATIVIDADE: [${action}] ${resourceType} ${resourceId} - ${finalDescription}`
+    );
   } catch (e) {
     console.error("❌ Falha ao registrar log de atividade:", e);
   }
@@ -298,6 +373,9 @@ export function registerRoutes(app: Express): void {
       const mapped = rows.map((r: any) => {
         const now = new Date();
         const due = r.due_date ? new Date(r.due_date) : null;
+        the_isOverdue: {
+          /* keep name readable */ 
+        }
         const isOverdue = !!(due && r.status !== "concluido" && due < now);
         const statusForUI = isOverdue ? "atrasado" : (r.status || "pendente");
 
