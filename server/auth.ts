@@ -1,80 +1,51 @@
-// server/auth.ts
-import type { Express } from "express";
-import session from "express-session";
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import crypto from "node:crypto";
-import { promisify } from "node:util";
-import { storage } from "./storage";
-
-const scryptAsync = promisify(crypto.scrypt);
-
-// Aceita "salt:hash" (novo) e "hash.salt" (legado)
-async function verifyPassword(supplied: string, stored: string): Promise<boolean> {
-  if (!stored || typeof stored !== "string") return false;
-
-  if (stored.includes(":")) {
-    const [saltHex, hashHex] = stored.split(":");
-    const derived = (await scryptAsync(supplied, Buffer.from(saltHex, "hex"), 64)) as Buffer;
-    return (
-      derived.length === Buffer.from(hashHex, "hex").length &&
-      crypto.timingSafeEqual(derived, Buffer.from(hashHex, "hex"))
-    );
-  }
-
-  if (stored.includes(".")) {
-    const [hashOld, saltOld] = stored.split(".");
-    const derived = (await scryptAsync(supplied, saltOld, 64)) as Buffer;
-    return (
-      derived.length === Buffer.from(hashOld, "hex").length &&
-      crypto.timingSafeEqual(derived, Buffer.from(hashOld, "hex"))
-    );
-  }
-
-  return false;
-}
+// server/auth.ts (trecho relevante)
+// certifique-se que estes imports existem no topo do arquivo:
+// import passport from "passport";
+// import { Strategy as LocalStrategy } from "passport-local";
+// import session from "express-session";
+// import MemoryStore from "memorystore";
+// import { storage } from "./storage"; // seu storage atual
+// import type { Express } from "express";
 
 export function setupAuth(app: Express) {
-  const SESSION_SECRET = process.env.SESSION_SECRET || "change-me-in-prod";
-  const isProd = process.env.NODE_ENV === "production";
+  // ORDEM IMPORTANTE:
+  // 1) body parser
+  app.use((await import("express")).json());
+  app.use((await import("express")).urlencoded({ extended: true }));
 
-  // IMPORTANTE no Render/Heroku/etc (proxy HTTPS)
-  app.set("trust proxy", 1);
-
+  // 2) sessão
+  const MemStore = MemoryStore(session);
   app.use(
     session({
-      secret: SESSION_SECRET,
+      secret: process.env.SESSION_SECRET || "change-me",
       resave: false,
       saveUninitialized: false,
-      // Se quiser usar MemoryStore com limpeza automática, pode trocar:
-      // store: new (require('memorystore')(session))({ checkPeriod: 86400000 }),
+      store: new MemStore({ checkPeriod: 86400000 }),
       cookie: {
         httpOnly: true,
-        sameSite: "lax",     // mesmo domínio/origem, LAX é suficiente
-        secure: isProd,      // exige HTTPS em produção
+        sameSite: "lax",
+        secure: true, // Render usa HTTPS -> ok
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
       },
-      proxy: true, // ajuda o express-session a respeitar o proxy para secure cookies
-      name: "sid", // nome do cookie
     })
   );
 
+  // 3) passport
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // strategy local
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
         if (!user) return done(null, false);
 
-        const ok = await verifyPassword(password, user.password);
+        const ok = await storage.verifyPassword(user.password ?? "", password);
         if (!ok) return done(null, false);
-
-        // dados mínimos na sessão
-        return done(null, { id: user.id, username: user.username, role: user.role });
+        return done(null, { id: user.id });
       } catch (err) {
-        return done(err);
+        return done(err as any);
       }
     })
   );
@@ -83,33 +54,44 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
-      if (!user) return done(null, false);
-      return done(null, { id: user.id, username: user.username, role: user.role });
-    } catch (err) {
-      return done(err);
+      done(null, user ? { id: user.id } : false);
+    } catch (e) {
+      done(e as any);
     }
   });
 
-  // Endpoints de auth
+  // ====== ROTA DE LOGIN EM JSON ======
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err, user) => {
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ ok: false, message: "Invalid credentials" });
-      req.logIn(user, (err2) => {
-        if (err2) return next(err2);
-        // Confirma que a sessão foi gravada antes de responder (evita race)
-        req.session.save(() => res.json({ ok: true }));
+      if (err) {
+        console.error("AUTH ERROR:", err);
+        return res.status(500).json({ message: "Auth error" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: "Credenciais inválidas" });
+      }
+      req.logIn(user, async (err2) => {
+        if (err2) {
+          console.error("LOGIN ERROR:", err2);
+          return res.status(500).json({ message: "Login error" });
+        }
+        // retorna também os dados básicos do usuário atual
+        const fullUser = await storage.getUser((user as any).id);
+        return res.json({ ok: true, user: fullUser });
       });
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
-    req.logout((err) => {
-      if (err) return next(err);
-      req.session.destroy(() => {
-        res.clearCookie("sid");
-        res.json({ ok: true });
-      });
+  // rota para obter usuário logado
+  app.get("/api/user", (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    res.json(req.user);
+  });
+
+  // rota de logout
+  app.post("/api/logout", (req, res) => {
+    req.logout(() => {
+      res.json({ ok: true });
     });
   });
 }
