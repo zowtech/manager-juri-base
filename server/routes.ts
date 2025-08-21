@@ -20,12 +20,15 @@ import {
   insertCaseSchema,
 } from "@shared/schema";
 
+import { importEmployeesFromBuffer, linkCasesToEmployees } from "./importEmployees";
+
 /* =========================================================
    Helpers locais (para não depender de outros imports)
    ========================================================= */
 
 const scryptAsync = promisify(crypto.scrypt);
-const upload = multer({ dest: "uploads/" });
+// usar memória (Render filesystem é efêmero)
+const upload = multer({ storage: multer.memoryStorage() });
 
 function isAuthenticated(req: any, res: Response, next: NextFunction) {
   if (req.isAuthenticated && req.isAuthenticated()) return next();
@@ -64,119 +67,29 @@ function parseBRMoney(v: any): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-/* =========================================================
-   Logger enriquecido: formata descrição com matrícula/nome
-   ========================================================= */
 const logActivity = async (
   req: any,
   action: string,
   resourceType: string,
   resourceId: string,
-  baseDescription: string,
+  description: string,
   metadata?: any
 ) => {
   try {
-    if (!req?.user?.id) return;
-
+    if (!req.user?.id) return;
     const ipAddress =
-      req.headers?.["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-      req.ip ||
-      req.socket?.remoteAddress ||
-      (req as any).connection?.remoteAddress ||
-      "Unknown";
-    const userAgent = req.get?.("User-Agent") || "Unknown";
-
-    // Quem fez a ação (prefixo na descrição)
-    const actor =
-      `${req.user?.firstName ?? ""} ${req.user?.lastName ?? ""}`.trim() ||
-      req.user?.username ||
-      "Usuário";
-
-    // Verbos padrões por ação/recurso (para a descrição “bonita”)
-    const verbMap: Record<string, string> = {
-      CREATE_EMPLOYEE: "Criou",
-      UPDATE_EMPLOYEE: "Atualizou",
-      DELETE_EMPLOYEE: "Removeu",
-
-      CREATE_CASE: "Criou",
-      UPDATE_CASE: "Editou",
-      UPDATE_STATUS: "Alterou status",
-      DELETE_CASE: "Excluiu",
-
-      CREATE_USER: "Criou",
-      UPDATE_USER: "Atualizou",
-      DELETE_USER: "Removeu",
-    };
-    const verbo = verbMap[action] ?? "Executou";
-
-    let descCore = baseDescription || "";
-    let meta: Record<string, any> = { ...(metadata || {}) };
-
-    if (resourceType === "EMPLOYEE" && resourceId) {
-      // Sempre busca matrícula/nome para padronizar a descrição
-      const empRes = await pool.query(
-        `select 
-           coalesce(registration, matricula) as matricula,
-           coalesce(name, nome)             as nome
-         from public.employees
-        where id = $1`,
-        [resourceId]
-      );
-      const e = empRes.rows?.[0];
-      if (e) {
-        descCore = `${verbo} funcionário ${e.matricula ?? "N/A"} - ${e.nome ?? "N/I"}`;
-        meta.employeeMatricula = e.matricula ?? null;
-        meta.employeeNome = e.nome ?? null;
-      }
-    } else if (resourceType === "CASE" && resourceId) {
-      // Enriquecer com número do processo / cliente e funcionário vinculado (se houver)
-      const caseRes = await pool.query(
-        `select 
-           c.process_number, c.client_name, c.status, c.employee_id,
-           e.registration as matricula, e.name as nome
-         from public.cases c
-         left join public.employees e on e.id = c.employee_id
-        where c.id = $1`,
-        [resourceId]
-      );
-      const c = caseRes.rows?.[0];
-      if (c) {
-        descCore = `${verbo} processo ${c.process_number ?? "s/ nº"} - Cliente: ${c.client_name ?? "N/I"}`;
-        if (c.matricula || c.nome) {
-          descCore += ` | Funcionário: ${c.matricula ?? "N/A"} - ${c.nome ?? "N/I"}`;
-        }
-        // Se for mudança de status, acrescenta o delta
-        if (action === "UPDATE_STATUS" && (meta.previousStatus || meta.newStatus)) {
-          descCore += ` | Status: ${meta.previousStatus ?? "?"} -> ${meta.newStatus ?? "?"}`;
-        }
-        meta = {
-          ...meta,
-          processNumber: c.process_number ?? null,
-          clientName: c.client_name ?? null,
-          employeeMatricula: c.matricula ?? null,
-          employeeNome: c.nome ?? null,
-        };
-      }
-    }
-
-    // Fallback
-    if (!descCore) descCore = baseDescription || `${verbo} ${resourceType.toLowerCase()}`;
-
-    const finalDescription = `${actor}: ${descCore}`.trim();
-
+      req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("User-Agent") || "Unknown";
     await storage.logActivity({
       userId: req.user.id,
       action,
       resourceType,
       resourceId,
-      description: finalDescription,
-      ipAddress: String(ipAddress),
+      description,
+      ipAddress,
       userAgent,
-      metadata: Object.keys(meta).length ? JSON.stringify(meta) : undefined,
+      metadata: metadata ? JSON.stringify(metadata) : undefined,
     });
-
-    // Log no console (útil na Render)
-    console.log(`📋 LOG ATIVIDADE: [${action}] ${resourceType} ${resourceId} - ${finalDescription}`);
   } catch (e) {
     console.error("❌ Falha ao registrar log de atividade:", e);
   }
@@ -320,7 +233,7 @@ export function registerRoutes(app: Express): void {
       if (me?.role !== "admin") return res.status(403).json({ message: "Access denied" });
 
       await storage.deleteUser(req.params.id);
-      await logActivity(req, "DELETE_USER", "USER", req.params.id, `Removeu usuário`);
+      await logActivity(req, "DELETE_USER", "USER", req.params.id, `Excluiu usuário`);
       res.status(204).send();
     } catch (err) {
       console.error("[USERS/DELETE] error:", err);
@@ -515,7 +428,7 @@ export function registerRoutes(app: Express): void {
       const matricula = body.matricula || body.registration;
       if (!employeeId && matricula) {
         const rs = await pool.query(
-          `SELECT id FROM public.employees WHERE registration = $1 LIMIT 1`,
+          `SELECT id, name, registration FROM public.employees WHERE registration = $1 LIMIT 1`,
           [String(matricula)]
         );
         if (rs.rowCount) {
@@ -537,12 +450,24 @@ export function registerRoutes(app: Express): void {
       const validated = insertCaseSchema.parse(data);
       const newCase = await storage.createCase(validated);
 
+      // dados do funcionário (se houver)
+      let empInfo = "";
+      if (employeeId) {
+        const er = await pool.query(
+          `SELECT name, registration FROM public.employees WHERE id = $1 LIMIT 1`,
+          [employeeId]
+        );
+        if (er.rowCount) {
+          empInfo = ` – Funcionário: ${er.rows[0].name} (${er.rows[0].registration})`;
+        }
+      }
+
       await logActivity(
         req,
         "CREATE_CASE",
         "CASE",
         newCase.id,
-        `Criou processo ${newCase.processNumber} - Cliente: ${newCase.clientName}`
+        `Criou processo ${newCase.processNumber} – Cliente: ${newCase.clientName}${empInfo}`
       );
 
       res.status(201).json(newCase);
@@ -578,14 +503,11 @@ export function registerRoutes(app: Express): void {
 
       const updated = await storage.updateCaseStatus(id, status, completedDate, dataEntrega);
 
-      await logActivity(
-        req,
-        "UPDATE_STATUS",
-        "CASE",
-        id,
-        `Alterou status do processo ${c.processNumber} de "${c.status}" para "${status}"`,
-        { previousStatus: c.status, newStatus: status }
-      );
+      const desc = `Status alterado: ${c.status ?? "—"} → ${status} | Processo ${c.processNumber} – ${c.clientName ?? "Cliente N/D"}`;
+      await logActivity(req, "UPDATE_STATUS", "CASE", id, desc, {
+        previousStatus: c.status,
+        newStatus: status,
+      });
 
       res.json(updated);
     } catch (err) {
@@ -631,7 +553,7 @@ export function registerRoutes(app: Express): void {
         "UPDATE_CASE",
         "CASE",
         id,
-        `Editou processo ${found.processNumber} - Cliente: ${found.clientName}`,
+        `Editou processo ${found.processNumber} – Cliente: ${found.clientName}`,
         { updatedFields: Object.keys(patch) }
       );
 
@@ -654,7 +576,13 @@ export function registerRoutes(app: Express): void {
       const c = await storage.getCaseById(id);
       if (!c) return res.status(404).json({ message: "Case not found" });
       await storage.deleteCase(id);
-      await logActivity(req, "DELETE_CASE", "CASE", id, `Excluiu processo ${c.processNumber}`);
+      await logActivity(
+        req,
+        "DELETE_CASE",
+        "CASE",
+        id,
+        `Excluiu processo ${c.processNumber} – ${c.clientName ?? "Cliente N/D"}`
+      );
       res.status(204).send();
     } catch (err) {
       console.error("Error deleting case:", err);
@@ -715,7 +643,7 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Últimas atualizações (para o card de "Últimas Atualizações")
+  // Últimas atualizações
   app.get("/api/dashboard/updates", isAuthenticated, async (_req, res) => {
     try {
       const q = `
@@ -866,7 +794,7 @@ export function registerRoutes(app: Express): void {
         "CREATE_EMPLOYEE",
         "EMPLOYEE",
         created.id,
-        `Criou funcionário ${created.registration} - ${created.name}`
+        `Criou funcionário ${created.name} – Matrícula: ${created.registration}`
       );
 
       res.status(201).json({
@@ -919,7 +847,7 @@ export function registerRoutes(app: Express): void {
         "UPDATE_EMPLOYEE",
         "EMPLOYEE",
         id,
-        `Atualizou funcionário ${updated.registration} - ${updated.name}`
+        `Atualizou funcionário ${updated.registration} – ${updated.name}`
       );
 
       res.json({
@@ -946,13 +874,12 @@ export function registerRoutes(app: Express): void {
       if (!cur.length) return res.status(404).json({ message: "Funcionário não encontrado" });
 
       await db.delete(employeesTable).where(eq(employeesTable.id, id));
-
       await logActivity(
         req,
         "DELETE_EMPLOYEE",
         "EMPLOYEE",
         id,
-        `Removeu funcionário ${cur[0].registration} - ${cur[0].name}`
+        `Removeu funcionário ${cur[0].registration} – ${cur[0].name}`
       );
 
       res.json({ ok: true, id });
@@ -1005,27 +932,49 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  // Import Excel + link-cases
+  // Import Excel (buffer, sem salvar arquivo em disco)
   app.post("/api/employees/import", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
-      if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
-      if (!req.file) return res.status(400).json({ success: false, error: "Nenhum arquivo enviado" });
+      if (req.user?.role !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ success: false, error: "Nenhum arquivo enviado" });
+      }
 
-      const { importEmployeesFromExcel } = await import("./importEmployees");
-      const result = await importEmployeesFromExcel(req.file.path);
-      fs.unlinkSync(req.file.path);
+      const result = await importEmployeesFromBuffer(req.file.buffer);
+
+      await logActivity(
+        req,
+        "IMPORT_EMPLOYEES",
+        "EMPLOYEE",
+        "bulk",
+        `Importou ${result.imported} funcionário(s), atualizou ${result.updated}`,
+        { imported: result.imported, updated: result.updated, errors: result.errors?.length || 0 }
+      );
+
       res.json(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error importing employees:", err);
-      res.status(500).json({ success: false, error: "Failed to import employees" });
+      res.status(500).json({
+        success: false,
+        error: "Failed to import employees: " + (err?.message || String(err)),
+      });
     }
   });
 
+  // Linkar casos a funcionários (opcional)
   app.post("/api/employees/link-cases", isAuthenticated, async (req: any, res) => {
     try {
       if (req.user?.role !== "admin") return res.status(403).json({ message: "Insufficient permissions" });
-      const { linkCasesToEmployees } = await import("./importEmployees");
       const result = await linkCasesToEmployees();
+      await logActivity(
+        req,
+        "LINK_EMPLOYEE_CASES",
+        "EMPLOYEE",
+        "bulk",
+        `Vinculou ${result.linked} caso(s) a funcionários`
+      );
       res.json(result);
     } catch (err) {
       console.error("Error linking cases:", err);
